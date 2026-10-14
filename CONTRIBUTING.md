@@ -22,16 +22,18 @@ The layout follows the project README and may change as the team builds the syst
 
 ## Branches and pull requests
 
-- `main` should be protected in GitHub. Verify that protection is enabled before merging; the current repository settings were found to have it disabled.
-- Do not push directly to `main` once protection is enabled.
+- `main` is protected in GitHub. Do not push directly to `main`; use a feature branch and pull request.
+- GitHub branch-protection settings determine which checks and review requirements are enforced automatically. If you need to verify or change them, check the repository's **Settings → Branches** page.
 - Create a feature branch for each change, for example `ORION-13-repo-setup`.
 - Open a pull request into `main` using the PR template.
 
-## Merge rules
+## Merge expectations
 
-- At least 1 approving review is required before merging.
-- The PR author cannot approve their own PR.
-- All review conversations must be resolved.
-- Required CI checks must pass once they exist (see ORION-16); do not require checks that have not been configured yet.
-- Branches should be up to date with `main` before merging.
-- Squash-merge is the default merge method.
+The following are the team's intended review practices. GitHub enforces a requirement only when it is enabled in the repository settings.
+
+- Request at least one approving review before merging when another team member is available.
+- The PR author should not approve their own PR.
+- Resolve review conversations before merging.
+- Once CI is configured (ORION-16), required checks must pass. Do not configure required checks that do not yet exist.
+- Update the feature branch with the latest `main` before merging when needed to resolve conflicts or satisfy branch-protection rules.
+- Use squash-merge, which is the repository's intended default.
