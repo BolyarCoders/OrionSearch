@@ -56,7 +56,7 @@ Never commit secrets, API keys, local `.env` files, or user data.
 - Create a feature branch for each Jira issue.
 - Keep pull requests focused and link the relevant `ORION-...` issue.
 - Add or update tests for changed behavior.
-- Do not merge failing CI pipelines.
+- Once CI checks are configured, do not merge failing checks.
 - Document new configuration fields and service dependencies.
 
 ## License
