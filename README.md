@@ -182,7 +182,7 @@ Example research request (illustrative):
 Once the Docker setup is implemented and merged, the intended flow is:
 
 ```bash
-git clone <YOUR_REPOSITORY_URL>
+git clone https://github.com/BolyarCoders/OrionSearch.git
 cd orionsearch
 cp .env.example .env
 # Edit .env with your own credentials and settings.
