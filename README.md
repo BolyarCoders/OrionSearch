@@ -177,7 +177,9 @@ Example research request (illustrative):
 
 ## Running Locally
 
-The full development environment is not yet confirmed as implemented. Once the Docker setup is merged, the intended flow is:
+**Setup status: not ready yet.** The current repository contains the initial structure, but the local stack is not implemented. `compose.yaml` and `.env.example` are planned as part of ORION-14; check that both files and the service-specific instructions exist before attempting to start the application.
+
+Once the Docker setup is implemented and merged, the intended flow is:
 
 ```bash
 git clone <YOUR_REPOSITORY_URL>
@@ -187,7 +189,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-The commands above are a setup target, not tested installation instructions for the current codebase. Check the repository for `compose.yaml`, `.env.example`, and individual service documentation before running them.
+The commands above are a planned setup flow, not tested installation instructions for the current codebase. They should be treated as runnable only after ORION-14 adds `compose.yaml` and `.env.example` and the service documentation confirms the required configuration.
 
 Expected environment settings will include database connection information, AI model/provider credentials, a web search provider key, and job processing settings. Never commit secrets, `.env`, API keys, or user data.
 
