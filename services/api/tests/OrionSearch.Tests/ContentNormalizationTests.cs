@@ -52,4 +52,13 @@ public sealed class ContentNormalizationTests
         Assert.Equal(ContentFingerprint.Compute("café\ntext"), ContentFingerprint.Compute(" cafe\u0301\r\ntext \n"));
         Assert.NotEqual(ContentFingerprint.Compute("two words"), ContentFingerprint.Compute("two  words"));
     }
+
+    [Fact]
+    public void RawContentHashUsesExactBytesWithoutTextNormalization()
+    {
+        Assert.Equal("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", ContentFingerprint.ComputeRaw("abc"u8));
+        Assert.NotEqual(ContentFingerprint.ComputeRaw("abc"u8), ContentFingerprint.ComputeRaw(" abc\r\n"u8));
+        Assert.NotEqual(ContentFingerprint.ComputeRaw("a\r\nb"u8), ContentFingerprint.ComputeRaw("a\nb"u8));
+        Assert.Equal("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", ContentFingerprint.ComputeRaw([]));
+    }
 }

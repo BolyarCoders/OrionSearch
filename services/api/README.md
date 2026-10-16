@@ -108,7 +108,7 @@ Tests use xUnit 2.9.3, its Visual Studio runner 3.1.4, `Microsoft.NET.Test.Sdk` 
 # API and normalization tests; no PostgreSQL or Docker required
 dotnet test --filter 'Category!=PostgreSQL'
 
-# Actual PostgreSQL tests; Docker starts a postgres:18-alpine container by default
+# Actual PostgreSQL tests; Docker starts a postgres:16-alpine container by default
 dotnet test --filter 'Category=PostgreSQL'
 
 # Full suite and formatting
@@ -118,9 +118,28 @@ dotnet format OrionSearch.sln --verify-no-changes
 
 If Docker is unavailable, set `ORIONSEARCH_TEST_POSTGRES` to an admin connection on a local test server, then run `dotnet test`. The test role must be able to create databases and install `citext`. The fixture creates random `orion_tests_<uuid>` databases and deletes only those databases afterward. It never migrates, truncates or drops the database named in the admin connection. Use a local test server rather than a production server. Without Docker or this setting the PostgreSQL tests fail; they are not silently skipped.
 
+With Docker available, select each major version in PowerShell:
+
+```powershell
+Remove-Item Env:ORIONSEARCH_TEST_POSTGRES -ErrorAction SilentlyContinue
+$env:ORIONSEARCH_TEST_POSTGRES_IMAGE = 'postgres:16-alpine'
+dotnet test --filter 'Category=PostgreSQL'
+$env:ORIONSEARCH_TEST_POSTGRES_IMAGE = 'postgres:18-alpine'
+dotnet test --filter 'Category=PostgreSQL'
+```
+
+`ORIONSEARCH_TEST_POSTGRES` takes precedence over the image setting. For native servers, point it to a dedicated local PostgreSQL 16 server, run the suite, then repeat with the PostgreSQL 18 server. The default image is 16; `ORIONSEARCH_TEST_POSTGRES_IMAGE` overrides it only when Testcontainers is used.
+
 ## PostgreSQL and migrations
 
-The schema targets **PostgreSQL 16 or later** and has been tested locally on **18.6**. PostgreSQL must have `citext` available. Use an existing local PostgreSQL installation or the team's eventual infrastructure setup; this task adds no Docker Compose stack.
+The schema targets **PostgreSQL 16 or later**. Final ORION-10 correction verification ran on isolated native Windows instances:
+
+| PostgreSQL | Full suite | PostgreSQL tests | Result |
+| --- | --- | --- | --- |
+| 16.15 | 129 | 87 | Passed; zero failures or skips |
+| 18.6 | 129 | 87 | Passed; zero failures or skips |
+
+Both runs cover fresh initialization, upgrades from the original six migrations, preservation of versions/evidence, idempotent SQL, rollback/reapply, raw-only captures, and the original API regressions. Docker was unavailable, so Testcontainers startup itself was not executed. PostgreSQL must have `citext` available. Use an existing local PostgreSQL installation or the team's eventual infrastructure setup; this task adds no Docker Compose stack.
 
 Create a local development database and a role with schema/extension creation rights. Set `ConnectionStrings:OrionSearch` via Development user secrets for API use, or set the environment variable for both the API and migration CLI. For example, with a locally authenticated role:
 
@@ -146,6 +165,9 @@ Review generated code and SQL before applying it. Keep local review SQL outside 
 4. `CreateContentStorage` — publishers, global documents, versions, archive links and chunks.
 5. `CreateFindingsAndEvidence` — findings and version-bound evidence.
 6. `CreateJobQueue` — jobs, attempts, queue indexes and database-maintained `updated_at` triggers.
+7. `AllowRawOnlyDocumentVersions` — nullable extracted text, captured-content presence and raw-hash provenance constraints; preserves existing versions and evidence.
+
+A captured version can contain normalized extracted text, raw bytes referenced by a durable `storage_uri`, or both. A raw-only version hashes actual preserved bytes with SHA-256 and records `content_hash.algorithm` and `content_hash.basis` in metadata. Text hashing retains its existing normalization policy. A version with neither representation is rejected; a URL-only discovery belongs in `documents`. See [captured representations and hashes](docs/database.md#captured-representations-and-hashes) for the exact policy. Downgrading migration seven is blocked while raw-only versions exist, so rollback cannot silently fabricate text.
 
 Migration history lives in `system.__ef_migrations_history`, separate from the 15 product tables. `ai` and `publishing` remain empty. The API does **not** run migrations during startup and never uses `EnsureCreated()`.
 

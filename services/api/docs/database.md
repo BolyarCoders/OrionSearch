@@ -26,7 +26,7 @@ The backend is the persistence writer. Future ingestion and the independent Pyth
 - Settings have a one-to-one archive FK. Date boundaries use `date` and may be omitted; when both exist, `date_from <= date_to`. Arrays default to empty `text[]` and config to an empty JSONB object.
 - States, roles, trigger types, finding types, evidence stances and the specified job types have database CHECK constraints. These constrain stored values; they do not implement a workflow state machine.
 - Documents are global, with a unique canonical URL. An archive links to a document via `archive_documents`; deleting an archive association does not delete the global source. Publisher domains are normalized and unique.
-- Versions are unique by `(document_id, content_hash)`. Hashes must be 64 lowercase hexadecimal characters. `ContentFingerprint` computes SHA-256 over NFC Unicode text, LF line endings and trimmed outer whitespace, preserving internal whitespace. Ingestion must use the helper consistently; PostgreSQL validates the hash format and uniqueness, not the digest against `extracted_text`.
+- Versions are unique by `(document_id, content_hash)`. Hashes remain required and must be 64 lowercase hexadecimal characters. Text and raw-byte hashing policies are described below; PostgreSQL validates hash format, uniqueness and raw-only provenance metadata, not the digest against externally stored bytes.
 - Publication dates stay nullable. `published_at`, `first_seen_at`/`last_seen_at`, and version `fetched_at` describe different events; no publication date is inferred from fetching.
 - Chunk indexes are nonnegative and unique within a version. Token counts may be absent, otherwise nonnegative. Offsets are either both absent or a nonnegative start and strictly greater end; their final unit/extraction convention must be agreed with ingestion.
 - Evidence always references an existing finding and document version. A supporting unique key on chunks `(id, version_id)` and the composite FK `(chunk_id, document_version_id)` prevent attaching another version's chunk. A null chunk is allowed while the separate document-version FK remains enforced.
@@ -36,7 +36,21 @@ The backend is the persistence writer. Future ingestion and the independent Pyth
 
 All timestamps use `timestamptz` and .NET UTC `DateTime`. Created/discovery/fetch defaults use the transaction time, `now()`. A shared BEFORE UPDATE trigger sets `updated_at` to `statement_timestamp()` on users, archives, settings, documents and jobs, including writes outside EF. Callers must supply UTC for explicit timestamps; Npgsql rejects non-UTC values.
 
-`homepage_url` and version `storage_uri` are optional. Extracted text is required for an MVP version. These choices support database-backed text before an object-storage provider is selected.
+`homepage_url` is optional. A document version may have null `extracted_text` if it has a durable `storage_uri` for captured raw content. `ck_document_versions_content_presence` enforces `extracted_text IS NOT NULL OR storage_uri IS NOT NULL`. A discovered URL with no captured representation belongs in `content.documents`; it does not justify a version row.
+
+## Captured representations and hashes
+
+For successfully extracted text, `ContentFingerprint.Compute(text)` retains the original policy: NFC Unicode normalization, LF line endings, trimming outer whitespace, UTF-8 encoding, then SHA-256. Internal whitespace is preserved. New ingestion should record `metadata.content_hash.algorithm = "sha256"` and `metadata.content_hash.basis = "normalized_extracted_text"`, with `normalization = "nfc_lf_trim_v1"` alongside them. Legacy extracted-text rows with `{}` metadata remain valid and are not backfilled with assumed provenance.
+
+For raw-only captures, use `ContentFingerprint.ComputeRaw(bytes)` on the exact byte sequence durably stored. It performs SHA-256 directly, without decoding, text normalization, newline conversion or stripping bytes. The version must retain its storage reference and this metadata:
+
+```json
+{"content_hash":{"algorithm":"sha256","basis":"raw_bytes"}}
+```
+
+`ck_document_versions_raw_hash_metadata` requires these values when extracted text is null. Missing metadata keys are rejected, including SQL NULL from JSON path lookup. Additional metadata may describe the media type, capture/extraction outcome and storage representation. Never hash a URL or storage URI, invent a digest, or use a placeholder to satisfy the required field. An actual empty byte sequence has a real SHA-256 digest and is different from content that has never been captured.
+
+The database cannot prove that an external object exists or that a digest matches it. Future ingestion must save the bytes durably before committing a raw-only version and retain the hash basis with that digest. The existing `(document_id, content_hash)` uniqueness rule applies to both representations. Choosing an object-storage provider and implementing ingestion still belong to later work.
 
 ## Deletion and lifecycle
 
@@ -49,7 +63,7 @@ Runs are logical sessions. Jobs are separately leased executable tasks and may o
 | Index / key | Query or invariant |
 | --- | --- |
 | Email, publisher domain and canonical URL unique indexes | Identity lookup and global deduplication |
-| Version `(document_id, content_hash)` | Reject repeated extracted content for one document |
+| Version `(document_id, content_hash)` | Reject repeated captured content for one document, using the documented hash basis |
 | Chunk `(version_id, chunk_index)` and `(id, version_id)` | Ordered chunks and evidence/version integrity |
 | Membership PK and partial owner uniqueness | Membership lookup and at most one owner row |
 | Archive-document PK and document FK index | Archive contents and reverse document associations |
@@ -89,7 +103,9 @@ Fragment removal assumes the identity is the fetched HTTP resource; hash-routed 
 
 ## Migrations and pending decisions
 
-The six ordered migrations are the sole initialization path. Tests apply them from scratch, upgrade from the first migration while preserving a user, execute idempotent SQL twice, compare catalog definitions and roll back/reapply on an empty disposable database. Empty reserved schemas and `citext` are retained by rollback rather than dropping shared namespaces/extensions.
+The original six migrations are unchanged. The seventh, `20261016095458_AllowRawOnlyDocumentVersions`, makes extracted text nullable and adds content-presence and raw-hash-metadata constraints. Existing document versions, hashes, metadata, chunks and evidence links are preserved; no data is rewritten or fabricated.
+
+The migration chain is the sole initialization path. Tests apply it from scratch, upgrade the original six-migration schema with existing content/evidence, upgrade from the first migration while preserving a user, execute idempotent SQL twice, compare catalog definitions and roll back/reapply on an empty disposable database. Empty reserved schemas and `citext` are retained by rollback rather than dropping shared namespaces/extensions. Downgrading the seventh migration takes a table lock and refuses to proceed while any raw-only version exists, instead of inventing extracted text or deleting captured versions.
 
 After this chain is published, schema fixes should use new forward migrations. Down migrations drop product tables and data; they are intended for disposable development/test databases, not automatic production recovery. Any production rollback requires reviewed SQL and a verified backup/restore plan.
 

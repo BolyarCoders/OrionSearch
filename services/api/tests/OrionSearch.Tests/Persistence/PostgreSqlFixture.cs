@@ -21,7 +21,8 @@ public sealed class PostgreSqlFixture : IAsyncLifetime
         _adminConnectionString = Environment.GetEnvironmentVariable("ORIONSEARCH_TEST_POSTGRES") ?? "";
         if (string.IsNullOrWhiteSpace(_adminConnectionString))
         {
-            _container = new PostgreSqlBuilder("postgres:18-alpine")
+            var image = Environment.GetEnvironmentVariable("ORIONSEARCH_TEST_POSTGRES_IMAGE");
+            _container = new PostgreSqlBuilder(string.IsNullOrWhiteSpace(image) ? "postgres:16-alpine" : image)
                 .WithDatabase("postgres")
                 .WithPassword(Guid.NewGuid().ToString("N"))
                 .Build();

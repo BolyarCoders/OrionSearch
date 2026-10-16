@@ -301,7 +301,6 @@ namespace OrionSearch.Infrastructure.Persistence.Migrations
                         .HasColumnName("document_id");
 
                     b.Property<string>("ExtractedText")
-                        .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("extracted_text");
 
@@ -335,9 +334,13 @@ namespace OrionSearch.Infrastructure.Persistence.Migrations
 
                     b.ToTable("document_versions", "content", t =>
                         {
+                            t.HasCheckConstraint("ck_document_versions_content_presence", "extracted_text IS NOT NULL OR storage_uri IS NOT NULL");
+
                             t.HasCheckConstraint("ck_document_versions_hash", "content_hash ~ '^[0-9a-f]{64}$'");
 
                             t.HasCheckConstraint("ck_document_versions_metadata", "jsonb_typeof(metadata) = 'object'");
+
+                            t.HasCheckConstraint("ck_document_versions_raw_hash_metadata", "extracted_text IS NOT NULL OR COALESCE(metadata #>> '{content_hash,algorithm}' = 'sha256' AND metadata #>> '{content_hash,basis}' = 'raw_bytes', false)");
                         });
                 });
 
@@ -426,7 +429,6 @@ namespace OrionSearch.Infrastructure.Persistence.Migrations
                         .HasColumnName("locked_until");
 
                     b.Property<int>("MaxAttempts")
-                        .ValueGeneratedNever()
                         .HasColumnType("integer")
                         .HasDefaultValue(3)
                         .HasColumnName("max_attempts");

@@ -13,4 +13,7 @@ public static class ContentFingerprint
 
     public static string Compute(string text) =>
         Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(Normalize(text))));
+
+    public static string ComputeRaw(ReadOnlySpan<byte> content) =>
+        Convert.ToHexStringLower(SHA256.HashData(content));
 }

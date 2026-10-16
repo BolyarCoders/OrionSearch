@@ -2,6 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql;
+using OrionSearch.Domain.Content;
+using OrionSearch.Domain.Knowledge;
 
 namespace OrionSearch.Tests.Persistence;
 
@@ -26,7 +28,7 @@ public sealed class MigrationTests(PostgreSqlFixture database)
         }, tables);
 
         await using var context = database.CreateContext();
-        Assert.Equal(6, (await context.Database.GetAppliedMigrationsAsync()).Count());
+        Assert.Equal(7, (await context.Database.GetAppliedMigrationsAsync()).Count());
         Assert.Empty(await context.Database.GetPendingMigrationsAsync());
         Assert.False(context.Database.HasPendingModelChanges());
     }
@@ -74,7 +76,76 @@ public sealed class MigrationTests(PostgreSqlFixture database)
         await command.ExecuteNonQueryAsync();
 
         Assert.Equal(15, (await ReadStringsAsync(connectionString, TableQuery)).Length);
-        Assert.Equal(6, (await context.Database.GetAppliedMigrationsAsync()).Count());
+        Assert.Equal(7, (await context.Database.GetAppliedMigrationsAsync()).Count());
+    }
+
+    [Fact]
+    public async Task UpgradingTheSixMigrationSchemaPreservesVersionsHashesAndEvidence()
+    {
+        var connectionString = await database.CreateDatabaseAsync();
+        await using var context = database.CreateContext(connectionString);
+        var migrator = context.GetService<IMigrator>();
+        await migrator.MigrateAsync("20261016091819_CreateJobQueue");
+        var version = await TestData.CreateVersionAsync(context);
+        var chunk = await TestData.CreateChunkAsync(context, version.Id);
+        var finding = new Finding { Statement = "Existing evidence-backed finding" };
+        context.Findings.Add(finding);
+        await context.SaveChangesAsync();
+        var evidence = new FindingEvidence { FindingId = finding.Id, DocumentVersionId = version.Id, ChunkId = chunk.Id };
+        context.FindingEvidence.Add(evidence);
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        await migrator.MigrateAsync();
+
+        var storedVersion = await context.DocumentVersions.SingleAsync(x => x.Id == version.Id);
+        var storedEvidence = await context.FindingEvidence.SingleAsync(x => x.Id == evidence.Id);
+        Assert.Equal(version.ExtractedText, storedVersion.ExtractedText);
+        Assert.Equal(version.ContentHash, storedVersion.ContentHash);
+        Assert.Equal(version.FetchedAt, storedVersion.FetchedAt);
+        Assert.Equal("{}", storedVersion.Metadata);
+        Assert.Equal(version.Id, storedEvidence.DocumentVersionId);
+        Assert.Equal(chunk.Id, storedEvidence.ChunkId);
+        context.DocumentVersions.Add(new DocumentVersion
+        {
+            DocumentId = version.DocumentId,
+            ContentHash = ContentFingerprint.ComputeRaw("captured bytes"u8),
+            StorageUri = "urn:orion:test:upgraded-raw-capture",
+            Metadata = "{\"content_hash\":{\"algorithm\":\"sha256\",\"basis\":\"raw_bytes\"}}"
+        });
+        await context.SaveChangesAsync();
+        Assert.Equal(2, await context.DocumentVersions.CountAsync());
+        Assert.Equal(7, (await context.Database.GetAppliedMigrationsAsync()).Count());
+    }
+
+    [Fact]
+    public async Task DowngradingWithRawOnlyVersionsFailsWithoutInventingTextOrDeletingData()
+    {
+        var connectionString = await database.CreateDatabaseAsync();
+        await using var context = database.CreateContext(connectionString);
+        await context.Database.MigrateAsync();
+        var document = new Document { CanonicalUrl = "https://example.com/raw-rollback" };
+        context.Documents.Add(document);
+        await context.SaveChangesAsync();
+        var rawVersion = new DocumentVersion
+        {
+            DocumentId = document.Id,
+            ContentHash = ContentFingerprint.ComputeRaw("preserved raw bytes"u8),
+            StorageUri = "urn:orion:test:retained-raw-capture",
+            Metadata = "{\"content_hash\":{\"algorithm\":\"sha256\",\"basis\":\"raw_bytes\"}}"
+        };
+        context.DocumentVersions.Add(rawVersion);
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        var exception = await Assert.ThrowsAsync<PostgresException>(() =>
+            context.GetService<IMigrator>().MigrateAsync("20261016091819_CreateJobQueue"));
+
+        Assert.Equal(PostgresErrorCodes.CheckViolation, exception.SqlState);
+        var retainedVersion = await context.DocumentVersions.SingleAsync(x => x.Id == rawVersion.Id);
+        Assert.Null(retainedVersion.ExtractedText);
+        Assert.Equal(rawVersion.ContentHash, retainedVersion.ContentHash);
+        Assert.Equal(7, (await context.Database.GetAppliedMigrationsAsync()).Count());
     }
 
     [Fact]

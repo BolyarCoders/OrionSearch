@@ -12,12 +12,15 @@ public sealed class DocumentVersionConfiguration : IEntityTypeConfiguration<Docu
         {
             table.HasCheckConstraint("ck_document_versions_hash", "content_hash ~ '^[0-9a-f]{64}$'");
             table.HasCheckConstraint("ck_document_versions_metadata", "jsonb_typeof(metadata) = 'object'");
+            table.HasCheckConstraint("ck_document_versions_content_presence", "extracted_text IS NOT NULL OR storage_uri IS NOT NULL");
+            table.HasCheckConstraint("ck_document_versions_raw_hash_metadata",
+                "extracted_text IS NOT NULL OR COALESCE(metadata #>> '{content_hash,algorithm}' = 'sha256' AND metadata #>> '{content_hash,basis}' = 'raw_bytes', false)");
         });
         builder.HasKey(x => x.Id).HasName("pk_document_versions");
         builder.Property(x => x.Id).HasColumnName("id").HasColumnType("uuid").HasDefaultValueSql("gen_random_uuid()");
         builder.Property(x => x.DocumentId).HasColumnName("document_id").HasColumnType("uuid");
         builder.Property(x => x.ContentHash).HasColumnName("content_hash").HasColumnType("text").IsRequired();
-        builder.Property(x => x.ExtractedText).HasColumnName("extracted_text").HasColumnType("text").IsRequired();
+        builder.Property(x => x.ExtractedText).HasColumnName("extracted_text").HasColumnType("text");
         builder.Property(x => x.FetchedAt).HasColumnName("fetched_at").HasColumnType("timestamp with time zone").HasDefaultValueSql("now()");
         builder.Property(x => x.StorageUri).HasColumnName("storage_uri").HasColumnType("text");
         builder.Property(x => x.Metadata).HasColumnName("metadata").HasColumnType("jsonb").IsRequired().HasDefaultValueSql("'{}'::jsonb");
