@@ -37,9 +37,9 @@ These are product goals; not all capabilities are implemented yet.
 | Component | Planned technology | Responsibility |
 |---|---|---|
 | Web client | Next.js, React, TypeScript | Archive management, search, and magazine reading |
-| API | Python, FastAPI, Pydantic | HTTP API and application orchestration |
+| API | C#, ASP.NET Core (.NET 10) | HTTP API and application orchestration |
 | Research workflow | LangGraph and a configurable LLM | Research planning, source analysis, and synthesis |
-| Data store | PostgreSQL, Alembic | Archives, sources, findings, and research history |
+| Data store | PostgreSQL, Entity Framework Core, Npgsql | Archives, sources, findings, and research history |
 | Background processing | Worker and scheduler (to be decided) | Long-running and recurring research jobs |
 | Infrastructure | Docker, Docker Compose, GitHub Actions | Local environment, CI/CD, and deployment |
 
@@ -47,7 +47,7 @@ The implementation may evolve as the team builds the MVP. AI and search provider
 
 ## Development status
 
-The repository setup is in place, but the application and local service stack are still being developed. **There is no supported local run procedure yet.** Docker configuration and an example environment file are planned under ORION-14. Follow the setup instructions added with that implementation rather than relying on provisional commands.
+The API foundation can run locally; see [the backend README](services/api/README.md) for setup and testing. The rest of the application and local service stack are still being developed. Docker configuration and an example environment file are planned under ORION-14.
 
 Never commit secrets, API keys, local `.env` files, or user data.
 

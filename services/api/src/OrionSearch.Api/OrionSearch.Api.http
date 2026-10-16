@@ -1,0 +1,9 @@
+@OrionSearch.Api_HostAddress = http://localhost:5190
+
+GET {{OrionSearch.Api_HostAddress}}/health
+Accept: application/json
+
+###
+
+GET {{OrionSearch.Api_HostAddress}}/openapi/v1.json
+Accept: application/json

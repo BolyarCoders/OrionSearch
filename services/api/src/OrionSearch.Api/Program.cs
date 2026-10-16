@@ -1,0 +1,25 @@
+using OrionSearch.Api.Endpoints;
+using OrionSearch.Api.Extensions;
+
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Logging.AddJsonConsole();
+builder.Services.AddApiServices(builder.Configuration);
+
+var app = builder.Build();
+
+app.UseForwardedHeaders();
+app.UseExceptionHandler();
+app.UseStatusCodePages();
+app.UseCors();
+app.UseAuthorization();
+
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
+}
+
+app.MapHealthEndpoints();
+app.Run();
+
+public partial class Program;
