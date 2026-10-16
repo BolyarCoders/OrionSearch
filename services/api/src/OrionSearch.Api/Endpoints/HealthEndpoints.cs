@@ -9,6 +9,10 @@ public static class HealthEndpoints
             .WithSummary("Reports whether the API is running.")
             .WithTags("Health")
             .AllowAnonymous();
+
+        endpoints.MapHealthChecks("/health/ready")
+            .WithName("GetReadiness")
+            .AllowAnonymous();
     }
 
     public sealed record HealthResponse(string Status);

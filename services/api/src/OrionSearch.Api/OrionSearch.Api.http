@@ -7,3 +7,7 @@ Accept: application/json
 
 GET {{OrionSearch.Api_HostAddress}}/openapi/v1.json
 Accept: application/json
+
+###
+
+GET {{OrionSearch.Api_HostAddress}}/health/ready

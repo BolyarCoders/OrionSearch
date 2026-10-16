@@ -3,6 +3,7 @@ using System.Net;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Options;
 using OrionSearch.Api.Configuration;
+using OrionSearch.Infrastructure;
 
 namespace OrionSearch.Api.Extensions;
 
@@ -10,6 +11,7 @@ public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddApiServices(this IServiceCollection services, IConfiguration configuration)
     {
+        services.AddInfrastructure(configuration);
         services.AddOptions<CorsSettings>()
             .Bind(configuration.GetSection(CorsSettings.SectionName))
             .Validate(settings => settings.AllowedOrigins.All(CorsSettings.IsValidOrigin),
