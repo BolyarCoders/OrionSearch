@@ -4,6 +4,11 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Options;
 using OrionSearch.Api.Configuration;
 using OrionSearch.Infrastructure;
+using Microsoft.AspNetCore.Authentication;
+using OrionSearch.Api.Authentication;
+using OrionSearch.Api.Archives;
+using OrionSearch.Application.Abstractions;
+using Microsoft.AspNetCore.Authorization;
 
 namespace OrionSearch.Api.Extensions;
 
@@ -61,8 +66,20 @@ public static class ServiceCollectionExtensions
             };
         });
 
+        services.AddHttpContextAccessor();
+        services.AddScoped<ICurrentUser, TrustedCurrentUser>();
+        services.AddAuthentication("Unconfigured")
+            .AddScheme<AuthenticationSchemeOptions, UnconfiguredAuthenticationHandler>("Unconfigured", _ => { });
         services.AddAuthorization();
-        services.AddOpenApi();
+        services.AddExceptionHandler<ArchiveExceptionHandler>();
+        services.AddOpenApi(options => options.AddOperationTransformer((operation, context, _) =>
+        {
+            if (context.Description.ActionDescriptor.EndpointMetadata.OfType<IAuthorizeData>().Any())
+            {
+                operation.Description += " Authentication is currently unconfigured: normal startup returns 401 until a validated provider maps its subject to the internal application user.";
+            }
+            return Task.CompletedTask;
+        }));
         return services;
     }
 }

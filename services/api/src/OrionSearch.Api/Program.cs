@@ -12,6 +12,7 @@ app.UseForwardedHeaders();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 app.UseCors();
+app.UseAuthentication();
 app.UseAuthorization();
 
 if (app.Environment.IsDevelopment())
@@ -20,6 +21,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.MapHealthEndpoints();
+app.MapArchiveEndpoints();
 app.Run();
 
 public partial class Program;

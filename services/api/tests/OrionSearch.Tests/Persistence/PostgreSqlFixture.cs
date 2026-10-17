@@ -80,4 +80,15 @@ public sealed class PostgreSqlFixture : IAsyncLifetime
             _container = null;
         }
     }
+
+    public async Task DropDatabaseAsync(string connectionString)
+    {
+        var name = new NpgsqlConnectionStringBuilder(connectionString).Database!;
+        if (!_databases.Contains(name)) throw new InvalidOperationException("The fixture does not own this database.");
+        await using var connection = new NpgsqlConnection(_adminConnectionString);
+        await connection.OpenAsync();
+        await using var command = new NpgsqlCommand($"DROP DATABASE \"{name}\" WITH (FORCE)", connection);
+        await command.ExecuteNonQueryAsync();
+        _databases.Remove(name);
+    }
 }

@@ -7,7 +7,7 @@ public sealed class OrionSearchDbContextFactory : IDesignTimeDbContextFactory<Or
 {
     public OrionSearchDbContext CreateDbContext(string[] args)
     {
-        var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__OrionSearch");
+        var connectionString = PostgresConnection.Resolve(key => Environment.GetEnvironmentVariable(key.Replace(":", "__")));
         var options = new DbContextOptionsBuilder<OrionSearchDbContext>()
             .UseNpgsql(connectionString, postgres => postgres
                 .SetPostgresVersion(16, 0)

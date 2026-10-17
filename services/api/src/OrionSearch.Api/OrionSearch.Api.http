@@ -11,3 +11,57 @@ Accept: application/json
 ###
 
 GET {{OrionSearch.Api_HostAddress}}/health/ready
+
+### Archive requests require a validated authentication provider first.
+# Set the provider's actual authentication in your HTTP client after integration.
+# Normal startup intentionally returns 401; there is no caller-ID header shortcut.
+
+POST {{OrionSearch.Api_HostAddress}}/archives
+Content-Type: application/json
+
+{
+  "title": "Artificial Intelligence",
+  "description": "Research and developments in modern AI.",
+  "settings": {
+    "dateFrom": "2026-01-01",
+    "dateTo": null,
+    "languages": ["en", "bg"],
+    "preferredDomains": [],
+    "excludedDomains": [],
+    "config": {}
+  }
+}
+
+### Replace archiveId with the ID returned by POST.
+@archiveId = 00000000-0000-0000-0000-000000000001
+
+GET {{OrionSearch.Api_HostAddress}}/archives?page=1&pageSize=20&includeArchived=false
+
+###
+GET {{OrionSearch.Api_HostAddress}}/archives/{{archiveId}}
+
+### Omitted fields stay unchanged; null clears nullable dates and description.
+PATCH {{OrionSearch.Api_HostAddress}}/archives/{{archiveId}}
+Content-Type: application/json
+
+{
+  "description": null,
+  "settings": {
+    "dateTo": null,
+    "languages": ["en", "bg"]
+  }
+}
+
+### Sources include discovered documents without captured versions.
+GET {{OrionSearch.Api_HostAddress}}/archives/{{archiveId}}/sources?page=1&pageSize=20&publishedFrom=2026-01-01&language=en&sort=published_desc
+
+### Owner only: retain all research and global documents.
+DELETE {{OrionSearch.Api_HostAddress}}/archives/{{archiveId}}
+
+### Owner only: unarchive.
+PATCH {{OrionSearch.Api_HostAddress}}/archives/{{archiveId}}
+Content-Type: application/json
+
+{
+  "status": "active"
+}
