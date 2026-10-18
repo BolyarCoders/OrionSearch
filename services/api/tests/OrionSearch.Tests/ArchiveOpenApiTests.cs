@@ -33,8 +33,11 @@ public sealed class ArchiveOpenApiTests
         Assert.Contains("Idempotency-Key", research.GetProperty("parameters").ToString());
         var sourceParameters = paths.GetProperty("/archives/{id}/sources").GetProperty("get").GetProperty("parameters")
             .EnumerateArray().Select(parameter => parameter.GetProperty("name").GetString()).ToArray();
-        foreach (var parameter in new[] { "Page", "PageSize", "PublishedFrom", "PublishedTo", "Language", "PublisherDomain", "Sort" })
+        foreach (var parameter in new[] { "Page", "PageSize", "PublishedFrom", "PublishedTo", "Language", "PublisherDomain", "Sort", "Topic" })
             Assert.Contains(parameter, sourceParameters, StringComparer.OrdinalIgnoreCase);
+        var archiveParameters = paths.GetProperty("/archives").GetProperty("get").GetProperty("parameters")
+            .EnumerateArray().Select(parameter => parameter.GetProperty("name").GetString()).ToArray();
+        Assert.Contains("Topic", archiveParameters, StringComparer.OrdinalIgnoreCase);
         var schemas = document.GetProperty("components").GetProperty("schemas").ToString();
         Assert.DoesNotContain("hasTitle", schemas, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("passwordHash", schemas, StringComparison.OrdinalIgnoreCase);

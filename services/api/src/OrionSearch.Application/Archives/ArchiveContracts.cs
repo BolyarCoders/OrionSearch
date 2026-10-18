@@ -19,11 +19,11 @@ public sealed record SourceSummary(
 
 public sealed record Page<T>(IReadOnlyList<T> Items, int PageNumber, int PageSize, int TotalCount);
 
-public sealed record ArchiveListQuery(int Page = 1, int PageSize = 20, string? Status = null, bool IncludeArchived = false);
+public sealed record ArchiveListQuery(int Page = 1, int PageSize = 20, string? Status = null, bool IncludeArchived = false, string? Topic = null);
 
 public sealed record SourceListQuery(
     int Page = 1, int PageSize = 20, DateOnly? PublishedFrom = null, DateOnly? PublishedTo = null,
-    string? Language = null, string? PublisherDomain = null, string Sort = "added_desc");
+    string? Language = null, string? PublisherDomain = null, string Sort = "added_desc", string? Topic = null);
 
 public readonly record struct FieldChange<T>(bool IsSpecified, T Value);
 

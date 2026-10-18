@@ -47,6 +47,12 @@ internal sealed class EfArchiveStore(OrionSearchDbContext context) : IArchiveSto
                    select new { Archive = archive, member.Role };
         if (query.Status is not null) rows = rows.Where(row => row.Archive.Status == query.Status);
         else if (!query.IncludeArchived) rows = rows.Where(row => row.Archive.Status != "archived");
+        if (query.Topic is not null)
+        {
+            var pattern = TopicPattern(query.Topic);
+            rows = rows.Where(row => EF.Functions.ILike(row.Archive.Title, pattern, "!")
+                || (row.Archive.Description != null && EF.Functions.ILike(row.Archive.Description, pattern, "!")));
+        }
         var count = await rows.CountAsync(ct);
         var items = await rows.OrderByDescending(row => row.Archive.CreatedAt).ThenBy(row => row.Archive.Id)
             .Skip((query.Page - 1) * query.PageSize).Take(query.PageSize)
@@ -82,6 +88,11 @@ internal sealed class EfArchiveStore(OrionSearchDbContext context) : IArchiveSto
         }
         if (query.Language is not null) rows = rows.Where(row => row.Document.Language == query.Language);
         if (query.PublisherDomain is not null) rows = rows.Where(row => row.Publisher != null && row.Publisher.Domain == query.PublisherDomain);
+        if (query.Topic is not null)
+        {
+            var pattern = TopicPattern(query.Topic);
+            rows = rows.Where(row => row.Document.Title != null && EF.Functions.ILike(row.Document.Title, pattern, "!"));
+        }
         var count = await rows.CountAsync(ct);
         var ordered = query.Sort switch
         {
@@ -109,6 +120,9 @@ internal sealed class EfArchiveStore(OrionSearchDbContext context) : IArchiveSto
     }
 
     public async Task SaveAsync(CancellationToken ct) => await context.SaveChangesAsync(ct);
+
+    private static string TopicPattern(string topic) =>
+        "%" + topic.Replace("!", "!!").Replace("%", "!%").Replace("_", "!_") + "%";
 
     private sealed class ArchiveTransaction(IDbContextTransaction transaction) : IArchiveTransaction
     {

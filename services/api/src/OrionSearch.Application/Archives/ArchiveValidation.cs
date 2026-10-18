@@ -39,6 +39,15 @@ public static class ArchiveValidation
         return value!;
     }
 
+    public static string? Topic(string? value)
+    {
+        if (value is null) return null;
+        var topic = value.Trim();
+        Require(topic.Length is >= 1 and <= 200 && !topic.Any(char.IsControl),
+            "topic", "Topic must contain 1–200 characters after trimming, without control characters.");
+        return topic;
+    }
+
     public static void Pagination(int page, int pageSize)
     {
         Require(page is >= 1 and <= 1000000, "page", "Page must be between 1 and 1000000.");

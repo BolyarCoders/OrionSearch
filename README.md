@@ -40,14 +40,14 @@ These are product goals; not all capabilities are implemented yet.
 | API | C#, ASP.NET Core (.NET 10) | HTTP API and application orchestration |
 | Research workflow | LangGraph and a configurable LLM | Research planning, source analysis, and synthesis |
 | Data store | PostgreSQL, Entity Framework Core, Npgsql | Archives, sources, findings, and research history |
-| Background processing | Worker and scheduler (to be decided) | Long-running and recurring research jobs |
+| Background processing | .NET worker with a PostgreSQL queue; recurring scheduler to be decided | Leased research execution and future recurring jobs |
 | Infrastructure | Docker, Docker Compose, GitHub Actions | Local environment, CI/CD, and deployment |
 
 The implementation may evolve as the team builds the MVP. AI and search providers should remain configurable, and generated claims should retain links to their supporting sources.
 
 ## Development status
 
-The API foundation can run locally; see [the backend README](services/api/README.md) for setup and testing. The rest of the application and local service stack are still being developed. Docker configuration and an example environment file are planned under ORION-14.
+The ASP.NET Core API includes archive management, metadata topic/date filtering, EF Core migrations and queued research execution; see [the backend README](services/api/README.md) for setup, testing and integration prerequisites. A development PostgreSQL service is provisioned on Railway. Authentication-provider integration and the AI team's agreed research contract remain pending; normal API startup rejects protected requests and leaves research processing disabled. The rest of the application and local service stack are still being developed. Docker configuration and an example environment file are planned under ORION-14.
 
 Never commit secrets, API keys, local `.env` files, or user data.
 

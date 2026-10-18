@@ -26,7 +26,7 @@ public sealed class ArchiveService(IArchiveStore store, ArchiveAuthorization aut
         {
             ArchiveValidation.Status(query.Status);
         }
-        return await store.ListAsync(userId, query, ct);
+        return await store.ListAsync(userId, query with { Topic = ArchiveValidation.Topic(query.Topic) }, ct);
     }
 
     public async Task<ArchiveDetails> GetAsync(Guid id, CancellationToken ct) =>
@@ -94,6 +94,7 @@ public sealed class ArchiveService(IArchiveStore store, ArchiveAuthorization aut
             "sort", "Use added_desc, added_asc, published_desc, published_asc, relevance_desc or title_asc.");
         query = query with
         {
+            Topic = ArchiveValidation.Topic(query.Topic),
             Language = query.Language is null ? null : ArchiveValidation.Language(query.Language),
             PublisherDomain = query.PublisherDomain is null ? null : ArchiveValidation.Domain(query.PublisherDomain)
         };

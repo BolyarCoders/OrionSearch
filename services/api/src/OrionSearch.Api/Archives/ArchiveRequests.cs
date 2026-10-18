@@ -80,7 +80,8 @@ public sealed class ArchiveListParameters
     public int? PageSize { get; set; }
     public string? Status { get; set; }
     public bool? IncludeArchived { get; set; }
-    public ArchiveListQuery ToQuery() => new(Page ?? 1, PageSize ?? 20, Status, IncludeArchived ?? false);
+    public string? Topic { get; set; }
+    public ArchiveListQuery ToQuery() => new(Page ?? 1, PageSize ?? 20, Status, IncludeArchived ?? false, Topic);
 }
 
 public sealed class SourceListParameters
@@ -92,5 +93,6 @@ public sealed class SourceListParameters
     public string? Language { get; set; }
     public string? PublisherDomain { get; set; }
     public string? Sort { get; set; }
-    public SourceListQuery ToQuery() => new(Page ?? 1, PageSize ?? 20, PublishedFrom, PublishedTo, Language, PublisherDomain, Sort ?? "added_desc");
+    public string? Topic { get; set; }
+    public SourceListQuery ToQuery() => new(Page ?? 1, PageSize ?? 20, PublishedFrom, PublishedTo, Language, PublisherDomain, Sort ?? "added_desc", Topic);
 }

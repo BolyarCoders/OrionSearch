@@ -37,6 +37,9 @@ Content-Type: application/json
 
 GET {{OrionSearch.Api_HostAddress}}/archives?page=1&pageSize=20&includeArchived=false
 
+### Literal, case-insensitive title/description filtering within your memberships.
+GET {{OrionSearch.Api_HostAddress}}/archives?topic=artificial%20intelligence&status=active&page=1&pageSize=20
+
 ###
 GET {{OrionSearch.Api_HostAddress}}/archives/{{archiveId}}
 
@@ -54,6 +57,9 @@ Content-Type: application/json
 
 ### Sources include discovered documents without captured versions.
 GET {{OrionSearch.Api_HostAddress}}/archives/{{archiveId}}/sources?page=1&pageSize=20&publishedFrom=2026-01-01&language=en&sort=published_desc
+
+### Metadata title filtering combined with inclusive UTC publication dates.
+GET {{OrionSearch.Api_HostAddress}}/archives/{{archiveId}}/sources?topic=artificial%20intelligence&publishedFrom=2026-01-01&publishedTo=2026-12-31&sort=published_desc
 
 ### Owner/editor: queue research for an active archive after authentication integration.
 POST {{OrionSearch.Api_HostAddress}}/archives/{{archiveId}}/research-jobs

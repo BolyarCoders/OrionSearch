@@ -21,7 +21,7 @@ public static class ArchiveEndpoints
         group.MapGet("", async ([AsParameters] ArchiveListParameters query, ArchiveService service, CancellationToken ct) =>
             Results.Ok(await service.ListAsync(query.ToQuery(), ct)))
             .WithName("ListArchives").WithSummary("List archives accessible through persisted membership")
-            .WithDescription("Requires an authenticated active user. page defaults to 1 (maximum 1000000); pageSize defaults to 20 (maximum 100). Sort: createdAt descending, id ascending. Archived archives are hidden unless includeArchived=true or status=archived. Status supports active, paused, archived. Filtering, counts and pagination run in PostgreSQL.")
+            .WithDescription("Requires an authenticated active user. page defaults to 1 (maximum 1000000); pageSize defaults to 20 (maximum 100). Sort: createdAt descending, id ascending. Archived archives are hidden unless includeArchived=true or status=archived. Status supports active, paused, archived. Optional topic matches a literal case-insensitive substring of title or description. It is metadata text filtering, not semantic classification. Trimmed topic: 1–200 characters, no control characters; empty input is invalid. %, _, ! and backslash are literal. Topic combines with status/archived filters before SQL counting and pagination.")
             .Produces<Page<ArchiveSummary>>().ProducesProblem(400).ProducesProblem(401);
 
         group.MapGet("/{id:guid}", async (Guid id, ArchiveService service, CancellationToken ct) =>
@@ -47,7 +47,7 @@ public static class ArchiveEndpoints
         group.MapGet("/{id:guid}/sources", async (Guid id, [AsParameters] SourceListParameters query, ArchiveService service, CancellationToken ct) =>
             Results.Ok(await service.SourcesAsync(id, query.ToQuery(), ct)))
             .WithName("ListArchiveSources").WithSummary("List stored sources linked to an accessible archive")
-            .WithDescription("Owner, editor or viewer required. page=1, pageSize=20 (maximum 100). Publication boundaries are inclusive UTC dates and exclude unknown publication dates; no retrieval-date substitution. Language uses ISO 639-1; publisherDomain uses normalized DNS. sort: added_desc (default), added_asc, published_desc, published_asc, relevance_desc, title_asc. Null sort values come last; documentId breaks ties. Discovered documents without versions are included; extracted text and raw storage paths are omitted.")
+            .WithDescription("Owner, editor or viewer required. page=1, pageSize=20 (maximum 100). Publication boundaries are inclusive UTC dates and exclude unknown publication dates; no retrieval-date substitution. Optional topic matches a literal case-insensitive substring of document title (metadata text filtering, not semantic classification). Trimmed topic: 1–200 characters, no control characters; empty input is invalid. %, _, ! and backslash are literal. Topic combines with all other filters before SQL counting and pagination. Language uses ISO 639-1; publisherDomain uses normalized DNS. sort: added_desc (default), added_asc, published_desc, published_asc, relevance_desc, title_asc. Null sort values come last; documentId breaks ties. Discovered documents without versions are included; extracted text and raw storage paths are omitted.")
             .Produces<Page<SourceSummary>>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
         return endpoints;
     }
