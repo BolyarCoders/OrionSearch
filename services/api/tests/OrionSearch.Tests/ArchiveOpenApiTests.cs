@@ -15,7 +15,8 @@ public sealed class ArchiveOpenApiTests
         var operations = new[]
         {
             ("/archives", "post"), ("/archives", "get"), ("/archives/{id}", "get"),
-            ("/archives/{id}", "patch"), ("/archives/{id}", "delete"), ("/archives/{id}/sources", "get")
+            ("/archives/{id}", "patch"), ("/archives/{id}", "delete"), ("/archives/{id}/sources", "get"),
+            ("/archives/{archiveId}/research-jobs", "post"), ("/research-jobs/{id}", "get")
         };
         foreach (var (path, method) in operations)
         {
@@ -27,6 +28,9 @@ public sealed class ArchiveOpenApiTests
         Assert.True(paths.GetProperty("/archives").GetProperty("post").TryGetProperty("requestBody", out _));
         Assert.True(paths.GetProperty("/archives/{id}").GetProperty("patch").TryGetProperty("requestBody", out _));
         Assert.True(paths.GetProperty("/archives").GetProperty("post").GetProperty("responses").TryGetProperty("201", out _));
+        var research = paths.GetProperty("/archives/{archiveId}/research-jobs").GetProperty("post");
+        Assert.True(research.GetProperty("responses").TryGetProperty("202", out _));
+        Assert.Contains("Idempotency-Key", research.GetProperty("parameters").ToString());
         var sourceParameters = paths.GetProperty("/archives/{id}/sources").GetProperty("get").GetProperty("parameters")
             .EnumerateArray().Select(parameter => parameter.GetProperty("name").GetString()).ToArray();
         foreach (var parameter in new[] { "Page", "PageSize", "PublishedFrom", "PublishedTo", "Language", "PublisherDomain", "Sort" })

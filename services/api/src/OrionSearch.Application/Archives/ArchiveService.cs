@@ -1,10 +1,9 @@
 using System.Text.Json;
-using OrionSearch.Application.Abstractions;
 using OrionSearch.Domain.Research;
 
 namespace OrionSearch.Application.Archives;
 
-public sealed class ArchiveService(IArchiveStore store, ICurrentUser currentUser)
+public sealed class ArchiveService(IArchiveStore store, ArchiveAuthorization authorization)
 {
     public async Task<ArchiveDetails> CreateAsync(string? title, string? description, ArchiveSettings settings, CancellationToken ct)
     {
@@ -101,29 +100,10 @@ public sealed class ArchiveService(IArchiveStore store, ICurrentUser currentUser
         return await store.SourcesAsync(userId, id, query, ct);
     }
 
-    private async Task<Guid> UserAsync(CancellationToken ct)
-    {
-        if (currentUser.UserId is not { } id || !await store.IsActiveUserAsync(id, ct))
-        {
-            throw new ArchiveRequestException(401, "A valid authenticated application user is required.");
-        }
-        return id;
-    }
+    private Task<Guid> UserAsync(CancellationToken ct) => authorization.RequireUserAsync(ct);
 
-    private async Task<ArchiveAccess> AccessAsync(Guid userId, Guid id, bool forUpdate, CancellationToken ct)
-    {
-        var access = await store.FindAsync(userId, id, forUpdate, ct)
-            ?? throw new ArchiveRequestException(404, "Archive not found.");
-        if (access.Role is not ("owner" or "editor" or "viewer"))
-        {
-            throw new ArchiveRequestException(404, "Archive not found.");
-        }
-        if ((access.Role == "owner") != (access.Archive.OwnerId == userId))
-        {
-            throw new ArchiveRequestException(409, "Archive ownership and membership are inconsistent.");
-        }
-        return access;
-    }
+    private Task<ArchiveAccess> AccessAsync(Guid userId, Guid id, bool forUpdate, CancellationToken ct) =>
+        authorization.RequireAccessAsync(userId, id, forUpdate, ct);
 
     private static ArchiveDetails Details(ArchiveAccess access)
     {

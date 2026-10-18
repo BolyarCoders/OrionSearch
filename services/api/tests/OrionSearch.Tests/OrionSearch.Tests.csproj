@@ -26,4 +26,9 @@
     <ProjectReference Include="..\..\src\OrionSearch.Api\OrionSearch.Api.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="../../../../packages/contracts/research/provisional-v1/request.json" Link="Contracts/request.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../../../packages/contracts/research/provisional-v1/result.json" Link="Contracts/result.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

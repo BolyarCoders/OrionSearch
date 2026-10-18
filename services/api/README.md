@@ -1,6 +1,6 @@
 # OrionSearch API
 
-ASP.NET Core backend with the ORION-9 HTTP foundation, ORION-10 PostgreSQL persistence and ORION-11 archive management. The web client and Python research worker remain independent services.
+ASP.NET Core backend with the ORION-9 HTTP foundation, ORION-10 PostgreSQL persistence, ORION-11 archive management and ORION-12 research execution. The web client and Python research worker remain independent services.
 
 ## Requirements and local setup
 
@@ -43,6 +43,8 @@ src/
     appsettings.Development.json
   OrionSearch.Application/
     Abstractions/ICurrentUser.cs
+    Archives/
+    Research/
   OrionSearch.Domain/
     Auth/
     Content/
@@ -113,7 +115,7 @@ Detail/create/update responses have the shape `{ "archive": { "id", "title", "de
 
 Requests without a valid internal identity, unknown users and disabled users receive `401`. Nonmembers and unknown archives both receive `404`. Members without permission receive `403`. Invalid inputs return `400` ProblemDetails; ownership/membership disagreement or missing settings returns `409`. Errors include `traceId`, and validation errors include field messages where available. Invalid query syntax also returns ProblemDetails.
 
-Creation accepts `title`, optional `description` and optional `settings`. Title is trimmed, nonblank and at most 200 characters; description is at most 10000 characters. Dates are nullable ISO dates with `dateFrom <= dateTo`. Language codes use two-letter ISO 639-1 codes recognized by .NET's neutral cultures; whitespace/case is normalized. Domains use the existing DNS/IDNA normalizer, including lowercase ASCII and trailing-dot removal; URLs, ports and paths are invalid. Each array allows at most 100 entries. Duplicates after normalization and preferred/excluded overlap are errors. Omitted arrays default to `[]`, config defaults to `{}`, and explicit null arrays/config/settings are invalid. Config is an opaque JSON object of at most 16 KiB, within the HTTP JSON depth limit of 64. It stores preferences without starting research or defining the future worker contract.
+Creation accepts `title`, optional `description` and optional `settings`. Title is trimmed, nonblank and at most 200 characters; description is at most 10000 characters. Dates are nullable ISO dates with `dateFrom <= dateTo`. Language codes use two-letter ISO 639-1 codes recognized by .NET's neutral cultures; whitespace/case is normalized. Domains use the existing DNS/IDNA normalizer, including lowercase ASCII and trailing-dot removal; URLs, ports and paths are invalid. Each array allows at most 100 entries. Duplicates after normalization and preferred/excluded overlap are errors. Omitted arrays default to `[]`, config defaults to `{}`, and explicit null arrays/config/settings are invalid. Config is an opaque JSON object of at most 16 KiB, within the HTTP JSON depth limit of 64. It stores preferences; research starts only through the separate submission endpoint and snapshots those settings into its versioned request.
 
 PATCH merges supplied settings with the stored configuration and validates the result. Omitted properties stay unchanged; explicit null clears description, dateFrom or dateTo. Null title, status, settings, arrays and config are invalid. Supplied arrays replace the array; supplied config replaces the whole object. An empty PATCH is a no-op for an authorized editor/owner. Archive/settings writes share a transaction, with the archive row locked before settings are read so concurrent patches validate against committed state. Database-maintained timestamps are returned for each changed record.
 
@@ -125,11 +127,48 @@ Source parameters: the same pagination bounds, `publishedFrom`, `publishedTo`, `
 
 ### Authentication integration still required
 
-No identity provider has been agreed or configured. Normal startup returns `401` for archive routes in every environment, including Development. Supplying a bearer string, a public `X-User-Id` header or the test header cannot authenticate a request.
+No identity provider has been agreed or configured. Normal startup returns `401` for archive and research routes in every environment, including Development. Supplying a bearer string, a public `X-User-Id` header or the test header cannot authenticate a request.
 
 Before real frontend access, register the team's validated authentication scheme as the default authenticate/challenge scheme, configure its trust boundary (for example issuer/audience/signature validation for a token provider), and map its verified external subject to an **existing** `auth.users.id`. Only that server-side mapping may issue `orionsearch:user_id`. Do not copy an arbitrary `sub` claim into the internal UUID or auto-create users during archive requests. Membership roles always come from PostgreSQL, including when the principal carries role claims. Unknown, malformed, empty or ambiguous internal claims fail closed. Login, user provisioning and identity-provider selection remain separate work.
 
 The test assembly alone registers an isolated authentication handler with `WebApplicationFactory`. Its header is never read by the API's production authentication handler. Local manual testing of authenticated operations requires the same real provider integration; there is no development-user shortcut. The `.http` examples are intended for use after that integration.
+
+## Research API and processing
+
+`POST /archives/{archiveId}/research-jobs` accepts `{}` or `{ "objective": "Research this topic" }`. Owners and editors can submit against an active archive; viewers receive `403`. An omitted/null objective uses the archive title; an explicit objective must be nonblank and at most 2000 characters. The server snapshots the archive's settings and topic. Unknown request fields are rejected. A successful transaction inserts one queued run and one `research_plan` job before returning `202` with `Location: /research-jobs/{id}`. The request never waits for the agent.
+
+The public `id` is **`research.research_runs.id`**, not the private `system.jobs.id`. `GET /research-jobs/{id}` permits owners, editors and viewers and returns status, UTC timestamps, committed query/source/version/finding counts, attempts, maximum attempts, next retry time and a sanitized error. Run states are `queued`, `running`, `completed`, `failed` and `cancelled`. Internal payloads, worker IDs, credentials and model settings are excluded. Authentication remains fail-closed: normal startup returns `401` until the real provider is integrated. Authenticated nonmembers and unknown IDs both receive `404`.
+
+An optional `Idempotency-Key` header accepts 1–200 visible ASCII characters. Its SHA-256 namespace includes the archive ID. Submission locks the archive and checks a normalized objective fingerprint, with database uniqueness as the backstop. Concurrent matching retries return the original run; incompatible reuse returns `409`. An omitted objective stays the same request fingerprint even if the archive title later changes. Existing matching submissions can be retrieved after a lifecycle change; they do not create new work. Without a key, each submission creates a new run.
+
+The independently callable `ResearchProcessor` uses fresh EF contexts for queue operations; its hosted adapter can later move to a separate .NET host. Processing is disabled by default. It also refuses to claim/recover jobs when the agent is unconfigured. Each process gets a random worker-instance ID. Short `FOR UPDATE SKIP LOCKED` transactions claim due work by priority and creation time, increment the attempt generation, create attempt history and commit the lease before HTTP execution. No database transaction stays open during the agent call.
+
+Heartbeats, failure and completion verify worker ID, attempt generation and an unexpired database-clock lease. Completion locks the archive, ingests the complete output and checks ownership again after writes; losing the final fence rolls the entire transaction back. Expired attempts are finalized as timed out and requeued with bounded exponential backoff, or marked failed when exhausted. Concurrent recovery workers cannot recover the same job. Timeout/network/temporary service failures retry; contract, authentication and persistence failures are permanent. A process shutdown leaves its unfinished lease for recovery.
+
+Paused archives reject new submissions and do not start pending attempts until reactivated. An attempt paused between claim and dispatch is requeued with backoff and consumes that claimed attempt. Work already dispatched may finish while paused. Archived archives reject new work, cancel pending/recovered attempts and reject late result persistence. Archive status changes and result commits serialize on the archive row; history is retained.
+
+All settings below use the `ResearchWorker` section, for example `ResearchWorker__Enabled` in environment variables. Defaults are safe for API-only startup; no settings contain credentials in source control.
+
+| Setting | Default / meaning |
+| --- | --- |
+| `Enabled` | `false`; explicit opt-in to processing |
+| `LeaseSeconds`, `HeartbeatSeconds` | `120`, `30`; lease 10–3600 seconds, heartbeat at most one third of lease |
+| `PollSeconds` | `5`; idle/recovery polling, 1–300 seconds |
+| `TimeoutSeconds` | `300`; total agent request including response body, 1–3600 seconds |
+| `MaxAttempts` | `3`; snapshotted into new jobs, 1–10 |
+| `RetryBaseSeconds`, `RetryMaxSeconds` | `10`, `300`; exponential backoff capped at maximum |
+| `MaxResponseBytes` | `2097152`; streaming body limit, configurable 1 KiB–10 MiB |
+| `AgentBaseAddress` | Unset; fixed server-selected endpoint, with `research` appended |
+| `AgentApiKey` | Unset; bearer service credential from secret configuration, never logged |
+| `AllowProvisionalContract` | `false`; explicit opt-in while ORION-8 is unfinished |
+
+The HTTP client requires HTTPS, except loopback or Railway's private `.railway.internal` hostnames; URLs cannot include credentials, queries or fragments. Redirects are disabled. A complete enabled configuration still requires a real compatible agent service. No production fake exists.
+
+ORION-8 was To Do with no contract/worker implementation on either remote branch when inspected on 2026-10-18. The version **`orion.research.provisional.v1`** is explicitly a proposal. See the [AI handoff, schemas and representative fixtures](../../packages/contracts/research/provisional-v1/README.md). The typed boundary rejects unknown/missing fields, unsupported versions, invalid counts and cross-source references. Agree the final contract, transport/authentication and deterministic chunking with the AI team before enabling live processing.
+
+Result ingestion normalizes URLs/domains and upserts global publishers, documents, versions and archive links in deterministic order. Publication dates stay unknown when absent. URL-only discoveries create no captured version. Text hashes use the existing normalization helper; raw-only captures require a durable storage reference and supplied SHA-256 with explicit hash-basis metadata. The agent/storage integration must preserve the actual bytes; this backend does not fetch raw objects to prove their existence or digest. Chunk offsets count Unicode scalar values in normalized text, start inclusive/end exclusive. Evidence resolves response-local keys to the exact captured version and optional chunk; mismatched chunk definitions fail rather than citing existing content incorrectly. Findings retain their originating run and remain `unverified` regardless of model confidence.
+
+Queries, sources, captures, chunks, findings/evidence and run/job/attempt success commit together. A replay of a completed attempt does nothing; a crash or lost lease before commit leaves no partial results. Different logical runs intentionally retain separate queries/findings while reusing global source identities. Successful discoveries appear through the existing archive sources endpoint.
 
 ## Dependencies and tests
 
@@ -201,6 +240,7 @@ Review generated code and SQL before applying it. Keep local review SQL outside 
 5. `CreateFindingsAndEvidence` — findings and version-bound evidence.
 6. `CreateJobQueue` — jobs, attempts, queue indexes and database-maintained `updated_at` triggers.
 7. `AllowRawOnlyDocumentVersions` — nullable extracted text, captured-content presence and raw-hash provenance constraints; preserves existing versions and evidence.
+8. `ImplementResearchExecution` — rejects empty/Unicode-whitespace text or storage references, adds nullable finding-to-run provenance and restricts each run to one research-plan job. Existing invalid blank captures cause upgrade to fail without rewriting data. Downgrade refuses to discard populated finding/run provenance.
 
 A captured version can contain normalized extracted text, raw bytes referenced by a durable `storage_uri`, or both. A raw-only version hashes actual preserved bytes with SHA-256 and records `content_hash.algorithm` and `content_hash.basis` in metadata. Text hashing retains its existing normalization policy. A version with neither representation is rejected; a URL-only discovery belongs in `documents`. See [captured representations and hashes](docs/database.md#captured-representations-and-hashes) for the exact policy. Downgrading migration seven is blocked while raw-only versions exist, so rollback cannot silently fabricate text.
 
@@ -222,27 +262,29 @@ Before applying anything to Railway:
 2. Confirm a dedicated authorized development database. Reuse an appropriate service. Creating billable resources, plan changes and subscriptions need separate explicit approval.
 3. Through an already authorized secure connection, run the read-only [inspection script](scripts/inspect-database.sql). For example, with libpq connection variables already supplied securely: `psql -X -v ON_ERROR_STOP=1 -f scripts/inspect-database.sql`. This reports version, schemas, extension, tables, migration history, row counts and constraints without returning application records. It handles an empty database without migration history. It is unrelated to the destructive local test fixture.
 4. Stop before modifying a database with existing application data, unexpected tables or unknown migrations. Do not reset shared resources or change public networking to simplify access.
-5. For a confirmed empty development destination, review all seven migrations using the idempotent script command above, then explicitly run `dotnet ef database update --project src/OrionSearch.Infrastructure` with the authorized connection supplied securely. Startup never runs migrations.
-6. Re-run inspection: expect PostgreSQL 16+, all seven schemas, 15 product tables, seven known migrations and `citext`. Run the local API with the same secure connection and check `/health/ready`; `200` verifies connectivity, while schema compatibility comes from the inspection.
+5. For a confirmed empty development destination, review all eight migrations using the idempotent script command above, then explicitly run `dotnet ef database update --project src/OrionSearch.Infrastructure` with the authorized connection supplied securely. Startup never runs migrations.
+6. Re-run inspection: expect PostgreSQL 16+, all seven schemas, 15 product tables, eight known migrations and `citext`. Run the local API with the same secure connection and check `/health/ready`; `200` verifies connectivity, while schema compatibility comes from the inspection.
 
 Use an existing Railway secure access method or tunnel if private networking prevents local access. Do not publish a database port automatically. Never set `ORIONSEARCH_TEST_POSTGRES` to Railway: that fixture creates and drops databases.
 
-Railway verification for ORION-11 is pending: the installed integration was enabled and explicitly authorized, but this chat exposed no Railway operations or authenticated CLI. The browser fallback also opened at Railway login. No project/environment/service, hosted schema or migration state was inspected, and no hosted resource was provisioned or modified.
+ORION-12 hosted verification ran on 2026-10-18. With explicit provisioning approval, the `development` environment (`da350d4f-39de-45ff-99d4-3bb9a9df08e3`) was created in `lucid-motivation` (`255809c6-10b6-4206-bd8e-3999e9ef1681`). Its `Postgres` service (`2a43ab11-a0c7-42bd-beb5-8b9f5db8dfa1`) runs PostgreSQL 18.6 with a persistent volume and no public domain or TCP proxy. Railway generates and retains its credentials. The pre-existing empty service named `development` in `production` was left unchanged.
 
-ORION-11 local validation ran on an isolated PostgreSQL 18.6 cluster: **223 tests passed**, with zero failures or skips, including all 129 original tests. Restore, tool restore, zero-warning build, formatting and the EF pending-model check passed. The read-only inspection script ran before and after applying the reviewed seven-migration SQL to a separate empty local database. Normal Production startup using `DATABASE_URL` returned healthy liveness/readiness and rejected unauthenticated archives. This verifies the local connection/migration workflow; it does not verify Railway networking, permissions or hosted migrations. Docker startup and a new PostgreSQL 16 run were not executed for ORION-11.
+The authenticated Railway console ran the read-only inspection against `orionsearch_development`, confirming no user tables, product schemas or migration history before changes. The reviewed idempotent SQL was uploaded temporarily, its SHA-256 checked against the local reviewed file, and all eight migrations applied with `ON_ERROR_STOP`. Inspection afterward confirmed seven schemas, 15 product tables, eight migration entries, `citext` 1.8 and the new capture/provenance constraints and unique job index. A temporary read-only pre-deploy setting used during access setup was cleared; no automatic migration hook remains. A clean redeploy retained the schema and cleared the temporary setup uploads. No destructive fixture, application-data seeding or production migration ran on Railway. The API was not deployed, and API-to-Railway readiness remains unverified; the local Production smoke test used an isolated local database.
+
+ORION-12 local verification on 2026-10-18 established the existing 223-test baseline, then passed **322 tests** with zero failures or skips on isolated PostgreSQL 18.6. Restore, tool restore, a zero-warning build, formatting and the EF pending-model check passed. Coverage includes authorization/idempotency, a controlled commit barrier, concurrent claims/recovery, heartbeat/shutdown, final lease fencing, retries, malformed/oversized/interrupted agent responses, ingestion/replay, raw captures and migration upgrade/downgrade guards. Reviewed SQL and read-only inspection also ran against a separate empty local database. The compiled API's Production smoke returned liveness/readiness `200`, rejected spoofed research authentication with `401`, and hid OpenAPI with `404`. PostgreSQL 16 and Docker/Testcontainers startup were unavailable for this phase and remain unverified. Live LangGraph, real identity-provider integration, external raw-object integrity and API-to-Railway readiness remain separate integration gates.
 
 See [database architecture](docs/database.md) for all 15 tables, constraint rationale, ownership, normalization assumptions and pending decisions.
 
 ## Later phases
 
-ORION-12 will add research/job APIs and worker/agent integration. Job execution, scheduling, crawling, magazines and embeddings remain out of scope here.
+Recurring research scheduling, the Python crawling/analysis engine, magazines and embeddings remain outside this backend implementation.
 
 The following configuration categories are future design decisions, not settings consumed by this API:
 
 | Category | To define when implemented |
 | --- | --- |
 | Authentication | Provider, trust configuration, external-subject mapping and user provisioning |
-| Research service | Endpoint, versioned contracts, authentication and HTTP timeouts |
-| Research jobs | Scheduling, retry limits, cancellation and concurrency |
+| Research service | Final ORION-8 contract and authenticated live deployment |
+| Research jobs | Recurring scheduling and any public cancellation API |
 
 CI/CD, Docker Compose, public API deployment and frontend changes are outside this issue. Authorized Railway database inspection/setup is included where the integration is available.

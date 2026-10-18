@@ -42,5 +42,7 @@ public sealed class JobConfiguration : IEntityTypeConfiguration<Job>
         builder.HasIndex(x => x.RunAfter).HasFilter("status = 'pending'").HasDatabaseName("idx_jobs_run_after");
         builder.HasIndex(x => x.LockedUntil).HasFilter("status = 'processing'").HasDatabaseName("idx_jobs_expired_leases");
         builder.HasIndex(x => x.IdempotencyKey).IsUnique().HasFilter("idempotency_key IS NOT NULL").HasDatabaseName("ux_jobs_idempotency");
+        builder.HasIndex(x => x.ResearchRunId, "ResearchPlanRun").IsUnique()
+            .HasFilter("research_run_id IS NOT NULL AND job_type = 'research_plan'").HasDatabaseName("ux_jobs_research_plan_run");
     }
 }

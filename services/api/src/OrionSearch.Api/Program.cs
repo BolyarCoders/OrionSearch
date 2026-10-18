@@ -22,6 +22,7 @@ if (app.Environment.IsDevelopment())
 
 app.MapHealthEndpoints();
 app.MapArchiveEndpoints();
+app.MapResearchEndpoints();
 app.Run();
 
 public partial class Program;

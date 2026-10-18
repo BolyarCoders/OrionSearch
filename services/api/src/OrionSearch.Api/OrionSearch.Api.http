@@ -55,6 +55,20 @@ Content-Type: application/json
 ### Sources include discovered documents without captured versions.
 GET {{OrionSearch.Api_HostAddress}}/archives/{{archiveId}}/sources?page=1&pageSize=20&publishedFrom=2026-01-01&language=en&sort=published_desc
 
+### Owner/editor: queue research for an active archive after authentication integration.
+POST {{OrionSearch.Api_HostAddress}}/archives/{{archiveId}}/research-jobs
+Content-Type: application/json
+Idempotency-Key: research-example-1
+
+{
+  "objective": "Research recent developments in artificial intelligence"
+}
+
+### Use {} instead to default to the archive title. Repeat the same key/body to retrieve the same run.
+# researchRunId is the public response id, not the internal queue job id.
+@researchRunId = 00000000-0000-0000-0000-000000000002
+GET {{OrionSearch.Api_HostAddress}}/research-jobs/{{researchRunId}}
+
 ### Owner only: retain all research and global documents.
 DELETE {{OrionSearch.Api_HostAddress}}/archives/{{archiveId}}
 

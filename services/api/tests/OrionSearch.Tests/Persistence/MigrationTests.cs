@@ -28,7 +28,7 @@ public sealed class MigrationTests(PostgreSqlFixture database)
         }, tables);
 
         await using var context = database.CreateContext();
-        Assert.Equal(7, (await context.Database.GetAppliedMigrationsAsync()).Count());
+        Assert.Equal(context.Database.GetMigrations().Count(), (await context.Database.GetAppliedMigrationsAsync()).Count());
         Assert.Empty(await context.Database.GetPendingMigrationsAsync());
         Assert.False(context.Database.HasPendingModelChanges());
     }
@@ -76,7 +76,7 @@ public sealed class MigrationTests(PostgreSqlFixture database)
         await command.ExecuteNonQueryAsync();
 
         Assert.Equal(15, (await ReadStringsAsync(connectionString, TableQuery)).Length);
-        Assert.Equal(7, (await context.Database.GetAppliedMigrationsAsync()).Count());
+        Assert.Equal(context.Database.GetMigrations().Count(), (await context.Database.GetAppliedMigrationsAsync()).Count());
     }
 
     [Fact]
@@ -88,9 +88,9 @@ public sealed class MigrationTests(PostgreSqlFixture database)
         await migrator.MigrateAsync("20261016091819_CreateJobQueue");
         var version = await TestData.CreateVersionAsync(context);
         var chunk = await TestData.CreateChunkAsync(context, version.Id);
-        var finding = new Finding { Statement = "Existing evidence-backed finding" };
-        context.Findings.Add(finding);
-        await context.SaveChangesAsync();
+        var finding = new Finding { Id = Guid.NewGuid(), Statement = "Existing evidence-backed finding" };
+        // Seed the shipped schema with its original columns, before the new model's run-provenance column exists.
+        await context.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO knowledge.findings (id, statement) VALUES ({finding.Id}, {finding.Statement})");
         var evidence = new FindingEvidence { FindingId = finding.Id, DocumentVersionId = version.Id, ChunkId = chunk.Id };
         context.FindingEvidence.Add(evidence);
         await context.SaveChangesAsync();
@@ -115,7 +115,7 @@ public sealed class MigrationTests(PostgreSqlFixture database)
         });
         await context.SaveChangesAsync();
         Assert.Equal(2, await context.DocumentVersions.CountAsync());
-        Assert.Equal(7, (await context.Database.GetAppliedMigrationsAsync()).Count());
+        Assert.Equal(context.Database.GetMigrations().Count(), (await context.Database.GetAppliedMigrationsAsync()).Count());
     }
 
     [Fact]

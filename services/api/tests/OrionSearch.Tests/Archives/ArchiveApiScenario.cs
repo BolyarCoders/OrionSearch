@@ -25,6 +25,7 @@ internal sealed class ArchiveApiScenario(PostgreSqlFixture database, string conn
     public Guid ArchiveId { get; private set; }
     public string ConnectionString { get; } = connectionString;
     public OrionSearchDbContext Context() => database.CreateContext(ConnectionString);
+    public AsyncServiceScope Scope() => _factory!.Services.CreateAsyncScope();
 
     public static async Task<ArchiveApiScenario> CreateAsync(PostgreSqlFixture database)
     {

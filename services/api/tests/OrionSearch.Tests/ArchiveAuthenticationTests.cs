@@ -15,6 +15,8 @@ public sealed class ArchiveAuthenticationTests
     [InlineData("PATCH", "/archives/00000000-0000-0000-0000-000000000001")]
     [InlineData("DELETE", "/archives/00000000-0000-0000-0000-000000000001")]
     [InlineData("GET", "/archives/00000000-0000-0000-0000-000000000001/sources")]
+    [InlineData("POST", "/archives/00000000-0000-0000-0000-000000000001/research-jobs")]
+    [InlineData("GET", "/research-jobs/00000000-0000-0000-0000-000000000001")]
     public async Task NormalStartupRejectsCallerIdentityHeadersAndUnvalidatedBearerTokens(string method, string path)
     {
         using var factory = new ApiFactory();
