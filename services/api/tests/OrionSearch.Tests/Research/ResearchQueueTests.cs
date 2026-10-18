@@ -81,6 +81,10 @@ public sealed class ResearchQueueTests(PostgreSqlFixture database)
         var queue = ResearchTestData.Queue(scope);
         var abandoned = (await queue.ClaimAsync("old-worker", default))!;
         await ResearchTestData.ExpireAsync(scenario);
+        Assert.False(await queue.CompleteAsync(abandoned, ResearchTestData.Output(run.Id), default));
+        Assert.False(await queue.FailAsync(abandoned, ResearchFailure.Contract, default));
+        Assert.False(await queue.HeartbeatAsync(abandoned, default));
+        await using (var beforeRecovery = scenario.Context()) Assert.Empty(await beforeRecovery.Documents.ToListAsync());
         var recovered = await Task.WhenAll(queue.RecoverAsync(default), queue.RecoverAsync(default));
         Assert.Equal(1, recovered.Sum());
         await using var context = scenario.Context();
@@ -158,7 +162,7 @@ public sealed class ResearchQueueTests(PostgreSqlFixture database)
     }
 
     [Fact]
-    public async Task FinalFenceRollsBackIngestionWhenTheLeaseExpiresDuringWrites()
+    public async Task FinalFenceRollsBackIngestionIfOwnershipChangesDuringWrites()
     {
         await using var scenario = await ArchiveApiScenario.CreateAsync(database);
         var run = await ResearchTestData.SubmitAsync(scenario);
@@ -167,10 +171,10 @@ public sealed class ResearchQueueTests(PostgreSqlFixture database)
         var lease = (await queue.ClaimAsync("expiring-worker", default))!;
         await using var context = scenario.Context();
         await context.Database.ExecuteSqlRawAsync("""
-            CREATE FUNCTION public.expire_during_ingestion() RETURNS trigger LANGUAGE plpgsql AS $$
-            BEGIN UPDATE system.jobs SET locked_until = clock_timestamp() - interval '1 second' WHERE status = 'processing'; RETURN NEW; END $$;
-            CREATE TRIGGER expire_during_ingestion BEFORE INSERT ON content.documents
-            FOR EACH ROW EXECUTE FUNCTION public.expire_during_ingestion();
+            CREATE FUNCTION public.change_owner_during_ingestion() RETURNS trigger LANGUAGE plpgsql AS $$
+            BEGIN UPDATE system.jobs SET worker_id = 'superseded' WHERE status = 'processing'; RETURN NEW; END $$;
+            CREATE TRIGGER change_owner_during_ingestion BEFORE INSERT ON content.documents
+            FOR EACH ROW EXECUTE FUNCTION public.change_owner_during_ingestion();
             """);
         Assert.False(await queue.CompleteAsync(lease, ResearchTestData.Output(run.Id), default));
         Assert.Empty(await context.Documents.ToListAsync());
@@ -204,5 +208,15 @@ public sealed class ResearchQueueTests(PostgreSqlFixture database)
         Assert.Empty(await context.ResearchQueries.ToListAsync());
         Assert.Equal("running", (await context.ResearchRuns.SingleAsync()).Status);
         Assert.Equal("running", (await context.JobAttempts.SingleAsync()).Status);
+        await ResearchTestData.ExpireAsync(scenario);
+        Assert.Equal(1, await queue.RecoverAsync(default));
+        await ResearchTestData.ReadyAsync(scenario);
+        await context.Database.ExecuteSqlRawAsync("DROP TRIGGER reject_evidence ON knowledge.finding_evidence");
+        var replacement = (await queue.ClaimAsync("replacement-worker", default))!;
+        Assert.True(await queue.CompleteAsync(replacement, ResearchTestData.Output(run.Id), default));
+        Assert.Single(await context.DocumentVersions.ToListAsync());
+        Assert.Single(await context.Findings.ToListAsync());
+        Assert.Single(await context.FindingEvidence.ToListAsync());
+        Assert.Equal("completed", (await context.ResearchRuns.AsNoTracking().SingleAsync()).Status);
     }
 }

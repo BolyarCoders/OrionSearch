@@ -48,6 +48,8 @@ internal static class ResearchIngestion
             if (source.Capture is not { } capture) continue;
             var hash = capture.ExtractedText is { } text ? ContentFingerprint.Compute(text) : capture.Raw!.Sha256;
             var metadata = capture.Metadata.ValueKind == JsonValueKind.Undefined ? new JsonObject() : JsonNode.Parse(capture.Metadata.GetRawText())!.AsObject();
+            metadata.Remove("representations");
+            metadata.Remove("raw_sha256");
             metadata["content_hash"] = capture.ExtractedText is null
                 ? JsonSerializer.SerializeToNode(new { algorithm = "sha256", basis = "raw_bytes" })
                 : JsonSerializer.SerializeToNode(new { algorithm = "sha256", basis = "normalized_extracted_text", normalization = "nfc_lf_trim_v1" });
@@ -65,6 +67,8 @@ internal static class ResearchIngestion
                         ELSE content.document_versions.metadata END
                 RETURNING id AS "Value"
                 """, ct);
+            var version = await context.DocumentVersions.SingleAsync(version => version.Id == versionId, ct);
+            version.Metadata = RepresentationMetadata(version);
             reference.VersionId = versionId;
             foreach (var chunk in capture.Chunks!.OrderBy(chunk => chunk.Index))
             {
@@ -115,6 +119,39 @@ internal static class ResearchIngestion
             }
         }
     }
+
+    private static string RepresentationMetadata(DocumentVersion version)
+    {
+        var metadata = JsonNode.Parse(version.Metadata)!.AsObject();
+        var representations = new JsonObject();
+        if (version.ExtractedText is { } text)
+            representations["extracted_text"] = JsonSerializer.SerializeToNode(new
+            {
+                algorithm = "sha256",
+                sha256 = ContentFingerprint.Compute(text),
+                normalization = "nfc_lf_trim_v1"
+            });
+        if (version.StorageUri is { } storageUri)
+        {
+            var raw = new JsonObject { ["storage_uri"] = storageUri };
+            var digest = String(metadata["raw_sha256"]);
+            if (digest is null && metadata["content_hash"] is JsonObject identity
+                && String(identity["algorithm"]) == "sha256" && String(identity["basis"]) == "raw_bytes")
+                digest = version.ContentHash;
+            if (digest is not null)
+            {
+                raw["algorithm"] = "sha256";
+                raw["sha256"] = digest;
+                metadata["raw_sha256"] = digest;
+            }
+            representations["raw"] = raw;
+        }
+        // Identity provenance stays unchanged; these describe the representations actually retained.
+        metadata["representations"] = representations;
+        return metadata.ToJsonString();
+    }
+
+    private static string? String(JsonNode? node) => node is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
 
     private static async Task<Guid> IdAsync(OrionSearchDbContext context, FormattableString sql, CancellationToken ct)
     {

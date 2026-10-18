@@ -189,23 +189,30 @@ internal sealed class EfResearchQueue(IDbContextFactory<OrionSearchDbContext> fa
         string state, string? error, DateTime runAfter, CancellationToken ct)
     {
         await context.SaveChangesAsync(ct);
-        // This is the final fencing check, after all ingestion writes, using wall-clock database time.
+        // OwnedAsync validated the live lease after acquiring FOR UPDATE. That lock prevents
+        // reassignment until commit/rollback; elapsed time cannot revoke ownership inside this transaction.
         return await context.Database.ExecuteSqlInterpolatedAsync($"""
             UPDATE system.jobs SET status = {state}, last_error = {error}, run_after = {runAfter},
                 completed_at = CASE WHEN {state} IN ('completed', 'failed', 'cancelled') THEN clock_timestamp() ELSE NULL END,
                 worker_id = NULL, locked_until = NULL
             WHERE id = {job.Id} AND research_run_id = {lease.RunId} AND status = 'processing'
-                AND worker_id = {lease.WorkerId} AND attempts = {lease.Attempt} AND locked_until > clock_timestamp()
+                AND worker_id = {lease.WorkerId} AND attempts = {lease.Attempt}
+                AND EXISTS (SELECT 1 FROM research.research_runs r WHERE r.id = {lease.RunId} AND r.archive_id = {lease.ArchiveId})
             """, ct) == 1;
     }
 
-    private static Task<Job?> OwnedAsync(OrionSearchDbContext context, ResearchLease lease, CancellationToken ct) =>
-        context.Jobs.FromSql($"""
+    private static async Task<Job?> OwnedAsync(OrionSearchDbContext context, ResearchLease lease, CancellationToken ct)
+    {
+        var job = await context.Jobs.FromSql($"""
             SELECT j.* FROM system.jobs j JOIN research.research_runs r ON r.id = j.research_run_id
             WHERE j.id = {lease.JobId} AND j.research_run_id = {lease.RunId} AND r.archive_id = {lease.ArchiveId}
                 AND j.status = 'processing' AND j.worker_id = {lease.WorkerId} AND j.attempts = {lease.Attempt}
                 AND j.locked_until > clock_timestamp() FOR UPDATE OF j
             """).SingleOrDefaultAsync(ct);
+        // The WHERE predicate can be evaluated before waiting for an unchanged locked row.
+        // Recheck with database time now that the lock is ours, before accepting ownership.
+        return job is not null && job.LockedUntil > await NowAsync(context, ct) ? job : null;
+    }
 
     private static Task<Archive> LockArchiveAsync(OrionSearchDbContext context, Guid id, CancellationToken ct) =>
         context.Archives.FromSql($"SELECT * FROM research.archives WHERE id = {id} FOR UPDATE").SingleAsync(ct);

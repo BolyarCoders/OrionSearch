@@ -225,6 +225,10 @@ public sealed class ResearchProcessingTests(PostgreSqlFixture database)
         Assert.Equal(rawHash, metadata.RootElement.GetProperty("raw_sha256").GetString());
         Assert.Equal("test", metadata.RootElement.GetProperty("producer").GetString());
         Assert.Equal("normalized_extracted_text", metadata.RootElement.GetProperty("content_hash").GetProperty("basis").GetString());
+        var representations = metadata.RootElement.GetProperty("representations");
+        Assert.Equal(rawHash, representations.GetProperty("raw").GetProperty("sha256").GetString());
+        Assert.Equal(version.StorageUri, representations.GetProperty("raw").GetProperty("storage_uri").GetString());
+        Assert.Equal(version.ContentHash, representations.GetProperty("extracted_text").GetProperty("sha256").GetString());
     }
 
     [Fact]

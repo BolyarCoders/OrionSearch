@@ -21,7 +21,14 @@ public sealed class ResearchProcessor(IResearchQueue queue, IResearchAgentClient
         var pulse = KeepLeaseAsync(lease, heartbeat.Token, call);
         try
         {
-            var result = await agent.ExecuteAsync(request, call.Token);
+            AgentResult result;
+            try { result = await agent.ExecuteAsync(request, call.Token); }
+            finally
+            {
+                // Settle any renewal before completion/failure acquires the job row.
+                await heartbeat.CancelAsync();
+                await pulse;
+            }
             var committed = await queue.CompleteAsync(lease, result, ct);
             logger.LogInformation("Research {RunId} attempt {Attempt} finished; committed={Committed}", lease.RunId, lease.Attempt, committed);
         }
@@ -29,11 +36,6 @@ public sealed class ResearchProcessor(IResearchQueue queue, IResearchAgentClient
         catch (OperationCanceledException) { await FailAsync(lease, ResearchFailure.Timeout, ct); }
         catch (ResearchAgentException exception) { await FailAsync(lease, exception.Failure, ct); }
         catch (Exception) { await FailAsync(lease, ResearchFailure.Persistence, ct); }
-        finally
-        {
-            await heartbeat.CancelAsync();
-            await pulse;
-        }
         return true;
     }
 
@@ -50,7 +52,9 @@ public sealed class ResearchProcessor(IResearchQueue queue, IResearchAgentClient
         {
             while (await timer.WaitForNextTickAsync(stop))
             {
-                if (await queue.HeartbeatAsync(lease, stop)) continue;
+                var renewed = await queue.HeartbeatAsync(lease, stop);
+                if (stop.IsCancellationRequested) return;
+                if (renewed) continue;
                 await call.CancelAsync();
                 return;
             }
@@ -58,6 +62,7 @@ public sealed class ResearchProcessor(IResearchQueue queue, IResearchAgentClient
         catch (OperationCanceledException) when (stop.IsCancellationRequested) { }
         catch (Exception)
         {
+            if (stop.IsCancellationRequested) return;
             logger.LogWarning("Research {RunId} attempt {Attempt} could not renew its lease", lease.RunId, lease.Attempt);
             await call.CancelAsync();
         }
