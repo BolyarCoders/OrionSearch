@@ -12,7 +12,7 @@ The RB identifiers below are stable tracking IDs in this document and the PR che
 
 | ID | Gate and current evidence | Responsible team / existing tracking | Required closure evidence |
 | --- | --- | --- | --- |
-| RB-01 | **Required CI: OPEN.** GitHub has zero workflows/check runs. `main` requires one approving review, but `required_status_checks` is null. | Velislav / [ORION-16](https://kviolinov.atlassian.net/browse/ORION-16), currently To Do | Executed backend validation on the actual integration candidate; required check names configured in branch protection; a failing check demonstrably prevents merging. A committed YAML file alone is insufficient. |
+| RB-01 | **Required CI: OPEN pending enforcement verification.** The `Backend CI` workflow exists at [`.github/workflows/backend-ci.yml`](https://github.com/BolyarCoders/OrionSearch/blob/feature/ORION-9-backend-foundation/.github/workflows/backend-ci.yml). Run [39404488832](https://github.com/BolyarCoders/OrionSearch/actions/runs/39404488832) completed successfully on commit `9b614548589803ffbb83b54eedd870f23dd9de93`; restore, tool restore, build, automated/PostgreSQL integration tests and TRX artifact upload all passed. The maintainer reports configuring the `Backend build and tests` branch-protection check, but enforcement has not been independently verified here. | Velislav / [ORION-16](https://kviolinov.atlassian.net/browse/ORION-16), currently To Do | Confirm the exact check is required on `main` and demonstrate that a failing check prevents merging. Record the result in the PR/issue. |
 | RB-02 | **Real authentication: OPEN.** Normal API startup uses the Unconfigured scheme and protected endpoints return 401. There is no implemented login/provisioning/provider adapter. | Team/PM must select provider and assign integration owner; backend and frontend participate. No dedicated authentication issue was found in the inspected project backlog. | Provider/trust decision, validated external-subject mapping to existing `auth.users.id`, provisioning/disablement behavior, real positive and negative authentication tests, and the security cases below. Do not treat a caller-ID header or test scheme as completion. |
 | RB-03 | **Compatible agent and agreed contract: OPEN.** `orion.research.provisional.v1` is still opt-in and unaccepted. The new standalone collector is not a compatible service. | Konstantin / [ORION-8](https://kviolinov.atlassian.net/browse/ORION-8), currently To Do; producer work relates to [ORION-5](https://kviolinov.atlassian.net/browse/ORION-5), currently QA | Agreed request/result schema/version, authenticated HTTP producer, deterministic chunks/quotes, durable raw capture references and verified compatibility fixtures produced by the real Python implementation. |
 | RB-04 | **Real end-to-end integration: OPEN / UNVERIFIED.** No real authenticated API → queue → Python agent → PostgreSQL → sources acceptance run has passed. | Cross-team acceptance owner must be named by PM; depends on RB-02/RB-03 and the intended development environment | One controlled real success flow plus failure/retry/isolation cases, using an isolated authorized development archive and actual service credentials. Preserve sanitized run IDs, version/commit identities, statuses and persistence assertions as evidence. A fake-agent test is not this gate. |
@@ -32,7 +32,7 @@ Release checklist, mirrored in PR #6:
 
 - PR #6 is open with base `main` and head `feature/ORION-9-backend-foundation`. The implementation head reviewed by Velislav is `f08a6402`.
 - The review says not to treat the work as a deployable release until CI and a separate integration/security pass are complete. The user explicitly selected the foundation handoff path for this follow-up.
-- The GitHub workflow inventory and PR check rollup are empty. Branch protection requires one approving review, with no required status-check context configured. Required CI remains DevOps work; review protection is not a substitute for test enforcement.
+- The `Backend CI` workflow is now present on the PR branch. Run [39404488832](https://github.com/BolyarCoders/OrionSearch/actions/runs/39404488832) completed successfully for commit `9b614548589803ffbb83b54eedd870f23dd9de93`, including the full automated/PostgreSQL integration-test step. The maintainer reports configuring `Backend build and tests` as a required branch-protection check; this follow-up has not independently read back the saved rule or demonstrated a failing check blocking a merge. Required-check enforcement therefore remains the only open portion of RB-01.
 - Jira lists ORION-9 through ORION-12 as Production, the workflow's Done-category status. These are backend task statuses, not evidence that the product is deployed, authenticated or security-accepted. This follow-up does not change any Jira status.
 - ORION-8 and ORION-16 remain To Do. ORION-5 is QA; ORION-14 and ORION-15 remain To Do. No other team's issue is modified here.
 - New `origin/feature/ai-worker` head `6c97c9e` contains a standalone RSS/API collector and its README. Its own limitations explicitly exclude LangGraph, configurable LLM execution, the topic-input/shared request-result interface, API/PostgreSQL integration and automated tests. `origin/ai-worker` remains placeholders. These branches were inspected with Git reads; neither was merged or rewritten.
@@ -50,16 +50,21 @@ For the complete implemented behavior, see the [API and Backend Guide](api-and-b
 
 ## CI handoff for RB-01
 
-Coordinate this under ORION-16 rather than creating a competing workflow in the backend foundation PR:
+A baseline workflow has been added to this branch and has a successful GitHub Actions run. Keep ownership and any further hardening coordinated under ORION-16 rather than adding a competing workflow.
 
-1. Use the repository's agreed GitHub Actions workflow/ownership conventions, .NET 10 SDK and the API solution under `services/api/`.
-2. Provision isolated PostgreSQL services, preferably a 16/18 matrix, with readiness checks and a job-local test role allowed to create/drop fixture databases.
-3. Run restore, tool restore, build, complete tests, formatting and EF pending-model checks. Keep Railway credentials and live migration/deployment commands out of the validation job.
-4. Preserve TRX and diagnostic artifacts without secrets. Do not suppress failed or skipped required cases to obtain a passing check.
-5. Verify the actual run for the candidate revision. Then configure the exact check contexts as required branch-protection checks, without changing review requirements or bypassing protection.
-6. Record the workflow/check URLs, revision, database versions actually tested, pass/fail/skip counts and a demonstration of failure enforcement.
+- Workflow: [`Backend CI`](https://github.com/BolyarCoders/OrionSearch/blob/feature/ORION-9-backend-foundation/.github/workflows/backend-ci.yml)
+- Successful run: [39404488832](https://github.com/BolyarCoders/OrionSearch/actions/runs/39404488832)
+- Validated revision: `9b614548589803ffbb83b54eedd870f23dd9de93`
+- Successful steps: .NET dependency restore, local tool restore, Release build, automated and PostgreSQL integration tests, and TRX artifact upload.
+- The workflow uses .NET 10 as selected by `services/api/global.json` and the PostgreSQL integration fixture's default PostgreSQL 16 container. This run does not establish a PostgreSQL 18 CI matrix.
 
-Until this evidence exists, RB-01 stays open even if local commands pass or a workflow file has been drafted elsewhere.
+Remaining CI follow-up:
+1. Read back the `main` branch protection rule and confirm the exact required context is `Backend build and tests`.
+2. Demonstrate with a controlled failing check (or equivalent repository-approved verification) that the rule blocks merging; do not weaken protection or merge a deliberately failing PR to test it.
+3. Consider adding the PostgreSQL 16/18 matrix, `dotnet format OrionSearch.sln --verify-no-changes`, and `dotnet ef migrations has-pending-model-changes --project src/OrionSearch.Infrastructure` as ORION-16 hardening. These checks are not part of the current workflow and should not be described as passing CI.
+4. Preserve TRX artifacts and keep deployment credentials, live migration commands and Railway access out of the validation job.
+
+RB-01 remains open until required-check enforcement is confirmed. The passing workflow run is evidence that this candidate builds and its configured automated/PostgreSQL tests pass; it is not proof that branch protection blocks merging.
 
 ## Separate integration/security acceptance pass
 
