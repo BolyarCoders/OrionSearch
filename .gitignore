@@ -2,6 +2,7 @@
 node_modules/
 .venv/
 __pycache__/
+/venv/
 
 # Build output
 dist/
@@ -17,3 +18,6 @@ build/
 .DS_Store
 .idea/
 .vscode/
+
+# Generated research reports
+services/research-worker/agent/output/
