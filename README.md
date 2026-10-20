@@ -47,9 +47,32 @@ The implementation may evolve as the team builds the MVP. AI and search provider
 
 ## Development status
 
-The repository setup is in place, but the application and local service stack are still being developed. **There is no supported local run procedure yet.** Docker configuration and an example environment file are planned under ORION-14. Follow the setup instructions added with that implementation rather than relying on provisional commands.
+The full application and local service stack are still being developed. **There is no supported local run procedure for the complete application yet.** Docker configuration and an example environment file are planned under ORION-14. The standalone research collector prototype described below can be run independently.
 
 Never commit secrets, API keys, local `.env` files, or user data.
+
+## Standalone research collector prototype
+
+The current Python collector is an early, standalone prototype, not the complete AI agent service. It retrieves public items from Google News RSS, arXiv RSS, the Hacker News Algolia API, and the Hugging Face blog feed. It filters by the configured date window, removes duplicate titles, assigns keyword-based trend tags, and writes timestamped JSON and Markdown reports.
+
+### Run the collector
+
+From the repository root, use Python 3 and install the dependencies:
+
+```bash
+python -m venv .venv
+# Activate the virtual environment for your shell, then:
+python -m pip install -r services/research-worker/agent/requirements.txt
+python services/research-worker/agent/collector.py
+```
+
+The collector reads its static topic, queries, date window, source toggles, and trend keywords from `services/research-worker/agent/config.json`. Edit that file to change the prototype's configuration. The collector needs network access to retrieve source feeds and API results.
+
+Generated reports are written to `services/research-worker/agent/output/`. They are local run artifacts and are ignored by Git; do not commit generated reports.
+
+### Prototype limitations
+
+This prototype does **not** yet implement the LangGraph agent workflow, configurable LLM invocation, a topic-as-input interface, the shared structured research request/result contract, or API/PostgreSQL integration. Automated tests are still to be added before this prototype PR is ready to merge. These capabilities remain follow-up work; this prototype should not be treated as completion of ORION-5.
 
 ## Contributing
 
