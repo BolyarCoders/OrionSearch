@@ -97,37 +97,40 @@ def search_hugging_face():
 
 
 def process_articles(articles):
-    cutoff = datetime.now(timezone.utc) - timedelta(days=CONFIG["days_back"])
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(days=CONFIG["days_back"])
     unique = {}
 
     for article in articles:
-        if not article["title"] or not article["url"] or not article["published_at"]:
+        title = article.get("title")
+        url = article.get("url")
+        published_at = article.get("published_at")
+        if not title or not url or not published_at:
             continue
 
         try:
-            date = datetime.fromisoformat(
-                article["published_at"].replace("Z", "+00:00")
-            )
+            date = datetime.fromisoformat(published_at.replace("Z", "+00:00"))
             if date.tzinfo is None:
                 date = date.replace(tzinfo=timezone.utc)
-        except ValueError:
+        except (AttributeError, TypeError, ValueError):
             continue
 
-        if date < cutoff or date > datetime.now(timezone.utc) + timedelta(days=1):
+        if date < cutoff or date > now + timedelta(days=1):
             continue
 
-        key = re.sub(r"\W+", "", article["title"].lower())
+        key = re.sub(r"\W+", "", title.lower())
         if key in unique:
             continue
 
-        text = f'{article["title"]} {article["summary"]}'.lower()
-        article["trends"] = [
+        normalized = dict(article)
+        text = f'{title} {article.get("summary", "")}'.lower()
+        normalized["trends"] = [
             name
             for name, keywords in CONFIG["trend_categories"].items()
             if any(keyword.lower() in text for keyword in keywords)
         ]
-        article["published_at"] = date.isoformat()
-        unique[key] = article
+        normalized["published_at"] = date.isoformat()
+        unique[key] = normalized
 
     return sorted(
         unique.values(), key=lambda article: article["published_at"], reverse=True
