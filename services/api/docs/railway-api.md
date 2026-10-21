@@ -1,6 +1,6 @@
 # Hosting the API on Railway
 
-This deployment makes the existing ASP.NET Core API reachable over HTTPS in the
+This deployment configuration is for hosting the ASP.NET Core API over HTTPS in the
 `development` environment of `lucid-motivation`. The process runs with ASP.NET
 Core's `Production` environment, so development-only OpenAPI stays disabled.
 
@@ -8,6 +8,29 @@ Public availability does not configure authentication or the Python research
 producer. Protected archive and research endpoints continue to return 401. The
 research worker remains disabled. See [release readiness](release-readiness.md)
 for the remaining product integration requirements.
+
+## Deployment attempt: 2026-10-21
+
+**Not live yet.** Railway rejected creation of `orionsearch-api` in development
+with `Deploys have been paused temporarily`. Its [status page](https://status.railway.com/)
+reported an active incident, "Dashboard and API unavailable, builds paused",
+affecting new builds and deployments in all regions. The failed request created
+no service, pending patch, deployment or public API domain. The existing
+development Postgres remained Online with one running replica.
+
+The Release build and publish succeeded with zero build warnings/errors, and
+format verification passed. The complete existing Release test suite passed
+against isolated local PostgreSQL 18.6: **348 passed, zero failed or skipped**,
+in 6m16s. TRX results were kept outside the repository. A separate local process launched from the published
+output with Production settings returned 200 for liveness/readiness, 401 for
+archives and 404 for OpenAPI. These are local results, not Railway smoke checks.
+The local Docker daemon was unavailable, so a container build remains unverified.
+
+Once Railway restores deployments, create the development-only API service,
+apply the settings below, connect `codex/backend-live` pinned to the reviewed
+deployment commit, deploy, generate its public domain targeting port 8080 and
+execute all four public smoke checks. No change to `main`, production services,
+billing or the database schema is required by this configuration.
 
 ## Build and runtime
 
@@ -24,6 +47,12 @@ the image's unprivileged application user and listens on port 8080. Tests,
 documentation, local environment files and build output stay out of the build
 context. Supply secrets through Railway variables; never bake them into the
 image.
+
+The container pins the published SDK image `10.0.402`; registry inspection
+confirmed its Linux amd64 manifest. It does not copy the local `global.json`,
+which pins the developer SDK to the 10.0.2xx feature band. The local `10.0.204`
+SDK image tag does not exist in Microsoft's registry. Local SDK selection and
+the .NET 10 target framework are unchanged.
 
 Railway service settings:
 

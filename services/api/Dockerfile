@@ -1,7 +1,6 @@
-FROM mcr.microsoft.com/dotnet/sdk:10.0.204 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0.402 AS build
 WORKDIR /src
 
-COPY global.json ./
 COPY src/OrionSearch.Api/OrionSearch.Api.csproj src/OrionSearch.Api/
 COPY src/OrionSearch.Application/OrionSearch.Application.csproj src/OrionSearch.Application/
 COPY src/OrionSearch.Domain/OrionSearch.Domain.csproj src/OrionSearch.Domain/
