@@ -1,0 +1,12 @@
+**/bin
+**/obj
+**/TestResults
+**/.env
+**/.env.*
+**/appsettings.Local.json
+**/*.user
+**/*.suo
+tests
+docs
+scripts
+README.md
