@@ -48,7 +48,8 @@ def article(title="AI agent release", published_at=None, **overrides):
         "url": "https://example.com/article",
         "source": "Example",
         "published_at": published_at
-        if published_at is not None\n        else (datetime.now(timezone.utc) - timedelta(days=1)).isoformat(),
+        if published_at is not None
+        else (datetime.now(timezone.utc) - timedelta(days=1)).isoformat(),
         "summary": "A new tool",
     }
     item.update(overrides)
