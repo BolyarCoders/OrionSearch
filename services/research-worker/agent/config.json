@@ -1,0 +1,21 @@
+{
+  "topic": "Artificial Intelligence",
+  "queries": ["artificial intelligence", "large language models", "AI agents"],
+  "days_back": 7,
+  "max_per_source": 35,
+  "top_results": 40,
+  "sources": {
+    "google_news": true,
+    "arxiv": true,
+    "hacker_news": true,
+    "hugging_face": true
+  },
+  "trend_categories": {
+    "AI agents": ["agentic", "ai agents", "agent framework", "multi-agent", "tool use"],
+    "Language models": ["llm", "large language model", "reasoning model", "transformer"],
+    "Multimodal AI": ["multimodal", "vision language", "video generation", "image generation"],
+    "AI hardware": ["gpu", "inference chip", "accelerator", "compute infrastructure"],
+    "Robotics": ["robotics", "humanoid", "embodied ai"],
+    "Open source AI": ["open source model", "open-weight", "open weights", "hugging face"]
+  }
+}

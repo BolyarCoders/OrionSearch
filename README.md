@@ -51,6 +51,38 @@ The ASP.NET Core API includes archive management, metadata topic/date filtering,
 
 Never commit secrets, API keys, local `.env` files, or user data.
 
+## Research worker prototype
+
+The current branch includes a prototype research worker with four public-source adapters (Google News RSS, arXiv RSS, the Hacker News Algolia API, and the Hugging Face blog feed), article filtering/deduplication, Gemini-assisted research planning and analysis, Markdown/JSON report output, and a FastAPI interface for synchronous research and background-job status.
+
+This is not yet the complete planned architecture: the worker does not use LangGraph and is not integrated with PostgreSQL or a finalized shared backend job contract. The collector processes feed metadata and summaries rather than verifying full article text.
+
+### Install and run tests
+
+From the repository root:
+
+```bash
+python -m venv .venv
+# Activate the virtual environment for your shell, then:
+python -m pip install -r services/research-worker/requirements-dev.txt
+cd services/research-worker
+python -m pytest tests agent/tests -q
+```
+
+The tests mock external services and should not require live source APIs or a Gemini key. Generated test output should use temporary directories rather than the repository's output folder.
+
+### Run the worker API locally
+
+From `services/research-worker`, set `ORION_WORKER_API_KEY` and `GEMINI_API_KEY` in your environment (or a local ignored `.env` file), then run:
+
+```bash
+python -m uvicorn api.main:app --host 127.0.0.1 --port 8000
+```
+
+The API exposes `GET /health`, `POST /research`, `POST /research/jobs`, and `GET /research/jobs/{job_id}`. Research endpoints require the `X-API-Key` header. Background-job state is currently in memory and is lost when the process restarts.
+
+Generated JSON and Markdown reports are written under `services/research-worker/agent/output/`. These are local run artifacts and must not be committed. The output directory is ignored by Git.
+
 ## Contributing
 
 - Create a feature branch for each Jira issue.
