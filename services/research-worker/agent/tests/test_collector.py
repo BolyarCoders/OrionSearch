@@ -238,7 +238,7 @@ def test_main_isolates_source_failure_and_saves_remaining_results(monkeypatch, c
         "google_news": True,
         "arxiv": True,
         "hacker_news": False,
-        "hugging_face": False,
+        "hugging_face": True,
     }
     monkeypatch.setattr(
         collector, "search_google_news", lambda: [article("Working article", trends=[])]
@@ -248,6 +248,9 @@ def test_main_isolates_source_failure_and_saves_remaining_results(monkeypatch, c
         raise requests.RequestException("source unavailable")
 
     monkeypatch.setattr(collector, "search_arxiv", failed_source)
+    monkeypatch.setattr(
+        collector, "search_hugging_face", lambda: [article("Later source article", trends=[])]
+    )
     saved = {}
     monkeypatch.setattr(collector, "process_articles", lambda items: items)
     monkeypatch.setattr(
@@ -258,7 +261,10 @@ def test_main_isolates_source_failure_and_saves_remaining_results(monkeypatch, c
 
     collector.main()
 
-    assert len(saved["articles"]) == 1
+    assert [item["title"] for item in saved["articles"]] == [
+        "Working article",
+        "Later source article",
+    ]
     assert saved["errors"] == {"arxiv": "source unavailable"}
 
 
