@@ -260,3 +260,107 @@ def test_main_isolates_source_failure_and_saves_remaining_results(monkeypatch, c
 
     assert len(saved["articles"]) == 1
     assert saved["errors"] == {"arxiv": "source unavailable"}
+
+
+@pytest.mark.parametrize("missing_field", ["title", "url", "published_at"])
+def test_process_articles_skips_missing_required_keys(config, missing_field):
+    item = article()
+    del item[missing_field]
+    assert collector.process_articles([item]) == []
+
+
+def test_process_articles_normalizes_z_adds_all_matching_trends_and_does_not_mutate(config):
+    timestamp = (datetime.now(timezone.utc) - timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    original = article(
+        "New ROBOT agent",
+        published_at=timestamp,
+        summary="A TOOL USE breakthrough",
+    )
+    before = copy.deepcopy(original)
+
+    result = collector.process_articles([original])
+
+    assert result[0]["published_at"].endswith("+00:00")
+    assert result[0]["trends"] == ["AI agents", "Robotics"]
+    assert original == before
+
+
+def test_process_articles_returns_empty_trends_when_no_keyword_matches(config):
+    result = collector.process_articles([article("Unrelated weather report", summary="Sunny skies")])
+    assert len(result) == 1
+    assert result[0]["trends"] == []
+
+
+def test_get_rss_handles_missing_dates_and_strips_and_truncates_html(monkeypatch, config):
+    entries = [
+        {
+            "title": "<b>Undated</b>",
+            "link": "https://example.com/undated",
+            "summary": "<p>" + ("x" * 750) + "</p>",
+        },
+        {
+            "title": "Updated entry",
+            "link": "https://example.com/updated",
+            "updated_parsed": (2026, 10, 20, 12, 30, 0, 0, 0, 0),
+        },
+    ]
+    calls = []
+    response = SimpleNamespace(
+        content=b"<feed/>",
+        raise_for_status=lambda: calls.append("raised"),
+    )
+    monkeypatch.setattr(collector.requests, "get", lambda *args, **kwargs: response)
+    monkeypatch.setattr(collector.feedparser, "parse", lambda content: SimpleNamespace(entries=entries))
+
+    result = collector.get_rss("https://example.com/feed", "Example")
+
+    assert calls == ["raised"]
+    assert result[0]["title"] == "Undated"
+    assert result[0]["published_at"] is None
+    assert len(result[0]["summary"]) == 700
+    assert result[1]["published_at"] == "2026-10-20T12:30:00+00:00"
+
+
+def test_hacker_news_handles_missing_hits(monkeypatch, config):
+    class EmptyResponse:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {}
+
+    monkeypatch.setattr(collector.requests, "get", lambda *args, **kwargs: EmptyResponse())
+    assert collector.search_hacker_news() == []
+
+
+def test_main_skips_disabled_sources_and_saves_empty_results(monkeypatch, config):
+    config["sources"] = {
+        "google_news": False,
+        "arxiv": False,
+        "hacker_news": False,
+        "hugging_face": False,
+    }
+    saved = {}
+    monkeypatch.setattr(collector, "process_articles", lambda items: items)
+    monkeypatch.setattr(
+        collector,
+        "save_results",
+        lambda items, errors: saved.update(articles=items, errors=errors),
+    )
+
+    collector.main()
+
+    assert saved == {"articles": [], "errors": {}}
+
+
+def test_save_results_handles_empty_articles_and_errors(tmp_path, monkeypatch, config):
+    monkeypatch.setattr(collector, "OUTPUT_DIR", tmp_path / "empty-output")
+    collector.save_results([], {})
+
+    payload = json.loads(next((tmp_path / "empty-output").glob("*.json")).read_text(encoding="utf-8"))
+    report = next((tmp_path / "empty-output").glob("*.md")).read_text(encoding="utf-8")
+    assert payload["total_results"] == 0
+    assert payload["articles"] == []
+    assert payload["trends"] == {}
+    assert payload["errors"] == {}
+    assert "Found 0 articles." in report
