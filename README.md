@@ -64,9 +64,9 @@ From the repository root:
 ```bash
 python -m venv .venv
 # Activate the virtual environment for your shell, then:
-python -m pip install -r services/research-worker/requirements.txt
+python -m pip install -r services/research-worker/requirements-dev.txt
 cd services/research-worker
-python -m pytest tests agent/tests
+python -m pytest tests agent/tests -q
 ```
 
 The tests mock external services and should not require live source APIs or a Gemini key. Generated test output should use temporary directories rather than the repository's output folder.
