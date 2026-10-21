@@ -48,7 +48,7 @@ def article(title="AI agent release", published_at=None, **overrides):
         "url": "https://example.com/article",
         "source": "Example",
         "published_at": published_at
-        or (datetime.now(timezone.utc) - timedelta(days=1)).isoformat(),
+        if published_at is not None\n        else (datetime.now(timezone.utc) - timedelta(days=1)).isoformat(),
         "summary": "A new tool",
     }
     item.update(overrides)
@@ -57,11 +57,11 @@ def article(title="AI agent release", published_at=None, **overrides):
 
 def test_process_articles_filters_normalizes_deduplicates_and_sorts(config):
     older = article("Older robot", published_at=(datetime.now(timezone.utc) - timedelta(days=3)).isoformat())
-    newer = article("AI: models!", published_at=(datetime.now(timezone.utc) - timedelta(hours=1)).isoformat())
-    duplicate = article("AI models", published_at=datetime.now(timezone.utc).isoformat())
+    newer = article("AI: agent models!", published_at=(datetime.now(timezone.utc) - timedelta(hours=1)).isoformat())
+    duplicate = article("AI agent models", published_at=datetime.now(timezone.utc).isoformat())
     result = collector.process_articles([older, newer, duplicate])
 
-    assert [item["title"] for item in result] == ["AI: models!", "Older robot"]
+    assert [item["title"] for item in result] == ["AI: agent models!", "Older robot"]
     assert result[0]["published_at"].endswith("+00:00")
     assert result[0]["trends"] == ["AI agents"]
     # The first occurrence of a normalized title wins.
