@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:orion:research:provisional:v1:request",
+  "title": "Provisional backend-issued research request",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "contractVersion": {
+      "const": "orion.research.provisional.v1"
+    },
+    "researchRunId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "archiveId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "description": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 10000
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "objective": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "settings": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "dateFrom": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "dateTo": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "languages": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2
+          },
+          "maxItems": 100
+        },
+        "preferredDomains": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 253
+          },
+          "maxItems": 100
+        },
+        "excludedDomains": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 253
+          },
+          "maxItems": 100
+        },
+        "config": {
+          "type": "object"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "Z$"
+        }
+      },
+      "required": [
+        "dateFrom",
+        "dateTo",
+        "languages",
+        "preferredDomains",
+        "excludedDomains",
+        "config",
+        "updatedAt"
+      ]
+    }
+  },
+  "required": [
+    "contractVersion",
+    "researchRunId",
+    "archiveId",
+    "title",
+    "description",
+    "objective",
+    "settings"
+  ]
+}

@@ -37,17 +37,17 @@ These are product goals; not all capabilities are implemented yet.
 | Component | Planned technology | Responsibility |
 |---|---|---|
 | Web client | Next.js, React, TypeScript | Archive management, search, and magazine reading |
-| API | Python, FastAPI, Pydantic | HTTP API and application orchestration |
+| API | C#, ASP.NET Core (.NET 10) | HTTP API and application orchestration |
 | Research workflow | LangGraph and a configurable LLM | Research planning, source analysis, and synthesis |
-| Data store | PostgreSQL, Alembic | Archives, sources, findings, and research history |
-| Background processing | Worker and scheduler (to be decided) | Long-running and recurring research jobs |
+| Data store | PostgreSQL, Entity Framework Core, Npgsql | Archives, sources, findings, and research history |
+| Background processing | .NET worker with a PostgreSQL queue; recurring scheduler to be decided | Leased research execution and future recurring jobs |
 | Infrastructure | Docker, Docker Compose, GitHub Actions | Local environment, CI/CD, and deployment |
 
 The implementation may evolve as the team builds the MVP. AI and search providers should remain configurable, and generated claims should retain links to their supporting sources.
 
 ## Development status
 
-The full application and local service stack are still being developed. **There is no supported local run procedure for the complete application yet.** Docker configuration and an example environment file are planned under ORION-14. The standalone research collector prototype described below can be run independently.
+The ASP.NET Core API includes archive management, metadata topic/date filtering, EF Core migrations and queued research execution; see [the backend README](services/api/README.md) for setup, testing and integration prerequisites. A development PostgreSQL service is provisioned on Railway. Authentication-provider integration and the AI team's agreed research contract remain pending; normal API startup rejects protected requests and leaves research processing disabled. The rest of the application and local service stack are still being developed. Docker configuration and an example environment file are planned under ORION-14.
 
 Never commit secrets, API keys, local `.env` files, or user data.
 
