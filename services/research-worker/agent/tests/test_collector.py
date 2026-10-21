@@ -107,7 +107,6 @@ def test_get_rss_maps_feed_entries_and_respects_limit(monkeypatch, config):
         {"title": "Ignored third", "link": "https://example.com/3"},
     ]
     response = SimpleNamespace(content=b"<feed/>", raise_for_status=lambda: None)
-    get = SimpleNamespace()
     calls = []
 
     def fake_get(url, **kwargs):
