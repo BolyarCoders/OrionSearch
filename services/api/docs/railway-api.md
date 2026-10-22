@@ -1,13 +1,42 @@
 # Hosting the API on Railway
 
 This deployment configuration is for hosting the ASP.NET Core API over HTTPS in the
-`development` environment of `lucid-motivation`. The process runs with ASP.NET
+`development` environment of `orion-search` (previously `lucid-motivation`, project
+`255809c6-10b6-4206-bd8e-3999e9ef1681`). The process runs with ASP.NET
 Core's `Production` environment, so development-only OpenAPI stays disabled.
 
 Public availability does not configure authentication or the Python research
 producer. Protected archive and research endpoints continue to return 401. The
 research worker remains disabled. See [release readiness](release-readiness.md)
 for the remaining product integration requirements.
+
+## Deployment retry: 2026-10-22
+
+**Still not live.** Browser sign-in succeeded and the development environment
+showed Postgres Online. Choosing New Service returned `Access Denied` with
+`Deploys have been paused due to an upstream issue`. No API service or public
+domain was created. The workspace displays Trial; Railway's status update at
+07:11 UTC reported builds restored for Pro/Enterprise while Hobby/Free/Trial
+restoration was still in progress. The connector separately requires renewed
+authorization after Railway invalidated tokens/sessions during its incident.
+
+The actual Linux container is now verified locally at implementation revision
+`59deca95fd9efe14adc8cb215888e6f868bedd49`:
+
+- `docker build --tag orionsearch-api:59deca9 .` succeeded from `services/api`.
+- The image ran as unprivileged UID 1654, listening on container port 8080.
+- An isolated PostgreSQL 18.6 container was reachable over a private Docker
+  network. It had no published database port and used temporary test credentials.
+- Host-loopback HTTP checks against the API container returned `/health` 200,
+  `/health/ready` 200, `/archives` 401 and `/openapi/v1.json` 404.
+- The existing GitHub Backend build and tests check passed for `59deca9` in
+  [run 39649130223](https://github.com/BolyarCoders/OrionSearch/actions/runs/39649130223).
+  The 348-test local result below remains the previous day's execution; the
+  application suite was not rerun for this documentation-only retry.
+
+These checks close the local container-packaging uncertainty, not hosted
+deployment, schema-history inspection, authentication or agent acceptance. No
+production, schema, billing or CI/CD changes were made by this retry.
 
 ## Deployment attempt: 2026-10-21
 
