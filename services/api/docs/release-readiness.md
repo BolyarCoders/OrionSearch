@@ -2,6 +2,12 @@
 
 **Status: backend foundation for team integration; not a deployable product release.**
 
+The 2026-10-21 request narrows the hosting goal to making the API reachable on
+Railway, while retaining the existing authentication boundary and disabled
+research worker. See [Hosting the API on Railway](railway-api.md) for that manual
+deployment's configuration, actual verification and current platform blocker.
+Hosting the API alone does not close the product release gates below.
+
 This register follows [Velislav's review of PR #6](https://github.com/BolyarCoders/OrionSearch/pull/6#pullrequestreview-5582969412), submitted on 2026-10-20 against `f08a64029b950e5ba67e5505bcae5ca811a254e7`. The review found no specific blocking code defect but did not approve end-to-end product readiness. GitHub records it as COMMENTED, not APPROVED.
 
 The author confirmed the foundation scope on 2026-10-20: preserve explicit follow-up blockers and do not deploy this PR as a functioning authenticated research service. Merging a foundation, if the team later approves it, does not close these release gates. No merge, deployment, worker enablement, CI configuration or other team's implementation is performed by this documentation follow-up.
