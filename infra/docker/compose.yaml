@@ -40,8 +40,8 @@ services:
       context: ../..
       dockerfile: services/research-worker/Dockerfile
     environment:
-      ORION_WORKER_API_KEY: ${ORION_WORKER_API_KEY:?Set ORION_WORKER_API_KEY in .env to start the worker}
-      GEMINI_API_KEY: ${GEMINI_API_KEY:?Set GEMINI_API_KEY in .env to start the worker}
+      ORION_WORKER_API_KEY: ${ORION_WORKER_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
     ports:
       - "${WORKER_PORT:-8000}:8000"
     restart: unless-stopped
