@@ -1,0 +1,15 @@
+.git
+.github
+**/bin
+**/obj
+**/TestResults
+**/.venv
+**/venv
+**/__pycache__
+**/.pytest_cache
+**/node_modules
+**/.next
+**/agent/output
+.env
+.env.*
+!.env.example
