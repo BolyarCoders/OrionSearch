@@ -13,9 +13,9 @@ Run commands from the repository root.
 ## Start API and PostgreSQL
 
     cp .env.example .env
-    docker compose -f infra/docker/compose.yaml config
-    docker compose -f infra/docker/compose.yaml up --build -d postgres api
-    docker compose -f infra/docker/compose.yaml ps
+    docker compose --env-file .env -f infra/docker/compose.yaml config
+    docker compose --env-file .env -f infra/docker/compose.yaml up --build -d postgres api
+    docker compose --env-file .env -f infra/docker/compose.yaml ps
 
 The API listens on http://localhost:5190 by default. Check liveness and database readiness:
 
@@ -26,16 +26,16 @@ A healthy database does not mean migrations have been applied. The API intention
 
 Useful diagnostics:
 
-    docker compose -f infra/docker/compose.yaml logs -f api postgres
-    docker compose -f infra/docker/compose.yaml down
+    docker compose --env-file .env -f infra/docker/compose.yaml logs -f api postgres
+    docker compose --env-file .env -f infra/docker/compose.yaml down
 
 The named postgres_data volume persists data when containers are recreated. The command 'docker compose down -v' deletes that local database volume; use it only when intentionally discarding local data.
 
 ## Optional research worker
 
-The worker requires ORION_WORKER_API_KEY and GEMINI_API_KEY in the root .env. Start it explicitly:
+Before starting the worker, set non-empty ORION_WORKER_API_KEY and GEMINI_API_KEY values in the root .env. Start it explicitly:
 
-    docker compose -f infra/docker/compose.yaml --profile worker up --build -d
+    docker compose --env-file .env -f infra/docker/compose.yaml --profile worker up --build -d
     curl -i http://localhost:8000/health
 
 The worker health endpoint does not verify Gemini credentials or a complete research request. The worker prototype currently uses in-memory job state and is not integrated with the API's PostgreSQL-backed research jobs. Do not treat this as end-to-end integration or enable it in production.
