@@ -53,7 +53,7 @@ evidence for this release. No new migration or CI/CD workflow was introduced.
 | Database | `orionsearch-postgres`, PostgreSQL 18, Free compute plan |
 | Logical database / user | `orionsearch` / `orionsearch` |
 | Region | Frankfurt for both resources, allowing private database connections |
-| Source | `codex/render-deployment`; automatic service deploys disabled |
+| Release source | `main`; automatic service deploys disabled |
 | Docker context / file | Repository root / `services/api/Dockerfile` |
 | Runtime | ASP.NET Core Production, HTTP port 10000 |
 | Healthcheck | `/health/ready` |
@@ -104,9 +104,10 @@ References: [free services](https://render.com/docs/free),
 ## Provision and release
 
 1. Validate `render.yaml` using `render blueprints validate render.yaml` and the
-   current Render schema. Push the configuration to its feature branch.
+   current Render schema. Review the configuration on a feature branch and
+   merge it into `main` before selecting `main` as the Blueprint source.
 2. In the confirmed workspace, create a Blueprint from the public repository
-   URL and explicitly select `codex/render-deployment` with path `render.yaml`.
+   URL and explicitly select `main` with path `render.yaml`.
    Review the two Free plans and private database rule before applying.
 3. Confirm both resources are in Frankfurt and the API's `DATABASE_URL` comes
    from the new database's internal connection string. Keep automatic deploys
@@ -116,6 +117,12 @@ References: [free services](https://render.com/docs/free),
 5. Wait for the API's specific deployment to become live. Verify the public
    HTTPS behavior below before reporting availability. Record the URL, resource
    IDs, deploy ID, commit, database expiry and actual results.
+
+The initial deployment above used `codex/render-deployment` before PR review.
+The reviewed configuration targets `main` for subsequent releases. After the PR
+is merged, retarget the existing Blueprint to `main` and manually sync it; both
+automatic Blueprint sync and automatic service deploys remain disabled. Changing
+the file alone does not retarget or redeploy the existing live service.
 
 ## Explicit database initialization
 

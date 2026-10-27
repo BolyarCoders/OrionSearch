@@ -3,7 +3,7 @@ services:
     name: orionsearch-api
     runtime: docker
     repo: https://github.com/BolyarCoders/OrionSearch
-    branch: codex/render-deployment
+    branch: main
     region: frankfurt
     plan: free
     dockerfilePath: ./services/api/Dockerfile
