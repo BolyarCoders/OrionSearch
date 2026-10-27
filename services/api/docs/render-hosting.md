@@ -6,6 +6,45 @@ database for `BolyarCoders/OrionSearch`. The deployment destination is Render's
 the repository owner on 2026-10-27. The workspace name differs from the GitHub
 organization; check both identities before provisioning or changing resources.
 
+## Verified deployment: 2026-10-27
+
+**Live API:** https://orionsearch-api.onrender.com
+
+| Item | Verified value |
+| --- | --- |
+| Blueprint | `exs-dbg4bekipgvc73efnnd0` |
+| API service | `srv-dbg4cluc6qcc73ea9qs0` |
+| Live deploy | `dep-dbg4cmec6qcc73ea9seg` |
+| Deployed commit | `a6716f7b14ed19a9b03425a5d56c627e32505267` |
+| Database | `dpg-dbg4c5uc6qcc73ea8590-a` |
+| Both compute plans / region | Free / Frankfurt |
+| Database expiry | **2026-11-26 at 06:35 UTC** |
+| Service auto-deploy / Blueprint auto-sync | Off / No (Sync paused) |
+| External database IP rules after setup | Empty; private access only |
+
+Render completed the actual Docker build and marked the deployment `live`.
+Public HTTPS checks passed both before and after schema initialization:
+`/health` 200, `/health/ready` 200, `/archives` 401 and `/openapi/v1.json` 404.
+The current Blueprint passed Render JSON Schema validation and
+`render blueprints validate render.yaml --output json` (`valid: true`).
+
+The operator verified the destination was empty, then explicitly applied all
+eight EF migrations. Hosted inspection confirmed PostgreSQL 18.6, seven logical
+schemas, fifteen product tables, `citext` 1.8, all migration-history entries and
+constraints including the composite chunk/version evidence foreign key. A
+second EF update applied nothing and reported the database already up to date.
+External setup access allowed only the operator's IP temporarily and was removed
+after inspection. External connections used hostname/certificate verification;
+libpq's missing default CA file was resolved using the machine's trusted root
+certificates without disabling TLS verification.
+
+This is a fresh schema with no seeded users or application records. Railway
+records were not copied and Railway resources were not changed. The previous
+348-test local run belongs to 2026-10-21; it was not rerun for this hosting change.
+A local container rebuild encountered a registry TLS handshake timeout; the
+successful Render Docker build and deployed HTTP checks are the packaging
+evidence for this release. No new migration or CI/CD workflow was introduced.
+
 ## Resources and boundaries
 
 | Resource | Configuration |
