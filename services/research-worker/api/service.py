@@ -6,7 +6,6 @@ from pathlib import Path
 from time import perf_counter
 
 from dotenv import load_dotenv
-
 from api.models import ResearchRequest, ResearchResult
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -37,7 +36,7 @@ def run_research(request: ResearchRequest) -> ResearchResult:
 
         logger.info("Selected sources: %s", ", ".join(sources))
 
-        articles, errors = ai_agent.collect_articles(
+        articles, errors, total_articles = ai_agent.collect_articles(
             request.topic,
             request.days,
             queries,
@@ -45,7 +44,9 @@ def run_research(request: ResearchRequest) -> ResearchResult:
             max_articles=request.max_articles,
         )
 
-        logger.info("Collected %d articles", len(articles))
+        logger.info(
+            "Found %d unique articles, returning %d", total_articles, len(articles)
+        )
 
         report = ai_agent.analyze_articles(
             client, request.topic, request.days, articles
@@ -58,11 +59,12 @@ def run_research(request: ResearchRequest) -> ResearchResult:
             days=request.days,
             queries=queries,
             sources=sources,
-            total_articles=len(articles),
+            total_articles=total_articles,
             articles=articles,
             report=report,
             errors=errors,
             generated_at=datetime.now(timezone.utc),
         )
+
     finally:
         client.close()
