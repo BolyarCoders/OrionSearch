@@ -1,24 +1,37 @@
-import json
+import html
+import logging
+import os
 import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
+from time import perf_counter
 from urllib.parse import urlencode
 
 import feedparser
 import requests
 
-BASE_DIR = Path(__file__).resolve().parent
-CONFIG = json.loads((BASE_DIR / "config.json").read_text(encoding="utf-8"))
-OUTPUT_DIR = BASE_DIR / "output"
+logger = logging.getLogger("orionsearch.collector")
+
+SOURCES = ("google_news", "hacker_news", "arxiv", "hugging_face")
+TIMEOUT = (3, 8)
+MAX_WORKERS = 4
+FEED_LIMIT = max(1, int(os.getenv("RESEARCH_FEED_LIMIT", "12")))
 
 
-def get_rss(url, source):
-    response = requests.get(url, timeout=20, headers={"User-Agent": "OrionSearch/0.1"})
+def clean_text(value):
+    return html.unescape(re.sub(r"<[^>]+>", "", value or "")).strip()
+
+
+def get_rss(url, source, limit=FEED_LIMIT):
+    response = requests.get(
+        url, timeout=TIMEOUT, headers={"User-Agent": "OrionSearch/1.0"}
+    )
     response.raise_for_status()
+
     feed = feedparser.parse(response.content)
     articles = []
 
-    for entry in feed.entries[: CONFIG["max_per_source"]]:
+    for entry in feed.entries[:limit]:
         date = entry.get("published_parsed") or entry.get("updated_parsed")
         published_at = (
             datetime(*date[:6], tzinfo=timezone.utc).isoformat() if date else None
@@ -26,82 +39,86 @@ def get_rss(url, source):
 
         articles.append(
             {
-                "title": re.sub(r"<[^>]+>", "", entry.get("title", "")).strip(),
+                "title": clean_text(entry.get("title")),
                 "url": entry.get("link", ""),
                 "source": source,
                 "published_at": published_at,
-                "summary": re.sub(r"<[^>]+>", "", entry.get("summary", "")).strip()[
-                    :700
-                ],
+                "summary": clean_text(entry.get("summary"))[:500],
             }
         )
 
     return articles
 
 
-def search_google_news():
-    articles = []
-
-    for query in CONFIG["queries"]:
-        params = {
-            "q": f'{query} when:{CONFIG["days_back"]}d',
-            "hl": "en-US",
-            "gl": "US",
-            "ceid": "US:en",
-        }
-        url = "https://news.google.com/rss/search?" + urlencode(params)
-        articles.extend(get_rss(url, "Google News"))
-
-    return articles
+def search_google_news(query, days, limit=FEED_LIMIT):
+    params = {"q": f"{query} when:{days}d", "hl": "en-US", "gl": "US", "ceid": "US:en"}
+    url = "https://news.google.com/rss/search?" + urlencode(params)
+    return get_rss(url, "Google News", limit)
 
 
-def search_arxiv():
-    return get_rss("https://rss.arxiv.org/rss/cs.AI+cs.LG+cs.CL", "arXiv")
+def search_hacker_news(query, days, limit=FEED_LIMIT):
+    since = int((datetime.now(timezone.utc) - timedelta(days=days)).timestamp())
 
+    params = {
+        "query": query,
+        "tags": "story",
+        "hitsPerPage": limit,
+        "numericFilters": f"created_at_i>{since}",
+    }
 
-def search_hacker_news():
-    articles = []
-    since = int(
-        (datetime.now(timezone.utc) - timedelta(days=CONFIG["days_back"])).timestamp()
+    response = requests.get(
+        "https://hn.algolia.com/api/v1/search_by_date", params=params, timeout=TIMEOUT
     )
+    response.raise_for_status()
 
-    for query in CONFIG["queries"]:
-        params = {
-            "query": query,
-            "tags": "story",
-            "hitsPerPage": CONFIG["max_per_source"],
-            "numericFilters": f"created_at_i>{since}",
-        }
-        response = requests.get(
-            "https://hn.algolia.com/api/v1/search_by_date", params=params, timeout=20
+    articles = []
+
+    for item in response.json().get("hits", []):
+        article_id = item.get("objectID", "")
+        articles.append(
+            {
+                "title": item.get("title") or "",
+                "url": item.get("url")
+                or f"https://news.ycombinator.com/item?id={article_id}",
+                "source": "Hacker News",
+                "published_at": item.get("created_at"),
+                "summary": "",
+            }
         )
-        response.raise_for_status()
-
-        for item in response.json().get("hits", []):
-            articles.append(
-                {
-                    "title": item.get("title") or "",
-                    "url": item.get("url")
-                    or f'https://news.ycombinator.com/item?id={item["objectID"]}',
-                    "source": "Hacker News",
-                    "published_at": item.get("created_at"),
-                    "summary": "",
-                }
-            )
 
     return articles
 
 
-def search_hugging_face():
-    return get_rss("https://huggingface.co/blog/feed.xml", "Hugging Face")
+def search_arxiv(limit=FEED_LIMIT):
+    url = "https://rss.arxiv.org/rss/cs.AI+cs.LG+cs.CL"
+    return get_rss(url, "arXiv", limit)
 
 
+<<<<<<< Updated upstream
 def process_articles(articles):
     cutoff = datetime.now(timezone.utc) - timedelta(days=CONFIG["days_back"])
     unique = {}
 
     for article in articles:
         if not article["title"] or not article["url"] or not article["published_at"]:
+=======
+def search_hugging_face(limit=FEED_LIMIT):
+    url = "https://huggingface.co/blog/feed.xml"
+    return get_rss(url, "Hugging Face", limit)
+
+
+def process_articles(articles, days, max_articles):
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(days=days)
+    unique = {}
+
+    for article in articles:
+        title = article.get("title")
+        url = article.get("url")
+        published_at = article.get("published_at")
+
+        if not title or not url or not published_at:
+>>>>>>> Stashed changes
             continue
 
         try:
@@ -113,6 +130,7 @@ def process_articles(articles):
         except ValueError:
             continue
 
+<<<<<<< Updated upstream
         if date < cutoff or date > datetime.now(timezone.utc) + timedelta(days=1):
             continue
 
@@ -128,94 +146,78 @@ def process_articles(articles):
         ]
         article["published_at"] = date.isoformat()
         unique[key] = article
+=======
+        if not cutoff <= date <= now + timedelta(days=1):
+            continue
 
-    return sorted(
+        key = re.sub(r"\W+", "", title.lower())
+
+        if not key or key in unique:
+            continue
+
+        normalized = dict(article)
+        normalized["published_at"] = date.isoformat()
+        normalized["trends"] = []
+        unique[key] = normalized
+>>>>>>> Stashed changes
+
+    sorted_articles = sorted(
         unique.values(), key=lambda article: article["published_at"], reverse=True
     )
 
-
-def save_results(articles, errors):
-    OUTPUT_DIR.mkdir(exist_ok=True)
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-    json_path = OUTPUT_DIR / f"research_{timestamp}.json"
-    md_path = OUTPUT_DIR / f"research_{timestamp}.md"
-
-    trends = {}
-    for article in articles:
-        for trend in article["trends"]:
-            trends[trend] = trends.get(trend, 0) + 1
-
-    result = {
-        "topic": CONFIG["topic"],
-        "generated_at": datetime.now(timezone.utc).isoformat(),
-        "total_results": len(articles),
-        "trends": trends,
-        "articles": articles[: CONFIG["top_results"]],
-        "errors": errors,
-    }
-    json_path.write_text(
-        json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
-
-    lines = [
-        f'# OrionSearch: {CONFIG["topic"]}',
-        "",
-        f"Found {len(articles)} articles.",
-        "",
-        "## Keyword signals",
-        "",
-    ]
-    for name, count in sorted(trends.items(), key=lambda item: item[1], reverse=True):
-        lines.append(f"- {name}: {count} articles")
-
-    lines.extend(["", "## Articles", ""])
-    for article in result["articles"]:
-        lines.extend(
-            [
-                f'### {article["title"]}',
-                f'- Source: {article["source"]}',
-                f'- Date: {article["published_at"]}',
-                f'- Link: {article["url"]}',
-                f'- Tags: {", ".join(article["trends"]) or "none"}',
-                "",
-            ]
-        )
-
-    if errors:
-        lines.extend(["## Errors", ""])
-        for source, error in errors.items():
-            lines.append(f"- {source}: {error}")
-
-    md_path.write_text("\n".join(lines), encoding="utf-8")
-    print(f"Saved: {json_path}\nSaved: {md_path}")
+    return sorted_articles[:max_articles]
 
 
-def main():
-    sources = {
-        "google_news": search_google_news,
-        "arxiv": search_arxiv,
-        "hacker_news": search_hacker_news,
-        "hugging_face": search_hugging_face,
-    }
+def collect(topic, days, queries, selected_sources, max_articles=10):
+    start = perf_counter()
+    tasks = []
+
+    enabled = set(selected_sources) & set(SOURCES)
+    unique_queries = list(dict.fromkeys(q.strip() for q in queries if q.strip()))[:2]
+    unique_queries = unique_queries or [topic]
+
+    if "google_news" in enabled:
+        for query in unique_queries:
+            tasks.append(("google_news", search_google_news, (query, days)))
+
+    if "hacker_news" in enabled:
+        for query in unique_queries:
+            tasks.append(("hacker_news", search_hacker_news, (query, days)))
+
+    if "arxiv" in enabled:
+        tasks.append(("arxiv", search_arxiv, ()))
+
+    if "hugging_face" in enabled:
+        tasks.append(("hugging_face", search_hugging_face, ()))
+
     articles = []
     errors = {}
 
-    for name, search in sources.items():
-        if not CONFIG["sources"].get(name):
-            continue
+    if not tasks:
+        return [], {"collector": "No enabled sources"}
 
-        try:
-            results = search()
-            articles.extend(results)
-            print(f"{name}: {len(results)} articles")
-        except (requests.RequestException, ValueError) as error:
-            errors[name] = str(error)
-            print(f"{name}: {error}")
+    with ThreadPoolExecutor(max_workers=min(MAX_WORKERS, len(tasks))) as executor:
+        futures = {
+            executor.submit(function, *args): name for name, function, args in tasks
+        }
 
-    articles = process_articles(articles)
-    print(f"Unique recent articles: {len(articles)}")
-    save_results(articles, errors)
+        for future in as_completed(futures):
+            name = futures[future]
 
+            try:
+                results = future.result()
+                articles.extend(results)
+                logger.info("%s returned %d articles", name, len(results))
+            except Exception as error:
+                errors[name] = str(error)
+                logger.warning("%s failed: %s", name, error)
 
-if __name__ == "__main__":
-    main()
+    articles = process_articles(articles, days, max_articles)
+
+    logger.info(
+        "Collection finished in %.2fs; returned %d articles",
+        perf_counter() - start,
+        len(articles),
+    )
+
+    return articles, errors
