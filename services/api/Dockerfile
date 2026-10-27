@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0.402 AS build
 WORKDIR /src
 COPY services/api/global.json services/api/OrionSearch.sln services/api/dotnet-tools.json ./services/api/
 COPY services/api/src/ ./services/api/src/

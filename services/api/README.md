@@ -4,6 +4,8 @@ ASP.NET Core backend with the ORION-9 HTTP foundation, ORION-10 PostgreSQL persi
 
 For complete endpoint examples and an explanation of the backend workflow, see the [API and Backend Guide](docs/api-and-backend-guide.md).
 
+For the Render API/database configuration, free-plan expiry and deployment checks, see [Render hosting](docs/render-hosting.md).
+
 **Foundation scope:** PR #6 provides the backend implementation for team integration. It is not an authenticated, end-to-end accepted product release. The [release-blocker register and integration/security acceptance plan](docs/release-readiness.md) tracks required CI, real authentication, the agreed agent contract, live integration and deployment verification. Those gates must remain open until their required evidence is reviewed; backend Jira completion does not close them.
 
 ## Requirements and local setup
