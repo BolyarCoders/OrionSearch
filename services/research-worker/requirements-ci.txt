@@ -1,0 +1,7 @@
+fastapi==0.158.1
+feedparser==6.0.14
+google-genai==2.32.0
+pydantic==2.14.1
+pytest==9.1.1
+python-dotenv==1.2.4
+requests==2.34.2
