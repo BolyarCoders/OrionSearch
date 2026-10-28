@@ -47,7 +47,7 @@ The implementation may evolve as the team builds the MVP. AI and search provider
 
 ## Development status
 
-The ASP.NET Core API includes archive management, metadata topic/date filtering, EF Core migrations and queued research execution; see [the backend README](services/api/README.md) for setup, testing and integration prerequisites. A development PostgreSQL service is provisioned on Railway. Authentication-provider integration and the AI team's agreed research contract remain pending; normal API startup rejects protected requests and leaves research processing disabled. The rest of the application and local service stack are still being developed. Docker configuration and an example environment file are planned under ORION-14.
+The ASP.NET Core API includes archive management, metadata topic/date filtering, EF Core migrations and queued research execution; see [the backend README](services/api/README.md) for setup and integration prerequisites. Native ASP.NET Core Identity accounts are implemented behind explicit configuration; email/password registration, immediate login, refresh and password changes are described in [Native Identity](services/api/docs/native-identity.md). No confirmation email or external identity provider is required. Public account activation, frontend integration and the AI team's agreed research contract remain pending. Default startup rejects protected requests and leaves research processing disabled. The [Render hosting record](services/api/docs/render-hosting.md) documents the API/database deployment separately from product readiness.
 
 Never commit secrets, API keys, local `.env` files, or user data.
 

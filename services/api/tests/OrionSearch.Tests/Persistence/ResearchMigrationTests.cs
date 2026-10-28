@@ -51,7 +51,7 @@ public sealed class ResearchMigrationTests(PostgreSqlFixture database)
         var exception = await Assert.ThrowsAsync<PostgresException>(() => context.GetService<IMigrator>().MigrateAsync(PreviousMigration));
         Assert.Equal(PostgresErrorCodes.CheckViolation, exception.SqlState);
         Assert.Equal(run.Id, (await context.Findings.SingleAsync()).ResearchRunId);
-        Assert.Equal(8, (await context.Database.GetAppliedMigrationsAsync()).Count());
+        Assert.Equal(context.Database.GetMigrations().Count(), (await context.Database.GetAppliedMigrationsAsync()).Count());
         Assert.Single(await context.FindingEvidence.ToListAsync());
     }
 }

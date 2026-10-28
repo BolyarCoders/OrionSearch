@@ -1,5 +1,26 @@
 # PostgreSQL persistence
 
+## Native Identity extension (2026-10-28)
+
+The original ORION-10/12 foundation below has eight migrations and fifteen tables.
+The ninth migration, `20261028193247_AddNativeIdentity`, preserves these tables and
+existing user IDs while extending `auth.users` for ASP.NET Core Identity and
+adding `system.data_protection_keys` (sixteen tables excluding EF history).
+See [Native Identity](native-identity.md) for schema ownership, activation,
+backwards compatibility, token-key backup and rollback constraints. The original
+eight migrations are unchanged. Legacy accounts remain unconfirmed and receive
+no fabricated credentials or external identity links.
+
+Normalized email has a unique index for Identity lookup. Existing `citext` email
+uniqueness remains the backstop for legacy and concurrent mixed-case signups.
+Concurrency stamps prevent stale Identity writes from overwriting a newer
+account state; security stamps revoke previously issued sessions. These are
+authoritative account fields, not derived caches. The nonnegative failed-access
+count is constrained in PostgreSQL. Data Protection XML is private key material,
+encrypted by certificate outside Development and never exposed through the API.
+
+## Original foundation
+
 ORION-10 implements the 15-table MVP. The broader version-1.0 database specification was not present in the repository; the task's explicit table and integrity requirements are the implementation target.
 
 ## Tables and ownership
@@ -142,7 +163,7 @@ After this chain is published, schema fixes should use new forward migrations. D
 
 Still undecided:
 
-- Native versus external authentication and the mapping from provider subjects to `auth.users` UUIDs.
+- Live activation and acceptance of native ASP.NET Core Identity; the owner chose native accounts instead of external subject mapping on 2026-10-28.
 - Archive-specific finding relevance: a future `knowledge.archive_findings` association is proposed, but deliberately excluded from these 15 tables.
 - Object-storage provider and version `storage_uri` lifecycle.
 - Final ORION-8 agreement on the proposed JSON contract, deterministic chunking and producer/version metadata.

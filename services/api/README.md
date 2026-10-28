@@ -6,6 +6,10 @@ For complete endpoint examples and an explanation of the backend workflow, see t
 
 For the Render API/database configuration, free-plan expiry and deployment checks, see [Render hosting](docs/render-hosting.md).
 
+For the proposed architecture, implementation order and acceptance criteria for the remaining product work, see the [Backend completion plan](docs/backend-completion-plan.md).
+
+Native ASP.NET Core Identity accounts, activation settings and endpoint contracts are documented in [Native Identity](docs/native-identity.md). This feature is disabled until explicitly configured; no external identity provider is required.
+
 **Foundation scope:** PR #6 provides the backend implementation for team integration. It is not an authenticated, end-to-end accepted product release. The [release-blocker register and integration/security acceptance plan](docs/release-readiness.md) tracks required CI, real authentication, the agreed agent contract, live integration and deployment verification. Those gates must remain open until their required evidence is reviewed; backend Jira completion does not close them.
 
 ## Requirements and local setup

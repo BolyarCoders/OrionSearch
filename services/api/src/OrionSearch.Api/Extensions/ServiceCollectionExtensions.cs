@@ -4,7 +4,6 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Options;
 using OrionSearch.Api.Configuration;
 using OrionSearch.Infrastructure;
-using Microsoft.AspNetCore.Authentication;
 using OrionSearch.Api.Authentication;
 using OrionSearch.Api.Archives;
 using OrionSearch.Application.Abstractions;
@@ -14,9 +13,10 @@ namespace OrionSearch.Api.Extensions;
 
 public static class ServiceCollectionExtensions
 {
-    public static IServiceCollection AddApiServices(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddApiServices(this IServiceCollection services, IConfiguration configuration, IHostEnvironment environment)
     {
         services.AddInfrastructure(configuration);
+        services.Configure<Microsoft.AspNetCore.Routing.RouteHandlerOptions>(options => options.ThrowOnBadRequest = false);
         services.AddOptions<CorsSettings>()
             .Bind(configuration.GetSection(CorsSettings.SectionName))
             .Validate(settings => settings.AllowedOrigins.All(CorsSettings.IsValidOrigin),
@@ -68,15 +68,16 @@ public static class ServiceCollectionExtensions
 
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUser, TrustedCurrentUser>();
-        services.AddAuthentication("Unconfigured")
-            .AddScheme<AuthenticationSchemeOptions, UnconfiguredAuthenticationHandler>("Unconfigured", _ => { });
+        services.AddNativeIdentity(configuration, environment);
         services.AddAuthorization();
         services.AddExceptionHandler<ArchiveExceptionHandler>();
         services.AddOpenApi(options => options.AddOperationTransformer((operation, context, _) =>
         {
             if (context.Description.ActionDescriptor.EndpointMetadata.OfType<IAuthorizeData>().Any())
             {
-                operation.Description += " Authentication is currently unconfigured: normal startup returns 401 until a validated provider maps its subject to the internal application user.";
+                operation.Description += configuration.GetValue<bool>("NativeIdentity:Enabled")
+                    ? " Requires a valid Native Identity access token and an active application user."
+                    : " Authentication is currently unconfigured: configure and enable NativeIdentity before protected requests can succeed.";
             }
             return Task.CompletedTask;
         }));

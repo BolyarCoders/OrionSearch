@@ -20,7 +20,7 @@ public sealed class TrustedCurrentUser(IHttpContextAccessor accessor) : ICurrent
     }
 }
 
-// Replaced by the team's validated provider when its issuer and subject mapping are agreed.
+// Explicit foundation mode: no public identity is trusted until NativeIdentity is configured and enabled.
 internal sealed class UnconfiguredAuthenticationHandler(
     IOptionsMonitor<AuthenticationSchemeOptions> options, ILoggerFactory logger, UrlEncoder encoder)
     : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
