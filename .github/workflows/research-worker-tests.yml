@@ -31,4 +31,4 @@ jobs:
       - name: Install worker and test dependencies
         run: python -m pip install --upgrade pip && python -m pip install -r requirements-dev.txt
       - name: Run worker and collector tests
-        run: python -m pytest tests -q
+        run: python -m pytest tests agent/tests -q
