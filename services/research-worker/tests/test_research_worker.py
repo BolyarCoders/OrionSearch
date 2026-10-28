@@ -27,6 +27,17 @@ def article(title, hours_ago=1):
     }
 
 
+@pytest.mark.parametrize("topic", ["  ", "\\t\\n", "   "])
+def test_rejects_blank_research_topic(topic):
+    with pytest.raises(ValueError, match="Research topic cannot be blank"):
+        ResearchRequest(topic=topic)
+
+
+def test_research_topic_is_trimmed():
+    request = ResearchRequest(topic="  Artificial Intelligence  ")
+    assert request.topic == "Artificial Intelligence"
+
+
 def test_date_filter_and_deduplication():
     items = [
         article("Same!", 4),
