@@ -1,6 +1,7 @@
 name: Research Worker CI
 
 on:
+  workflow_dispatch:
   pull_request:
     branches:
       - main
@@ -33,12 +34,12 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: services/research-worker/requirements.txt
+          cache-dependency-path: services/research-worker/requirements-ci.txt
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt
+          python -m pip install -r requirements-ci.txt
 
       - name: Compile Python modules
         run: python -m compileall -q agent api tests
