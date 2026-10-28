@@ -185,7 +185,7 @@ public sealed class ResearchCompletionTests(PostgreSqlFixture database)
         public Task<ResearchLease?> ClaimAsync(string id, CancellationToken ct) => inner.ClaimAsync(id, ct);
         public Task<AgentRequest?> DispatchAsync(ResearchLease lease, CancellationToken ct) => inner.DispatchAsync(lease, ct);
         public Task<int> RecoverAsync(CancellationToken ct) => inner.RecoverAsync(ct);
-        public Task<bool> FailAsync(ResearchLease lease, ResearchFailure failure, CancellationToken ct) => inner.FailAsync(lease, failure, ct);
+        public Task<bool> FailAsync(ResearchLease lease, ResearchFailure failure, CancellationToken ct, int? retryAfterSeconds = null) => inner.FailAsync(lease, failure, ct, retryAfterSeconds);
         public Task<bool> CompleteAsync(ResearchLease lease, AgentResult result, CancellationToken ct)
         {
             CompletionEntered.TrySetResult();

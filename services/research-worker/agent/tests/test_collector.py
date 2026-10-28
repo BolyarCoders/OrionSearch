@@ -125,6 +125,7 @@ def test_get_rss_maps_feed_entries_and_respects_limit(monkeypatch, config):
         "url": "https://example.com/1",
         "source": "Example",
         "published_at": "2026-10-20T12:30:00+00:00",
+        "publication_date_kind": "published",
         "summary": "Summary",
     }
     assert results[1]["published_at"] == "2026-10-20T12:30:00+00:00"

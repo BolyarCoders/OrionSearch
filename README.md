@@ -55,7 +55,7 @@ Never commit secrets, API keys, local `.env` files, or user data.
 
 The current branch includes a prototype research worker with four public-source adapters (Google News RSS, arXiv RSS, the Hacker News Algolia API, and the Hugging Face blog feed), article filtering/deduplication, Gemini-assisted research planning and analysis, Markdown/JSON report output, and a FastAPI interface for synchronous research and background-job status.
 
-This is not yet the complete planned architecture: the worker does not use LangGraph and is not integrated with PostgreSQL or a finalized shared backend job contract. The collector processes feed metadata and summaries rather than verifying full article text.
+The worker now implements the [research v1 contract](packages/contracts/research/v1/README.md) consumed by the .NET executor. PostgreSQL queue ownership and ingestion remain in .NET; Python receives no database credentials. The current producer returns discovered sources and metadata, with no full-text captures or findings. LangGraph, durable captures and real hosted end-to-end acceptance remain pending. See [research integration](services/api/docs/research-integration.md).
 
 ### Install and run tests
 
@@ -79,9 +79,9 @@ From `services/research-worker`, set `ORION_WORKER_API_KEY` and `GEMINI_API_KEY`
 python -m uvicorn api.main:app --host 127.0.0.1 --port 8000
 ```
 
-The API exposes `GET /health`, `POST /research`, `POST /research/jobs`, and `GET /research/jobs/{job_id}`. Research endpoints require the `X-API-Key` header. Background-job state is currently in memory and is lost when the process restarts.
+The integrated API exposes `GET /health` and `POST /research`. Research requires `Authorization: Bearer <ORION_WORKER_API_KEY>` and the versioned v1 JSON request; it does not accept the old topic/days body. The .NET API remains responsible for public research jobs and their persistent status. The old prototype routes are under `/prototype/research` and `/prototype/research/jobs`, require `ORION_ENABLE_PROTOTYPE_API=true` and `X-API-Key`, and stay disabled in integrated mode.
 
-Generated JSON and Markdown reports are written under `services/research-worker/agent/output/`. These are local run artifacts and must not be committed. The output directory is ignored by Git.
+The integrated route writes no local reports. Standalone CLI/prototype JSON and Markdown reports remain under `services/research-worker/agent/output/`; these local artifacts are ignored by Git and must not be committed.
 
 ## Contributing
 

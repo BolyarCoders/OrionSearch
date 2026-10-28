@@ -22,7 +22,7 @@ SOURCES = {
 
 
 def ask_ai(client, prompt, json_mode=False):
-    config = types.GenerateContentConfig(response_mime_type="application/json") if json_mode else None
+    config = types.GenerateContentConfig(response_mime_type="application/json", max_output_tokens=2048) if json_mode else None
     response = client.models.generate_content(model=MODEL, contents=prompt, config=config)
     if not response.text:
         raise ValueError("Gemini returned an empty response")
@@ -53,7 +53,7 @@ def plan_research(client, topic, days):
     return queries, sources
 
 
-def collect_articles(topic, days, queries, selected_sources):
+def collect_articles(topic, days, queries, selected_sources, *, persist_output=True):
     previous_config = collector.CONFIG.copy()
     articles = []
     errors = {}
@@ -76,13 +76,16 @@ def collect_articles(topic, days, queries, selected_sources):
             try:
                 results = search()
                 articles.extend(results)
-                print(f"  {name}: {len(results)} articles")
+                if persist_output:
+                    print(f"  {name}: {len(results)} articles")
             except Exception as error:
                 errors[name] = str(error)
-                print(f"  {name}: failed ({error})")
+                if persist_output:
+                    print(f"  {name}: failed ({error})")
 
         articles = collector.process_articles(articles)
-        collector.save_results(articles, errors)
+        if persist_output:
+            collector.save_results(articles, errors)
     finally:
         collector.CONFIG.clear()
         collector.CONFIG.update(previous_config)

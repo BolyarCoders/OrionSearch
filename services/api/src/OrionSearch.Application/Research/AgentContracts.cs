@@ -6,10 +6,15 @@ namespace OrionSearch.Application.Research;
 
 public static class ResearchContract
 {
-    public const string Version = "orion.research.provisional.v1";
+    public const string Version = "orion.research.v1";
+    public const string ProvisionalVersion = "orion.research.provisional.v1";
+    public static bool IsSupported(string? version, bool allowProvisional = false) =>
+        version == Version || allowProvisional && version == ProvisionalVersion;
     public static JsonSerializerOptions Json { get; } = new(JsonSerializerDefaults.Web)
     {
         RespectRequiredConstructorParameters = true,
+        AllowDuplicateProperties = false,
+        PropertyNameCaseInsensitive = false,
         UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
         MaxDepth = 64
     };
@@ -38,9 +43,10 @@ public interface IResearchAgentClient
 
 public enum ResearchFailure { Timeout, Unavailable, Authentication, Contract, Persistence, Paused, Archived }
 
-public sealed class ResearchAgentException(ResearchFailure failure) : Exception("Research agent execution failed.")
+public sealed class ResearchAgentException(ResearchFailure failure, int? retryAfterSeconds = null) : Exception("Research agent execution failed.")
 {
     public ResearchFailure Failure { get; } = failure;
+    public int? RetryAfterSeconds { get; } = retryAfterSeconds;
 }
 
 public static class ResearchFailures

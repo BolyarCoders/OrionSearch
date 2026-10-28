@@ -38,7 +38,7 @@ Before starting the worker, set non-empty ORION_WORKER_API_KEY and GEMINI_API_KE
     docker compose --env-file .env -f infra/docker/compose.yaml --profile worker up --build -d
     curl -i http://localhost:8000/health
 
-The worker health endpoint does not verify Gemini credentials or a complete research request. The worker prototype currently uses in-memory job state and is not integrated with the API's PostgreSQL-backed research jobs. Do not treat this as end-to-end integration or enable it in production.
+The worker health endpoint does not verify Gemini credentials or a complete research request. The worker now supports the [v1 discovery contract](../../packages/contracts/research/v1/README.md) with Bearer authentication. This Compose profile only starts that service: the API worker remains disabled and no automatic agent address is configured. The consumer currently requires HTTPS for a non-loopback, non-Railway-private endpoint; a plain Compose service name is not implicitly trusted. Use an explicitly reviewed HTTPS origin or loopback development setup. Captures, real-provider acceptance and production enablement remain separate steps. In-memory prototype jobs are disabled unless explicitly opted in and never replace the .NET queue.
 
 ## Configuration
 

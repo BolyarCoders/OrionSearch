@@ -5,7 +5,7 @@ COPY services/research-worker/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir -r requirements.txt
 COPY services/research-worker/api ./api
 COPY services/research-worker/agent ./agent
-COPY services/research-worker/pipelines ./pipelines
+COPY packages/contracts/research /app/packages/contracts/research
 RUN useradd --create-home --uid 10001 appuser && mkdir -p ./agent/output && chown -R appuser:appuser /app
 USER appuser
 EXPOSE 8000

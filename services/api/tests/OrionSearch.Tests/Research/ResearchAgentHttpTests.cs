@@ -48,7 +48,7 @@ public sealed class ResearchAgentHttpTests
     [InlineData("null")]
     public async Task InvalidBodiesCannotBecomeSuccessfulResults(string body)
     {
-        using var client = new HttpClient(new StubHandler((_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(body) })));
+        using var client = new HttpClient(new StubHandler((_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json") })));
         var exception = await Assert.ThrowsAsync<ResearchAgentException>(() => new HttpResearchAgentClient(client, Options()).ExecuteAsync(Request(), default));
         Assert.Equal(ResearchFailure.Contract, exception.Failure);
     }
@@ -59,7 +59,7 @@ public sealed class ResearchAgentHttpTests
         var options = Options();
         options.MaxResponseBytes = 1024;
         using var client = new HttpClient(new StubHandler((_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-        { Content = new StreamContent(new NonSeekableMemoryStream(new byte[1025])) })));
+        { Content = JsonStream(new NonSeekableMemoryStream(new byte[1025])) })));
         var exception = await Assert.ThrowsAsync<ResearchAgentException>(() => new HttpResearchAgentClient(client, options).ExecuteAsync(Request(), default));
         Assert.Equal(ResearchFailure.Contract, exception.Failure);
     }
@@ -88,19 +88,19 @@ public sealed class ResearchAgentHttpTests
     public async Task AnInterruptedResponseBodyIsATransientServiceFailure()
     {
         using var http = new HttpClient(new StubHandler((_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-        { Content = new StreamContent(new InterruptedResponseStream()) })));
+        { Content = JsonStream(new InterruptedResponseStream()) })));
         var failure = await Assert.ThrowsAsync<ResearchAgentException>(() => new HttpResearchAgentClient(http, Options()).ExecuteAsync(Request(), default));
         Assert.Equal(ResearchFailure.Unavailable, failure.Failure);
         Assert.DoesNotContain("private", failure.Message);
     }
 
     [Fact]
-    public void ConfigurationRequiresExplicitProvisionalOptInAndCredentials()
+    public void StableConfigurationRequiresCredentialsWithoutProvisionalOptIn()
     {
         using var http = new HttpClient();
         var options = Options();
         options.AllowProvisionalContract = false;
-        Assert.False(new HttpResearchAgentClient(http, options).IsConfigured);
+        Assert.True(new HttpResearchAgentClient(http, options).IsConfigured);
         options.AllowProvisionalContract = true;
         options.AgentApiKey = null;
         Assert.False(new HttpResearchAgentClient(http, options).IsConfigured);
@@ -116,6 +116,13 @@ public sealed class ResearchAgentHttpTests
         var options = Options();
         options.AgentApiKey = credential;
         Assert.False(new HttpResearchAgentClient(http, options).IsConfigured);
+    }
+
+    private static StreamContent JsonStream(Stream stream)
+    {
+        var content = new StreamContent(stream);
+        content.Headers.ContentType = new("application/json");
+        return content;
     }
 
     private static ResearchWorkerOptions Options() => new()

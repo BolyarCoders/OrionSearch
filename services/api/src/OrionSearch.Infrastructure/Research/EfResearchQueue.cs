@@ -57,9 +57,7 @@ internal sealed class EfResearchQueue(IDbContextFactory<OrionSearchDbContext> fa
         AgentRequest request;
         try
         {
-            request = JsonSerializer.Deserialize<ResearchPayload>(job.Payload, ResearchContract.Json)!.Request;
-            if (request.ResearchRunId != lease.RunId || request.ArchiveId != lease.ArchiveId || request.ContractVersion != ResearchContract.Version)
-                throw new JsonException();
+            request = ReadRequest(job, lease);
         }
         catch (Exception exception) when (exception is JsonException or NullReferenceException)
         {
@@ -83,11 +81,21 @@ internal sealed class EfResearchQueue(IDbContextFactory<OrionSearchDbContext> fa
 
     public async Task<bool> CompleteAsync(ResearchLease lease, AgentResult result, CancellationToken ct)
     {
-        result = ResearchOutputValidator.Normalize(result, lease.RunId);
+        if (result is null || !ResearchContract.IsSupported(result.ContractVersion, options.AllowProvisionalContract))
+            throw new ResearchAgentException(ResearchFailure.Contract);
+        result = ResearchOutputValidator.Normalize(result, lease.RunId, result.ContractVersion);
         await using var context = await factory.CreateDbContextAsync(ct);
         await using var transaction = await context.Database.BeginTransactionAsync(ct);
         var job = await OwnedAsync(context, lease, ct);
         if (job is null) return false;
+        try
+        {
+            if (ReadRequest(job, lease).ContractVersion != result.ContractVersion) throw new JsonException();
+        }
+        catch (Exception exception) when (exception is JsonException or NullReferenceException)
+        {
+            throw new ResearchAgentException(ResearchFailure.Contract);
+        }
         var archive = await LockArchiveAsync(context, lease.ArchiveId, ct);
         if (archive.Status == "archived")
         {
@@ -110,7 +118,7 @@ internal sealed class EfResearchQueue(IDbContextFactory<OrionSearchDbContext> fa
         return true;
     }
 
-    public async Task<bool> FailAsync(ResearchLease lease, ResearchFailure failure, CancellationToken ct)
+    public async Task<bool> FailAsync(ResearchLease lease, ResearchFailure failure, CancellationToken ct, int? retryAfterSeconds = null)
     {
         await using var context = await factory.CreateDbContextAsync(ct);
         await using var transaction = await context.Database.BeginTransactionAsync(ct);
@@ -118,7 +126,7 @@ internal sealed class EfResearchQueue(IDbContextFactory<OrionSearchDbContext> fa
         if (job is null) return false;
         var archive = await LockArchiveAsync(context, lease.ArchiveId, ct);
         if (archive.Status == "archived") failure = ResearchFailure.Archived;
-        var saved = await FinishFailureAsync(context, job, lease, failure, ct);
+        var saved = await FinishFailureAsync(context, job, lease, failure, ct, retryAfterSeconds);
         if (saved) await transaction.CommitAsync(ct);
         return saved;
     }
@@ -169,7 +177,7 @@ internal sealed class EfResearchQueue(IDbContextFactory<OrionSearchDbContext> fa
         return recovered;
     }
 
-    private async Task<bool> FinishFailureAsync(OrionSearchDbContext context, Job job, ResearchLease lease, ResearchFailure failure, CancellationToken ct)
+    private async Task<bool> FinishFailureAsync(OrionSearchDbContext context, Job job, ResearchLease lease, ResearchFailure failure, CancellationToken ct, int? retryAfterSeconds = null)
     {
         var now = await NowAsync(context, ct);
         var retry = ResearchFailures.IsTransient(failure) && job.Attempts < job.MaxAttempts;
@@ -182,7 +190,8 @@ internal sealed class EfResearchQueue(IDbContextFactory<OrionSearchDbContext> fa
         attempt.Status = failure == ResearchFailure.Timeout ? "timed_out" : "failed";
         attempt.FinishedAt = now;
         attempt.ErrorMessage = run.ErrorMessage;
-        return await FinalizeAsync(context, job, lease, state, run.ErrorMessage, now.AddSeconds(options.BackoffSeconds(job.Attempts)), ct);
+        var delay = Math.Max(options.BackoffSeconds(job.Attempts), Math.Clamp(retryAfterSeconds ?? 0, 0, options.RetryMaxSeconds));
+        return await FinalizeAsync(context, job, lease, state, run.ErrorMessage, now.AddSeconds(delay), ct);
     }
 
     private static async Task<bool> FinalizeAsync(OrionSearchDbContext context, Job job, ResearchLease lease,
@@ -212,6 +221,14 @@ internal sealed class EfResearchQueue(IDbContextFactory<OrionSearchDbContext> fa
         // The WHERE predicate can be evaluated before waiting for an unchanged locked row.
         // Recheck with database time now that the lock is ours, before accepting ownership.
         return job is not null && job.LockedUntil > await NowAsync(context, ct) ? job : null;
+    }
+
+    private AgentRequest ReadRequest(Job job, ResearchLease lease)
+    {
+        var request = JsonSerializer.Deserialize<ResearchPayload>(job.Payload, ResearchContract.Json)!.Request;
+        if (request.ResearchRunId != lease.RunId || request.ArchiveId != lease.ArchiveId
+            || !ResearchContract.IsSupported(request.ContractVersion, options.AllowProvisionalContract)) throw new JsonException();
+        return request;
     }
 
     private static Task<Archive> LockArchiveAsync(OrionSearchDbContext context, Guid id, CancellationToken ct) =>

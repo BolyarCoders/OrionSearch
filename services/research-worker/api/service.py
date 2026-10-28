@@ -22,6 +22,46 @@ if str(AGENT_DIR) not in sys.path:
 research_lock = Lock()
 
 
+class ResearchBusy(RuntimeError):
+    pass
+
+
+def run_contract_research(request):
+    from api.discovery import build_result, execution_window
+
+    days, _, _, _ = execution_window(request)
+    if not os.getenv("GEMINI_API_KEY"):
+        raise RuntimeError("Research provider is not configured")
+    if not research_lock.acquire(blocking=False):
+        raise ResearchBusy("Research capacity is in use")
+    try:
+        import ai_agent
+        import collector
+        from google import genai
+        from google.genai import types
+
+        # Preferences are research data. Only these fixed source adapters can be selected.
+        topic = request["title"] + "\nDescription: " + (request["description"] or "") + "\nResearch objective: " + request["objective"]
+        client = genai.Client(api_key=os.environ["GEMINI_API_KEY"], http_options=types.HttpOptions(
+            timeout=60000, retry_options=types.HttpRetryOptions(attempts=1)))
+        try:
+            queries, selected = ai_agent.plan_research(client, topic, days)
+            if not queries or len(queries) > 5 or any(not isinstance(query, str) or not query.strip() or len(query) > 1000 for query in queries):
+                from api.contract import ContractError
+                raise ContractError("Invalid research plan")
+            selected = [name for name in selected if name in ai_agent.SOURCES and collector.CONFIG["sources"].get(name, False)]
+            if not selected:
+                raise RuntimeError("No discovery source is enabled")
+            articles, errors = ai_agent.collect_articles(topic, days, queries, selected, persist_output=False)
+            if errors:
+                raise RuntimeError("Source collection did not complete")
+            return build_result(request, queries, selected, articles)
+        finally:
+            client.close()
+    finally:
+        research_lock.release()
+
+
 def run_research(request: ResearchRequest) -> ResearchResult:
     if not os.getenv("GEMINI_API_KEY"):
         raise RuntimeError("GEMINI_API_KEY is not configured")

@@ -6,15 +6,17 @@ using OrionSearch.Application.Research;
 
 namespace OrionSearch.Infrastructure.Research;
 
-public sealed class HttpResearchAgentClient(HttpClient client, ResearchWorkerOptions options) : IResearchAgentClient
+public sealed class HttpResearchAgentClient(HttpClient client, ResearchWorkerOptions options, TimeProvider? timeProvider = null) : IResearchAgentClient
 {
-    public bool IsConfigured => options.AllowProvisionalContract && options.AgentApiKey is { Length: > 0 and <= 4096 } key
+    public bool IsConfigured => options.AgentApiKey is { Length: > 0 and <= 4096 } key
         && key.All(character => character is >= '!' and <= '~')
         && options.AgentBaseAddress is { } address && ResearchWorkerOptions.ValidAddress(address);
 
     public async Task<AgentResult> ExecuteAsync(AgentRequest request, CancellationToken ct)
     {
         if (!IsConfigured) throw new ResearchAgentException(ResearchFailure.Authentication);
+        if (!ResearchContract.IsSupported(request.ContractVersion, options.AllowProvisionalContract))
+            throw new ResearchAgentException(ResearchFailure.Contract);
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
         timeout.CancelAfter(TimeSpan.FromSeconds(options.TimeoutSeconds));
         try
@@ -26,7 +28,9 @@ public sealed class HttpResearchAgentClient(HttpClient client, ResearchWorkerOpt
             if (!response.IsSuccessStatusCode)
                 throw new ResearchAgentException(response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden
                     ? ResearchFailure.Authentication : (int)response.StatusCode >= 500 || response.StatusCode is HttpStatusCode.RequestTimeout or HttpStatusCode.TooManyRequests
-                        ? ResearchFailure.Unavailable : ResearchFailure.Contract);
+                        ? ResearchFailure.Unavailable : ResearchFailure.Contract, RetryDelay(response));
+            if (!string.Equals(response.Content.Headers.ContentType?.MediaType, "application/json", StringComparison.OrdinalIgnoreCase))
+                throw new ResearchAgentException(ResearchFailure.Contract);
             if (response.Content.Headers.ContentLength > options.MaxResponseBytes) throw new ResearchAgentException(ResearchFailure.Contract);
             await using var body = await response.Content.ReadAsStreamAsync(timeout.Token);
             using var bytes = new MemoryStream();
@@ -39,12 +43,21 @@ public sealed class HttpResearchAgentClient(HttpClient client, ResearchWorkerOpt
                 bytes.Write(buffer, 0, count);
             }
             bytes.Position = 0;
-            return await JsonSerializer.DeserializeAsync<AgentResult>(bytes, ResearchContract.Json, timeout.Token)
-                ?? throw new ResearchAgentException(ResearchFailure.Contract);
+            var result = await JsonSerializer.DeserializeAsync<AgentResult>(bytes, ResearchContract.Json, timeout.Token);
+            return ResearchOutputValidator.Normalize(result, request.ResearchRunId, request.ContractVersion);
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested) { throw new ResearchAgentException(ResearchFailure.Timeout); }
         catch (HttpRequestException) { throw new ResearchAgentException(ResearchFailure.Unavailable); }
         catch (IOException) { throw new ResearchAgentException(ResearchFailure.Unavailable); }
         catch (JsonException) { throw new ResearchAgentException(ResearchFailure.Contract); }
+    }
+
+    private int? RetryDelay(HttpResponseMessage response)
+    {
+        if (!response.Headers.TryGetValues("Retry-After", out var values)) return null;
+        var headers = values.ToArray();
+        if (headers.Length != 1 || !RetryConditionHeaderValue.TryParse(headers[0], out var retry)) return null;
+        var delay = retry.Delta ?? retry.Date - (timeProvider ?? TimeProvider.System).GetUtcNow();
+        return delay is { TotalSeconds: > 0 } value ? (int)Math.Min(Math.Ceiling(value.TotalSeconds), options.RetryMaxSeconds) : null;
     }
 }

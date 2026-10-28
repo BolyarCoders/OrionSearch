@@ -140,7 +140,7 @@ service is an activation prerequisite under the owner's selected scope.
 
 ## Verification: 2026-10-28
 
-Candidate: the email/password-only implementation on `codex/native-identity`.
+Candidate: the email/password-only implementation on `feature/backend-integration`.
 No hosted migrations, deployment, main-branch changes or CI/CD changes were made.
 
 | Gate | Result / evidence |

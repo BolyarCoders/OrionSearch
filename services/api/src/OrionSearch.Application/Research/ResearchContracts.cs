@@ -27,7 +27,7 @@ public interface IResearchQueue
     Task<AgentRequest?> DispatchAsync(ResearchLease lease, CancellationToken ct);
     Task<bool> HeartbeatAsync(ResearchLease lease, CancellationToken ct);
     Task<bool> CompleteAsync(ResearchLease lease, AgentResult result, CancellationToken ct);
-    Task<bool> FailAsync(ResearchLease lease, ResearchFailure failure, CancellationToken ct);
+    Task<bool> FailAsync(ResearchLease lease, ResearchFailure failure, CancellationToken ct, int? retryAfterSeconds = null);
     Task<int> RecoverAsync(CancellationToken ct);
 }
 

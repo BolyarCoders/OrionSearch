@@ -34,14 +34,14 @@ public sealed class ResearchProcessor(IResearchQueue queue, IResearchAgentClient
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (OperationCanceledException) { await FailAsync(lease, ResearchFailure.Timeout, ct); }
-        catch (ResearchAgentException exception) { await FailAsync(lease, exception.Failure, ct); }
+        catch (ResearchAgentException exception) { await FailAsync(lease, exception.Failure, ct, exception.RetryAfterSeconds); }
         catch (Exception) { await FailAsync(lease, ResearchFailure.Persistence, ct); }
         return true;
     }
 
-    private async Task FailAsync(ResearchLease lease, ResearchFailure failure, CancellationToken ct)
+    private async Task FailAsync(ResearchLease lease, ResearchFailure failure, CancellationToken ct, int? retryAfterSeconds = null)
     {
-        var recorded = await queue.FailAsync(lease, failure, ct);
+        var recorded = await queue.FailAsync(lease, failure, ct, retryAfterSeconds);
         logger.LogWarning("Research {RunId} attempt {Attempt} failed: {Failure}; recorded={Recorded}", lease.RunId, lease.Attempt, failure, recorded);
     }
 

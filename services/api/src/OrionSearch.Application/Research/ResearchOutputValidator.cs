@@ -7,12 +7,13 @@ namespace OrionSearch.Application.Research;
 
 public static class ResearchOutputValidator
 {
-    public static AgentResult Normalize(AgentResult? result, Guid runId)
+    public static AgentResult Normalize(AgentResult? result, Guid runId, string expectedVersion = ResearchContract.Version)
     {
         try
         {
             if (result is null) throw new ResearchAgentException(ResearchFailure.Contract);
-            Require(result.ContractVersion == ResearchContract.Version && result.ResearchRunId == runId);
+            Require(ResearchContract.IsSupported(expectedVersion, allowProvisional: true)
+                && result.ContractVersion == expectedVersion && result.ResearchRunId == runId);
             Require(result.Queries is { Length: <= 256 } && result.Sources is { Length: <= 256 } && result.Findings is { Length: <= 256 });
             var queries = result.Queries!.Select(query =>
             {

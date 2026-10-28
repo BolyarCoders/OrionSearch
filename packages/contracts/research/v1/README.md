@@ -1,0 +1,113 @@
+# Research HTTP contract v1
+
+Status: implementation candidate for team review. No external approval or live
+provider acceptance is implied. The current .NET consumer and Python producer
+use `orion.research.v1` on `POST /research` relative to the configured agent origin.
+
+## Ownership and transport
+
+The API authorizes the user and persists a run/job before returning 202. The .NET
+executor claims a lease, calls Python and commits accepted output. Python has no
+database credentials, cannot choose archive membership and owns no public queue.
+
+Use `Content-Type: application/json`, UTF-8, and `Authorization: Bearer <service
+key>`. This is a service credential, not a user Identity ticket. Both sides use
+the same configured key. Python optionally accepts a previous key during explicit
+rotation; remove it after the rollout. Keys are never part of the request body.
+
+`request.schema.json` and `result.schema.json` define the JSON shapes. Required
+fields, exact casing, unknown fields, unsupported versions and duplicate JSON
+properties are handled strictly. UUID/date/time formats, ordered dates, domain
+settings and nonblank topic/objective have additional checks. Requests are capped
+at 256 KiB in Python, including .NET's escaped Unicode representation of maximum
+legal settings; output at 2 MiB, matching the .NET default. The consumer also
+validates URL identity, UTC timestamps, collection sizes, local references,
+normalized text, chunk offsets and exact quotes before accepting results.
+
+The response must echo the exact `contractVersion` and `researchRunId`. A 200
+response with another run/version, wrong content type or invalid output is a
+permanent contract failure. The queue independently checks the stored request's
+version under its ownership lock, even when a different client implementation
+supplies a result.
+
+## Current producer behavior
+
+The integrated producer uses the existing Gemini planner and fixed feed/API
+adapters. It returns executed queries and discovered URLs/metadata. **It does not
+return captures or findings yet.** Feed summaries and the prototype Markdown
+report are not treated as full-text articles or verified evidence. No local
+research/report files are written by this route. Zero discoveries with no source
+failure is a valid result; collection failure is not converted to empty success.
+
+Settings snapshot semantics:
+
+- The rolling discovery window is at most 90 days; no explicit window is silently
+  expanded/truncated to fit that capability. Without dates, search the last seven
+  calendar days. An unsupported window fails with 422.
+- Explicit date filters exclude unknown publication dates. Unknown dates remain
+  absent, never inferred from fetch time.
+- Explicit languages exclude unknown language metadata. The producer does not
+  infer article language from an English interface or source name.
+- Excluded domains are removed; preferred domains rank first. Feed-declared
+  publisher metadata is used when present, otherwise the URL host. Google News
+  wrappers with unknown publishers are omitted when domain filters are requested.
+  No arbitrary wrapper/article URL is fetched to resolve publisher identity.
+- `settings.config.maxArticles`: integer 1–50, default 20. Other opaque config
+  does not choose credentials, model, endpoint, output path or tools.
+- URL normalization removes fragments/default ports and normalizes IDN hosts.
+  Response-local source keys use a deterministic digest of this URL; this is an
+  identifier, not a content hash. Discovery creates no document-version hash.
+
+P3 will add actual captured bytes/text and storage verification. The full result
+schema and synthetic `result.json` retain that vocabulary so both sides can test
+future capture/chunk/evidence compatibility. Their presence is not proof that the
+current feed producer has captured or verified full articles.
+
+## Failure and concurrency policy
+
+| Condition | HTTP / behavior |
+| --- | --- |
+| Missing/malformed/wrong service credential | 401 with Bearer challenge; missing service configuration 503 |
+| Non-JSON / oversized / invalid request | 415 / 413 / 400; no provider execution |
+| Unsupported settings or invalid produced result | 422, permanent .NET contract failure |
+| Python execution slot occupied | 503 with Retry-After: 10; no second job queue |
+| Provider/collection failure | Generic 503; private exception bodies are not returned or logged |
+
+One integrated execution slot exists per Python process. The Gemini HTTP call
+has a 60-second transport timeout and one SDK attempt; JSON planning output is
+capped at 2048 tokens. Existing collector requests have 20-second network waits.
+These synchronous calls do not provide a force-cancellable whole-run deadline:
+after a .NET timeout Python may finish its current work while retaining the slot.
+The .NET total HTTP deadline, lease fencing and lack of Python DB access prevent
+late accepted writes. Hard provider-body/whole-run isolation belongs in the
+retrieval/operations hardening before public deployment; it is not claimed here.
+
+.NET owns bounded retries (default three attempts, exponential delay 10–300 s).
+408, 429, 5xx and network failures are transient; service 401/403 and other 4xx are
+permanent. Retry-After delta/date hints are bounded to RetryMaxSeconds and cannot
+reduce the normal backoff. Retry timing persists in PostgreSQL, not Python memory.
+
+## Compatibility and testing
+
+New submissions always use v1. To drain older provisional payloads without
+rewriting them, enable **both** `ResearchWorker__AllowProvisionalContract=true`
+and `ORION_ALLOW_PROVISIONAL_CONTRACT=true` temporarily. Request/result versions
+must still match exactly. No version negotiation or silent fallback exists.
+
+For rollout, stop/drain previous executor binaries before the API starts issuing
+v1 jobs, then deploy the compatible producer and new executor. Enable both legacy
+flags only if older pending work must be drained. An old executor does not know
+v1: do not roll it back while v1 jobs remain. Keep a compatible executor during
+an API rollback instead of rewriting or deleting queued payloads.
+
+The old topic/days/max_articles API is under `/prototype/research` and
+`/prototype/research/jobs`. It requires `ORION_ENABLE_PROTOTYPE_API=true` plus its
+old X-API-Key header, and is disabled otherwise. Its in-memory jobs are debugging
+state, not API research runs. Do not enable that mode in the product deployment.
+
+`request.json`/`result.json` are synthetic full-schema fixtures. The separate
+`discovery-result.json` is produced by the actual discovery adapter over fixed
+source-provider input. Python tests compare that output; .NET deserializes and
+semantically validates the same file. Source-provider/LLM fixtures and a local
+socket probe do not replace a real provider + authenticated API + queue + storage
+acceptance run. Processing stays disabled until deliberately configured.

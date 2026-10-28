@@ -30,11 +30,16 @@ def get_rss(url, source):
                 "url": entry.get("link", ""),
                 "source": source,
                 "published_at": published_at,
+                "publication_date_kind": "published" if entry.get("published_parsed") else "updated",
                 "summary": re.sub(r"<[^>]+>", "", entry.get("summary", "")).strip()[
                     :700
                 ],
             }
         )
+        publisher = entry.get("source") or {}
+        if publisher.get("href") and publisher.get("title"):
+            articles[-1]["publisher_url"] = publisher["href"]
+            articles[-1]["publisher_name"] = publisher["title"]
 
     return articles
 
@@ -85,6 +90,7 @@ def search_hacker_news():
                     or f'https://news.ycombinator.com/item?id={item["objectID"]}',
                     "source": "Hacker News",
                     "published_at": item.get("created_at"),
+                    "publication_date_kind": "discovery" if item.get("url") else "published",
                     "summary": "",
                 }
             )

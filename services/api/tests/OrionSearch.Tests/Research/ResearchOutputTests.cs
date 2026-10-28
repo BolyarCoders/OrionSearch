@@ -6,7 +6,7 @@ namespace OrionSearch.Tests.Research;
 public sealed class ResearchOutputTests
 {
     [Fact]
-    public async Task ProvisionalFixturesUseTheSameVersionAndPassSemanticValidation()
+    public async Task StableFixturesUseTheSameVersionAndPassSemanticValidation()
     {
         var request = JsonSerializer.Deserialize<AgentRequest>(await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "Contracts", "request.json")), ResearchContract.Json)!;
         var result = JsonSerializer.Deserialize<AgentResult>(await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "Contracts", "result.json")), ResearchContract.Json)!;
