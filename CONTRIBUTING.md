@@ -8,7 +8,7 @@ This is a monorepo.
 apps/
   web/                  Next.js web application
 services/
-  api/                  FastAPI backend
+  api/                  ASP.NET Core backend
   research-worker/      AI agent workflow and research tools
 packages/
   contracts/            Shared OpenAPI / JSON contracts

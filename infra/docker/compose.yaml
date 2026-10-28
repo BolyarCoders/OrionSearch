@@ -1,0 +1,56 @@
+name: orionsearch
+
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in your local .env}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in your local .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your local .env}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ../..
+      dockerfile: services/api/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_HTTP_PORTS: 8080
+      ConnectionStrings__OrionSearch: "Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
+    ports:
+      - "${API_PORT:-5190}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Explicit opt-in: prototype worker is not integrated with the API job contract.
+  research-worker:
+    profiles: ["worker"]
+    build:
+      context: ../..
+      dockerfile: services/research-worker/Dockerfile
+    environment:
+      ORION_WORKER_API_KEY: ${ORION_WORKER_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    ports:
+      - "${WORKER_PORT:-8000}:8000"
+    restart: unless-stopped
+
+  # Frontend placeholder: apps/web has no application or Dockerfile yet.
+  # web:
+  #   build:
+  #     context: ../..
+  #     dockerfile: apps/web/Dockerfile
+
+volumes:
+  postgres_data:

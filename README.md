@@ -37,42 +37,51 @@ These are product goals; not all capabilities are implemented yet.
 | Component | Planned technology | Responsibility |
 |---|---|---|
 | Web client | Next.js, React, TypeScript | Archive management, search, and magazine reading |
-| API | Python, FastAPI, Pydantic | HTTP API and application orchestration |
+| API | C#, ASP.NET Core (.NET 10) | HTTP API and application orchestration |
 | Research workflow | LangGraph and a configurable LLM | Research planning, source analysis, and synthesis |
-| Data store | PostgreSQL, Alembic | Archives, sources, findings, and research history |
-| Background processing | Worker and scheduler (to be decided) | Long-running and recurring research jobs |
+| Data store | PostgreSQL, Entity Framework Core, Npgsql | Archives, sources, findings, and research history |
+| Background processing | .NET worker with a PostgreSQL queue; recurring scheduler to be decided | Leased research execution and future recurring jobs |
 | Infrastructure | Docker, Docker Compose, GitHub Actions | Local environment, CI/CD, and deployment |
 
 The implementation may evolve as the team builds the MVP. AI and search providers should remain configurable, and generated claims should retain links to their supporting sources.
 
 ## Development status
 
-The full application and local service stack are still being developed. **There is no supported local run procedure for the complete application yet.** Docker configuration and an example environment file are planned under ORION-14. The standalone research collector prototype described below can be run independently.
+The ASP.NET Core API includes archive management, metadata topic/date filtering, EF Core migrations and queued research execution; see [the backend README](services/api/README.md) for setup, testing and integration prerequisites. A development PostgreSQL service is provisioned on Railway. Authentication-provider integration and the AI team's agreed research contract remain pending; normal API startup rejects protected requests and leaves research processing disabled. The rest of the application and local service stack are still being developed. Docker configuration and an example environment file are planned under ORION-14.
 
 Never commit secrets, API keys, local `.env` files, or user data.
 
-## Standalone research collector prototype
+## Research worker prototype
 
-The current Python collector is an early, standalone prototype, not the complete AI agent service. It retrieves public items from Google News RSS, arXiv RSS, the Hacker News Algolia API, and the Hugging Face blog feed. It filters by the configured date window, removes duplicate titles, assigns keyword-based trend tags, and writes timestamped JSON and Markdown reports.
+The current branch includes a prototype research worker with four public-source adapters (Google News RSS, arXiv RSS, the Hacker News Algolia API, and the Hugging Face blog feed), article filtering/deduplication, Gemini-assisted research planning and analysis, Markdown/JSON report output, and a FastAPI interface for synchronous research and background-job status.
 
-### Run the collector
+This is not yet the complete planned architecture: the worker does not use LangGraph and is not integrated with PostgreSQL or a finalized shared backend job contract. The collector processes feed metadata and summaries rather than verifying full article text.
 
-From the repository root, use Python 3 and install the dependencies:
+### Install and run tests
+
+From the repository root:
 
 ```bash
 python -m venv .venv
 # Activate the virtual environment for your shell, then:
-python -m pip install -r services/research-worker/agent/requirements.txt
-python services/research-worker/agent/collector.py
+python -m pip install -r services/research-worker/requirements-dev.txt
+cd services/research-worker
+python -m pytest tests agent/tests -q
 ```
 
-The collector reads its static topic, queries, date window, source toggles, and trend keywords from `services/research-worker/agent/config.json`. Edit that file to change the prototype's configuration. The collector needs network access to retrieve source feeds and API results.
+The tests mock external services and should not require live source APIs or a Gemini key. Generated test output should use temporary directories rather than the repository's output folder.
 
-Generated reports are written to `services/research-worker/agent/output/`. They are local run artifacts and are ignored by Git; do not commit generated reports.
+### Run the worker API locally
 
-### Prototype limitations
+From `services/research-worker`, set `ORION_WORKER_API_KEY` and `GEMINI_API_KEY` in your environment (or a local ignored `.env` file), then run:
 
-This prototype does **not** yet implement the LangGraph agent workflow, configurable LLM invocation, a topic-as-input interface, the shared structured research request/result contract, or API/PostgreSQL integration. Automated tests are still to be added before this prototype PR is ready to merge. These capabilities remain follow-up work; this prototype should not be treated as completion of ORION-5.
+```bash
+python -m uvicorn api.main:app --host 127.0.0.1 --port 8000
+```
+
+The API exposes `GET /health`, `POST /research`, `POST /research/jobs`, and `GET /research/jobs/{job_id}`. Research endpoints require the `X-API-Key` header. Background-job state is currently in memory and is lost when the process restarts.
+
+Generated JSON and Markdown reports are written under `services/research-worker/agent/output/`. These are local run artifacts and must not be committed. The output directory is ignored by Git.
 
 ## Contributing
 

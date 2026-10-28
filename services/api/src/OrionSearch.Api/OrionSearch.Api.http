@@ -1,0 +1,87 @@
+@OrionSearch.Api_HostAddress = http://localhost:5190
+
+GET {{OrionSearch.Api_HostAddress}}/health
+Accept: application/json
+
+###
+
+GET {{OrionSearch.Api_HostAddress}}/openapi/v1.json
+Accept: application/json
+
+###
+
+GET {{OrionSearch.Api_HostAddress}}/health/ready
+
+### Archive requests require a validated authentication provider first.
+# Set the provider's actual authentication in your HTTP client after integration.
+# Normal startup intentionally returns 401; there is no caller-ID header shortcut.
+
+POST {{OrionSearch.Api_HostAddress}}/archives
+Content-Type: application/json
+
+{
+  "title": "Artificial Intelligence",
+  "description": "Research and developments in modern AI.",
+  "settings": {
+    "dateFrom": "2026-01-01",
+    "dateTo": null,
+    "languages": ["en", "bg"],
+    "preferredDomains": [],
+    "excludedDomains": [],
+    "config": {}
+  }
+}
+
+### Replace archiveId with the ID returned by POST.
+@archiveId = 00000000-0000-0000-0000-000000000001
+
+GET {{OrionSearch.Api_HostAddress}}/archives?page=1&pageSize=20&includeArchived=false
+
+### Literal, case-insensitive title/description filtering within your memberships.
+GET {{OrionSearch.Api_HostAddress}}/archives?topic=artificial%20intelligence&status=active&page=1&pageSize=20
+
+###
+GET {{OrionSearch.Api_HostAddress}}/archives/{{archiveId}}
+
+### Omitted fields stay unchanged; null clears nullable dates and description.
+PATCH {{OrionSearch.Api_HostAddress}}/archives/{{archiveId}}
+Content-Type: application/json
+
+{
+  "description": null,
+  "settings": {
+    "dateTo": null,
+    "languages": ["en", "bg"]
+  }
+}
+
+### Sources include discovered documents without captured versions.
+GET {{OrionSearch.Api_HostAddress}}/archives/{{archiveId}}/sources?page=1&pageSize=20&publishedFrom=2026-01-01&language=en&sort=published_desc
+
+### Metadata title filtering combined with inclusive UTC publication dates.
+GET {{OrionSearch.Api_HostAddress}}/archives/{{archiveId}}/sources?topic=artificial%20intelligence&publishedFrom=2026-01-01&publishedTo=2026-12-31&sort=published_desc
+
+### Owner/editor: queue research for an active archive after authentication integration.
+POST {{OrionSearch.Api_HostAddress}}/archives/{{archiveId}}/research-jobs
+Content-Type: application/json
+Idempotency-Key: research-example-1
+
+{
+  "objective": "Research recent developments in artificial intelligence"
+}
+
+### Use {} instead to default to the archive title. Repeat the same key/body to retrieve the same run.
+# researchRunId is the public response id, not the internal queue job id.
+@researchRunId = 00000000-0000-0000-0000-000000000002
+GET {{OrionSearch.Api_HostAddress}}/research-jobs/{{researchRunId}}
+
+### Owner only: retain all research and global documents.
+DELETE {{OrionSearch.Api_HostAddress}}/archives/{{archiveId}}
+
+### Owner only: unarchive.
+PATCH {{OrionSearch.Api_HostAddress}}/archives/{{archiveId}}
+Content-Type: application/json
+
+{
+  "status": "active"
+}
