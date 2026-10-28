@@ -1,13 +1,21 @@
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class ResearchRequest(BaseModel):
     topic: str = Field(min_length=2, max_length=180)
     days: int = Field(default=7, ge=1, le=90)
     max_articles: int = Field(default=20, ge=1, le=50)
+
+    @field_validator("topic")
+    @classmethod
+    def normalize_topic(cls, value: str) -> str:
+        topic = value.strip()
+        if not topic:
+            raise ValueError("Research topic cannot be blank")
+        return topic
 
 
 class ResearchResult(BaseModel):
