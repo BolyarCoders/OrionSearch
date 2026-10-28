@@ -27,7 +27,7 @@ def article(title, hours_ago=1):
     }
 
 
-@pytest.mark.parametrize("topic", ["  ", "\\t\\n", "   "])
+@pytest.mark.parametrize("topic", ["  ", "\t\n", "   "])
 def test_rejects_blank_research_topic(topic):
     with pytest.raises(ValueError, match="Research topic cannot be blank"):
         ResearchRequest(topic=topic)
