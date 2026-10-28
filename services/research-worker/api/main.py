@@ -48,6 +48,24 @@ def process_job(job_id: str, request: ResearchRequest):
             )
 
 
+def _make_job_room():
+    """Evict oldest terminal jobs when capacity is needed; never evict active jobs."""
+    terminal_states = {"completed", "failed"}
+    while len(jobs) >= MAX_JOBS:
+        terminal_id = next(
+            (
+                job_id
+                for job_id, job in jobs.items()
+                if job.get("status") in terminal_states
+            ),
+            None,
+        )
+        if terminal_id is None:
+            return False
+        del jobs[terminal_id]
+    return True
+
+
 @app.post(
     "/research/jobs",
     response_model=JobCreated,
@@ -56,10 +74,10 @@ def process_job(job_id: str, request: ResearchRequest):
 )
 def create_job(request: ResearchRequest, tasks: BackgroundTasks):
     with jobs_lock:
-        if len(jobs) >= MAX_JOBS:
+        if not _make_job_room():
             raise HTTPException(
                 status_code=503,
-                detail="Job store is full. Restart or enable persistent storage",
+                detail="All job slots are occupied by queued or running jobs",
             )
         job_id = str(uuid4())
         jobs[job_id] = {
