@@ -24,6 +24,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\OrionSearch.Api\OrionSearch.Api.csproj" />
+    <ProjectReference Include="..\..\src\OrionSearch.Worker\OrionSearch.Worker.csproj" />
   </ItemGroup>
 
   <ItemGroup>

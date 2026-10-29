@@ -12,6 +12,11 @@ normalized-text read and verified raw-download endpoints in
 foundation's missing-feature/configuration statements for their respective areas;
 none of these local changes imply hosted activation.
 
+The subsequent [Execution and results](execution-results.md) reference adds the
+dedicated .NET host, history/findings/source detail reads and frontend polling
+contract. It includes local Native Identity integration evidence separately from
+the still-open real-provider/hosted acceptance gates.
+
 ## Contents
 
 1. [Scope and reading notes](#scope-and-reading-notes)

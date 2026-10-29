@@ -51,6 +51,13 @@ The ASP.NET Core API includes archive management, metadata topic/date filtering,
 
 Never commit secrets, API keys, local `.env` files, or user data.
 
+A separate [.NET executor and results API](services/api/docs/execution-results.md)
+now provide background execution, archive research history, findings with
+authorized evidence references and source details. They share the existing
+PostgreSQL queue and version grants; no second job store is introduced. Hosting
+activation, live AI synthesis, frontend screens and product acceptance remain
+separate gates.
+
 ## Research worker prototype
 
 The current branch includes a prototype research worker with four public-source adapters (Google News RSS, arXiv RSS, the Hacker News Algolia API, and the Hugging Face blog feed), article filtering/deduplication, Gemini-assisted research planning and analysis, Markdown/JSON report output, and a FastAPI interface for synchronous research and background-job status.

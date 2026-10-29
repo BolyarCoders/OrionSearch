@@ -14,7 +14,11 @@ versioned S3 captures, byte/digest verification преди транзакция�
 [capture storage](capture-storage.md). Автоматично изтриване на orphan обекти
 не се включва: има консервативна процедура за задържане и ръчна проверка.
 Hosted storage избор/активиране, synthesis и реалното приемане остават отворени.
-Следващият пакет е P4: execution host и results API.
+P4 добавя отделен .NET Worker host, пагинирани history/findings/evidence/source
+reads и договор за polling; виж [execution and results](execution-results.md).
+Локалният Native Identity → queue → worker → storage → result read поток е
+покрит с fixture agent. Frontend UI, реалният producer и hosted приемането
+не се подразбират; следва P5 приемането и затварянето на тези release gates.
 Външно одобрение на договора, real-provider и hosted acceptance не се подразбират.
 
 ## 1. Цел и граници

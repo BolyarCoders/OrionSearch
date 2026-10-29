@@ -12,6 +12,8 @@ Native ASP.NET Core Identity accounts, activation settings and endpoint contract
 
 Optional versioned S3 captures, integrity verification and authorized text/raw reads are documented in [Capture storage](docs/capture-storage.md). Storage and Python capture execution are disabled until explicitly configured.
 
+The separate .NET executor, archive history/findings/source read endpoints and client polling contract are documented in [Execution and results](docs/execution-results.md). Build it with `services/api/Worker.Dockerfile`; running it requires explicit worker settings and an already migrated database. The API's embedded worker remains disabled by default.
+
 **Foundation scope:** PR #6 provides the backend implementation for team integration. It is not an authenticated, end-to-end accepted product release. The [release-blocker register and integration/security acceptance plan](docs/release-readiness.md) tracks required CI, real authentication, the agreed agent contract, live integration and deployment verification. Those gates must remain open until their required evidence is reviewed; backend Jira completion does not close them.
 
 ## Requirements and local setup

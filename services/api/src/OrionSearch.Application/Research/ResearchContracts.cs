@@ -46,6 +46,10 @@ public sealed class ResearchWorkerOptions
     public string? AgentApiKey { get; set; }
     public bool AllowProvisionalContract { get; set; }
 
+    public bool HasAgentConfiguration() => AgentApiKey is { Length: > 0 and <= 4096 } key
+        && key.All(character => character is >= '!' and <= '~')
+        && AgentBaseAddress is { } address && ValidAddress(address);
+
     public bool IsValid() => LeaseSeconds is >= 10 and <= 3600 && HeartbeatSeconds >= 1
         && HeartbeatSeconds <= LeaseSeconds / 3 && PollSeconds is >= 1 and <= 300
         && TimeoutSeconds is >= 1 and <= 3600 && MaxAttempts is >= 1 and <= 10

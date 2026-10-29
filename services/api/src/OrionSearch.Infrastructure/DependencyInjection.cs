@@ -16,17 +16,23 @@ namespace OrionSearch.Infrastructure;
 
 public static class DependencyInjection
 {
-    public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration, bool includeUserServices = true)
     {
         services.AddDbContext<OrionSearchDbContext>(options => options.UseNpgsql(
             PostgresConnection.Resolve(key => configuration[key]),
             postgres => postgres.SetPostgresVersion(16, 0).MigrationsHistoryTable("__ef_migrations_history", "system")));
         services.AddHealthChecks().AddCheck<DatabaseReadinessCheck>("postgresql", timeout: TimeSpan.FromSeconds(5));
-        services.AddScoped<IArchiveStore, EfArchiveStore>();
-        services.AddScoped<ArchiveService>();
-        services.AddScoped<ArchiveAuthorization>();
-        services.AddScoped<ICaptureReader, EfCaptureReader>();
-        services.AddScoped<CaptureService>();
+        if (includeUserServices)
+        {
+            services.AddScoped<IArchiveStore, EfArchiveStore>();
+            services.AddScoped<ArchiveService>();
+            services.AddScoped<ArchiveAuthorization>();
+            services.AddScoped<ICaptureReader, EfCaptureReader>();
+            services.AddScoped<CaptureService>();
+            services.AddScoped<ResearchService>();
+            services.AddScoped<IResearchResultsStore, EfResearchResultsStore>();
+            services.AddScoped<ResearchResultsService>();
+        }
         services.AddOptions<CaptureStoreOptions>().Bind(configuration.GetSection("CaptureStore"))
             .Validate(options => options.IsValid(), "CaptureStore requires a safe endpoint, private bucket and credentials.").ValidateOnStart();
         services.AddSingleton(provider => provider.GetRequiredService<IOptions<CaptureStoreOptions>>().Value);
@@ -54,7 +60,6 @@ public static class DependencyInjection
         services.AddSingleton(provider => provider.GetRequiredService<IOptions<ResearchWorkerOptions>>().Value);
         services.AddScoped<IResearchStore, EfResearchStore>();
         services.AddScoped<IResearchQueue, EfResearchQueue>();
-        services.AddScoped<ResearchService>();
         services.AddScoped<ResearchProcessor>();
         services.AddHttpClient<IResearchAgentClient, HttpResearchAgentClient>(client => client.Timeout = Timeout.InfiniteTimeSpan)
             .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { AllowAutoRedirect = false, MaxResponseHeadersLength = 32 });

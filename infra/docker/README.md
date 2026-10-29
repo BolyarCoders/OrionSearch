@@ -1,6 +1,6 @@
 # Local Docker environment
 
-This Compose stack starts PostgreSQL and the .NET API. The Python research worker is an opt-in prototype; it is not wired to the API's PostgreSQL-backed job queue or the agreed research contract. The Next.js frontend does not exist yet and is intentionally left as a placeholder.
+This Compose stack starts PostgreSQL and the .NET API. The Python research service is opt-in and implements the v1 contract, but this stack does not automatically configure or enable .NET execution. The Next.js frontend remains a placeholder. The separate .NET host can be built with `docker build -f services/api/Worker.Dockerfile -t orionsearch-executor .`; see [execution and results](../../services/api/docs/execution-results.md) for explicit settings, network trust, migration prerequisites and shutdown behavior. No dedicated hosted worker is created by this local configuration.
 
 ## Prerequisites
 

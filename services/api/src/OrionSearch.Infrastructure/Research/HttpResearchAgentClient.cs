@@ -8,9 +8,7 @@ namespace OrionSearch.Infrastructure.Research;
 
 public sealed class HttpResearchAgentClient(HttpClient client, ResearchWorkerOptions options, TimeProvider? timeProvider = null) : IResearchAgentClient
 {
-    public bool IsConfigured => options.AgentApiKey is { Length: > 0 and <= 4096 } key
-        && key.All(character => character is >= '!' and <= '~')
-        && options.AgentBaseAddress is { } address && ResearchWorkerOptions.ValidAddress(address);
+    public bool IsConfigured => options.HasAgentConfiguration();
 
     public async Task<AgentResult> ExecuteAsync(AgentRequest request, CancellationToken ct)
     {
