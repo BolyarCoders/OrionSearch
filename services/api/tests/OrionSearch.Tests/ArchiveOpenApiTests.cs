@@ -16,7 +16,14 @@ public sealed class ArchiveOpenApiTests
         {
             ("/archives", "post"), ("/archives", "get"), ("/archives/{id}", "get"),
             ("/archives/{id}", "patch"), ("/archives/{id}", "delete"), ("/archives/{id}/sources", "get"),
-            ("/archives/{archiveId}/research-jobs", "post"), ("/research-jobs/{id}", "get")
+            ("/archives/{archiveId}/research-jobs", "post"), ("/research-jobs/{id}", "get"),
+            ("/archives/{archiveId}/sources/{documentId}/versions", "get"),
+            ("/archives/{archiveId}/sources/{documentId}/versions/{versionId}", "get"),
+            ("/archives/{archiveId}/sources/{documentId}/versions/{versionId}/raw", "get"),
+            ("/archives/{archiveId}/research-jobs", "get"),
+            ("/archives/{archiveId}/findings", "get"),
+            ("/archives/{archiveId}/findings/{findingId}", "get"),
+            ("/archives/{archiveId}/sources/{documentId}", "get")
         };
         foreach (var (path, method) in operations)
         {

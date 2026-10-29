@@ -1,5 +1,52 @@
 # Render API and PostgreSQL hosting
 
+## Partial live release: 2026-10-29
+
+The API at https://orionsearch-api.onrender.com is live on commit `20bb396`;
+Render deploy `dep-dbhkgcnlk1mc73d067qg` was triggered manually from the
+review branch. The service's configured branch remains `main` and automatic
+deployment remains off. PR #12 contains the changes for review and has not
+been merged. Do not redeploy the older `main` before it contains this release.
+
+The PostgreSQL 18 database is at eleven migrations, with external IP access
+closed. Before upgrading, an encrypted operator-local export was made and an
+earlier export was restored into isolated PostgreSQL 18 and upgraded from eight
+to eleven migrations. After release, HTTPS readiness, registration, login,
+authenticated profile and archive create/read, plus unauthenticated rejection,
+were exercised. Only the synthetic account and archive were removed afterward.
+
+Native Identity and B2 capture reads are enabled. The API's encrypted PFX and
+password are held in Render environment secrets; a recovery copy encrypted to
+the operator's Windows user account is under `OrionSearch/protected-backups` in
+that user's LocalAppData. This copy is not independently recoverable if that
+Windows profile is lost: arrange a separate protected recovery copy and periodic
+backups. The B2 producer/worker is not deployed as part of this release, so
+research jobs can remain queued; successful archive/account flows do not imply
+working research execution. B2's hosted upload path has not been verified.
+
+Free Render Postgres expires on 2026-11-26 at 06:35 UTC and has no managed
+backups. No recurring backup job or replacement database has been configured.
+This is a limited live deployment, not full production acceptance. The remaining
+gates in [mvp-acceptance.md](mvp-acceptance.md) still apply.
+
+The Blueprint sets `ReverseProxy__TrustRenderEdge=true` for this Free public
+web service. Render documents that public traffic reaches the service through
+Cloudflare and that its edge overwrites `CF-Connecting-IP`; Free web services
+cannot receive private-network traffic. Both per-IP rate limiters use that one
+address, not the caller-supplied `X-Forwarded-For` chain. Missing or malformed
+values share a conservative `unknown` bucket. This trust relies on that specific
+ingress isolation: do not enable it on a private service, a host reachable
+directly, or a paid service accepting private-network requests. Reassess the
+boundary before changing plans, adding a proxy or enabling private ingress.
+Elsewhere the application uses the socket address or explicitly trusted forwarded
+proxies. Render edge mode fails startup outside a Render web service.
+
+Blueprint sync is paused: this checked-in setting does not change the existing
+service until an operator applies the reviewed configuration and deploys it.
+Local tests simulate the edge contract; a hosted multi-client and spoofing check
+is still required after deployment. References: [Render edge guidance](https://render.com/articles/host-pocketbase-on-render),
+[Render private networking](https://render.com/docs/private-network).
+
 The root [render.yaml](../../../render.yaml) declares one API and one PostgreSQL
 database for `BolyarCoders/OrionSearch`. The deployment destination is Render's
 `My Workspace`, workspace ID `tea-db7tmovavr4c73dv8nog`, explicitly confirmed by

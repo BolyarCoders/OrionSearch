@@ -33,7 +33,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  # Explicit opt-in: prototype worker is not integrated with the API job contract.
+  # Explicit service opt-in; API processing stays disabled until deliberately configured.
   research-worker:
     profiles: ["worker"]
     build:

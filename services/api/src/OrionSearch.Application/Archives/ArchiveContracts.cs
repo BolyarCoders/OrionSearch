@@ -36,8 +36,9 @@ public sealed record ArchivePatch(
     FieldChange<string?> Title, FieldChange<string?> Description, FieldChange<string?> Status,
     SettingsPatch? Settings);
 
-public sealed class ArchiveRequestException(int statusCode, string message, string? field = null) : Exception(message)
+public sealed class ArchiveRequestException(int statusCode, string message, string? field = null, int? retryAfterSeconds = null) : Exception(message)
 {
     public int StatusCode { get; } = statusCode;
     public string? Field { get; } = field;
+    public int? RetryAfterSeconds { get; } = retryAfterSeconds;
 }

@@ -5,12 +5,57 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
+from types import SimpleNamespace
+import requests
 
 AGENT_DIR = Path(__file__).resolve().parents[1]
 if str(AGENT_DIR) not in sys.path:
     sys.path.insert(0, str(AGENT_DIR))
 
 import collector
+
+
+def test_feed_marks_publication_and_update_dates_separately(monkeypatch):
+    stamp = (2026, 10, 20, 12, 30, 0, 0, 0, 0)
+    entries = [
+        {"title": "One", "link": "https://example.com/1", "published_parsed": stamp},
+        {"title": "Two", "link": "https://example.com/2", "updated_parsed": stamp},
+    ]
+    monkeypatch.setattr(collector.requests, "get", lambda *a, **kw: SimpleNamespace(content=b"feed", raise_for_status=lambda: None))
+    monkeypatch.setattr(collector.feedparser, "parse", lambda _: SimpleNamespace(entries=entries))
+    result = collector.get_rss("https://example.com/feed", "Example", 2)
+    assert [item["publication_date_kind"] for item in result] == ["published", "updated"]
+
+
+def test_hacker_news_date_is_not_attributed_to_linked_article(monkeypatch):
+    hits = [{"objectID": "1", "url": "https://example.com/", "created_at": "2026-10-20T12:00:00Z"},
+            {"objectID": "2", "created_at": "2026-10-20T12:00:00Z"}]
+    monkeypatch.setattr(collector.requests, "get", lambda *a, **kw: SimpleNamespace(raise_for_status=lambda: None, json=lambda: {"hits": hits}))
+    result = collector.search_hacker_news("topic", 7, 2)
+    assert [item["publication_date_kind"] for item in result] == ["discovery", "published"]
+
+
+@pytest.mark.parametrize("changes", [{"title": ""}, {"url": ""}, {"published_at": "not-a-date"}, {"published_at": ""}])
+def test_incomplete_articles_are_not_returned(changes):
+    item = article()
+    item.update(changes)
+    assert collector.process_articles([item], days=7) == []
+
+
+def test_naive_dates_are_utc_and_future_dates_are_rejected():
+    naive = (datetime.now(timezone.utc) - timedelta(hours=1)).replace(tzinfo=None).isoformat()
+    future = (datetime.now(timezone.utc) + timedelta(days=2)).isoformat()
+    result = collector.process_articles([article("valid", published_at=naive), article("future", published_at=future)], days=7)
+    assert len(result) == 1
+    assert result[0]["published_at"].endswith("+00:00")
+
+
+def test_feed_propagates_timeout(monkeypatch):
+    def fail(*args, **kwargs):
+        raise requests.Timeout("timeout")
+    monkeypatch.setattr(collector.requests, "get", fail)
+    with pytest.raises(requests.Timeout):
+        collector.get_rss("https://example.com/feed", "Example", 2)
 
 
 def article(title="AI agent release", published_at=None, **overrides):

@@ -6,6 +6,14 @@ For complete endpoint examples and an explanation of the backend workflow, see t
 
 For the Render API/database configuration, free-plan expiry and deployment checks, see [Render hosting](docs/render-hosting.md).
 
+For the proposed architecture, implementation order and acceptance criteria for the remaining product work, see the [Backend completion plan](docs/backend-completion-plan.md).
+
+Native ASP.NET Core Identity accounts, activation settings and endpoint contracts are documented in [Native Identity](docs/native-identity.md). This feature is disabled until explicitly configured; no external identity provider is required.
+
+Optional versioned S3 captures, integrity verification and authorized text/raw reads are documented in [Capture storage](docs/capture-storage.md). Storage and Python capture execution are disabled until explicitly configured.
+
+The separate .NET executor, archive history/findings/source read endpoints and client polling contract are documented in [Execution and results](docs/execution-results.md). Build it with `services/api/Worker.Dockerfile`; running it requires explicit worker settings and an already migrated database. The API's embedded worker remains disabled by default.
+
 **Foundation scope:** PR #6 provides the backend implementation for team integration. It is not an authenticated, end-to-end accepted product release. The [release-blocker register and integration/security acceptance plan](docs/release-readiness.md) tracks required CI, real authentication, the agreed agent contract, live integration and deployment verification. Those gates must remain open until their required evidence is reviewed; backend Jira completion does not close them.
 
 ## Requirements and local setup
@@ -20,7 +28,7 @@ dotnet test
 dotnet run --project src/OrionSearch.Api
 ```
 
-The checked-in launch profile selects Development and listens on `http://localhost:5190`. Stop the API with Ctrl+C. Starting the API and calling `/health` requires no external service. The full test suite requires Docker or a local PostgreSQL server; see below. Railway is not needed.
+The checked-in launch profile selects Development and listens on `http://localhost:5190`. Stop the API with Ctrl+C. Starting the API and calling `/health` requires no external service. The full test suite requires Docker for the isolated PostgreSQL and versioned S3 storage tests. A local PostgreSQL server can replace the database container; the S3 tests still use a disposable SeaweedFS 4.51 container. Railway is not needed.
 
 | Endpoint | Response |
 | --- | --- |
@@ -168,11 +176,11 @@ All settings below use the `ResearchWorker` section, for example `ResearchWorker
 | `MaxResponseBytes` | `2097152`; streaming body limit, configurable 1 KiB–10 MiB |
 | `AgentBaseAddress` | Unset; fixed server-selected endpoint, with `research` appended |
 | `AgentApiKey` | Unset; bearer service credential from secret configuration, never logged |
-| `AllowProvisionalContract` | `false`; explicit opt-in while ORION-8 is unfinished |
+| `AllowProvisionalContract` | `false`; only needed to drain older provisional payloads; new submissions use v1 |
 
 The HTTP client requires HTTPS, except loopback or Railway's private `.railway.internal` hostnames; URLs cannot include credentials, queries or fragments. Redirects are disabled. A complete enabled configuration still requires a real compatible agent service. No production fake exists.
 
-ORION-8 was To Do with no contract/worker implementation on either remote branch when inspected on 2026-10-18. The version **`orion.research.provisional.v1`** is explicitly a proposal. See the [AI handoff, schemas and representative fixtures](../../packages/contracts/research/provisional-v1/README.md). The typed boundary rejects unknown/missing fields, unsupported versions, invalid counts and cross-source references. Agree the final contract, transport/authentication and deterministic chunking with the AI team before enabling live processing.
+The implementation now uses **`orion.research.v1`** with a compatible Python discovery producer. See the [contract, schemas and fixtures](../../packages/contracts/research/v1/README.md) and [integration record](docs/research-integration.md). Both sides reject unknown/missing fields and mismatched run/version identities. JSON content type, exact property casing and duplicate-field rejection are enforced at the wire boundary. Bounded Retry-After hints extend the normal persisted backoff. The producer currently returns discoveries, with zero captures/findings; no feed summary becomes a verified full article. Review the candidate with the AI team and execute real provider/storage/hosted acceptance before enabling live processing. The earlier provisional fixtures remain unchanged for compatibility review.
 
 Result ingestion normalizes URLs/domains and upserts global publishers, documents, versions and archive links in deterministic order. Publication dates stay unknown when absent. URL-only discoveries create no captured version. Text hashes use the existing normalization helper; raw-only captures require a durable storage reference and supplied SHA-256 with explicit hash-basis metadata. The agent/storage integration must preserve the actual bytes; this backend does not fetch raw objects to prove their existence or digest. Chunk offsets count Unicode scalar values in normalized text, start inclusive/end exclusive. Evidence resolves response-local keys to the exact captured version and optional chunk; mismatched chunk definitions fail rather than citing existing content incorrectly. Findings retain their originating run and remain `unverified` regardless of model confidence.
 
@@ -200,7 +208,7 @@ dotnet test
 dotnet format OrionSearch.sln --verify-no-changes
 ```
 
-If Docker is unavailable, set `ORIONSEARCH_TEST_POSTGRES` to an admin connection on a local test server, then run `dotnet test`. The test role must be able to create databases and install `citext`. The fixture creates random `orion_tests_<uuid>` databases and deletes only those databases afterward. It never migrates, truncates or drops the database named in the admin connection. Use a local test server rather than a production server. Without Docker or this setting the PostgreSQL tests fail; they are not silently skipped.
+To replace the PostgreSQL container, set `ORIONSEARCH_TEST_POSTGRES` to an admin connection on a local test server. The test role must be able to create databases and install `citext`. The fixture creates random `orion_tests_<uuid>` databases and deletes only those databases afterward. It never migrates, truncates or drops the database named in the admin connection. Use a local test server rather than a production server. Without Docker or this setting the PostgreSQL tests fail; they are not silently skipped. The full suite also includes S3 integration tests that require Docker even when PostgreSQL is supplied locally; filter out `CaptureStorageIntegrationTests` only when deliberately running a partial suite.
 
 With Docker available, select each major version in PowerShell:
 

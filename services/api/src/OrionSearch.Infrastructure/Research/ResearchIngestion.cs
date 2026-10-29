@@ -63,12 +63,19 @@ internal static class ResearchIngestion
                     extracted_text = COALESCE(content.document_versions.extracted_text, EXCLUDED.extracted_text),
                     storage_uri = COALESCE(content.document_versions.storage_uri, EXCLUDED.storage_uri),
                     metadata = CASE WHEN content.document_versions.storage_uri IS NULL AND EXCLUDED.storage_uri IS NOT NULL
-                        THEN content.document_versions.metadata || jsonb_build_object('raw_sha256', EXCLUDED.metadata->'raw_sha256')
+                        THEN content.document_versions.metadata || jsonb_build_object('raw_sha256', EXCLUDED.metadata->'raw_sha256', 'verified_raw', EXCLUDED.metadata->'verified_raw')
                         ELSE content.document_versions.metadata END
                 RETURNING id AS "Value"
                 """, ct);
             var version = await context.DocumentVersions.SingleAsync(version => version.Id == versionId, ct);
             version.Metadata = RepresentationMetadata(version);
+            await context.Database.ExecuteSqlInterpolatedAsync($"""
+                INSERT INTO content.archive_document_versions (archive_id, document_id, document_version_id, storage_uri, raw_sha256)
+                VALUES ({archiveId}, {documentId}, {versionId}, {storageUri}, {(capture.Raw == null ? null : capture.Raw.Sha256)})
+                ON CONFLICT (archive_id, document_version_id) DO UPDATE SET
+                    storage_uri = COALESCE(content.archive_document_versions.storage_uri, EXCLUDED.storage_uri),
+                    raw_sha256 = COALESCE(content.archive_document_versions.raw_sha256, EXCLUDED.raw_sha256)
+                """, ct);
             reference.VersionId = versionId;
             foreach (var chunk in capture.Chunks!.OrderBy(chunk => chunk.Index))
             {

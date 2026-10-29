@@ -1,25 +1,44 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
 using OrionSearch.Application.Research;
 using OrionSearch.Domain.Jobs;
 using OrionSearch.Domain.Research;
 using OrionSearch.Infrastructure.Persistence;
+using OrionSearch.Application.Content;
 
 namespace OrionSearch.Infrastructure.Research;
 
-internal sealed class EfResearchQueue(IDbContextFactory<OrionSearchDbContext> factory, ResearchWorkerOptions options) : IResearchQueue
+internal sealed class EfResearchQueue(IDbContextFactory<OrionSearchDbContext> factory, ResearchWorkerOptions options, ICaptureStore captures, ResearchLimitOptions limits) : IResearchQueue
 {
     public async Task<ResearchLease?> ClaimAsync(string workerId, CancellationToken ct)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(workerId);
         await using var context = await factory.CreateDbContextAsync(ct);
         await using var transaction = await context.Database.BeginTransactionAsync(ct);
-        var job = await context.Jobs.FromSqlRaw("""
+        await context.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(713904, 2)", ct);
+        var budgetNow = await NowAsync(context, ct);
+        var day = budgetNow.Date;
+        var end = day.AddDays(1);
+        if (await context.Jobs.CountAsync(job => job.JobType == "research_plan" && job.Status == "processing" && job.LockedUntil > budgetNow, ct) >= limits.MaxConcurrentAttempts)
+            return null;
+        var attempts = from attempt in context.JobAttempts
+                       join attemptJob in context.Jobs on attempt.JobId equals attemptJob.Id
+                       where attemptJob.JobType == "research_plan" && attempt.StartedAt >= day && attempt.StartedAt < end
+                       select attempt;
+        if (await attempts.CountAsync(ct) >= limits.MaxAttemptsGlobalPerDay) return null;
+        var job = await context.Jobs.FromSql($"""
             SELECT j.* FROM system.jobs j
             JOIN research.research_runs r ON r.id = j.research_run_id
             JOIN research.archives a ON a.id = r.archive_id
             WHERE j.job_type = 'research_plan' AND j.status = 'pending' AND r.status = 'queued'
                 AND j.run_after <= clock_timestamp() AND j.attempts < j.max_attempts AND a.status = 'active'
+                AND (SELECT count(*) FROM system.job_attempts ja
+                    JOIN system.jobs aj ON aj.id = ja.job_id
+                    JOIN research.research_runs ar ON ar.id = aj.research_run_id
+                    JOIN research.archives aa ON aa.id = ar.archive_id
+                    WHERE aj.job_type = 'research_plan' AND aa.owner_id = a.owner_id
+                        AND ja.started_at >= {day} AND ja.started_at < {end}) < {limits.MaxAttemptsPerOwnerPerDay}
             ORDER BY j.priority DESC, j.created_at, j.id LIMIT 1 FOR UPDATE OF j SKIP LOCKED
             """).SingleOrDefaultAsync(ct);
         if (job is null) return null;
@@ -27,6 +46,9 @@ internal sealed class EfResearchQueue(IDbContextFactory<OrionSearchDbContext> fa
         var archive = await LockArchiveAsync(context, run.ArchiveId, ct);
         if (archive.Status != "active") return null;
         var now = await NowAsync(context, ct);
+        // A row-lock wait may cross midnight. Retry with fresh UTC budget counts,
+        // and always allocate the lease from the time after acquiring the locks.
+        if (now.Date != day) return null;
         job.Status = "processing";
         job.WorkerId = workerId;
         job.LockedUntil = now.AddSeconds(options.LeaseSeconds);
@@ -57,9 +79,7 @@ internal sealed class EfResearchQueue(IDbContextFactory<OrionSearchDbContext> fa
         AgentRequest request;
         try
         {
-            request = JsonSerializer.Deserialize<ResearchPayload>(job.Payload, ResearchContract.Json)!.Request;
-            if (request.ResearchRunId != lease.RunId || request.ArchiveId != lease.ArchiveId || request.ContractVersion != ResearchContract.Version)
-                throw new JsonException();
+            request = ReadRequest(job, lease);
         }
         catch (Exception exception) when (exception is JsonException or NullReferenceException)
         {
@@ -83,11 +103,22 @@ internal sealed class EfResearchQueue(IDbContextFactory<OrionSearchDbContext> fa
 
     public async Task<bool> CompleteAsync(ResearchLease lease, AgentResult result, CancellationToken ct)
     {
-        result = ResearchOutputValidator.Normalize(result, lease.RunId);
+        if (result is null || !ResearchContract.IsSupported(result.ContractVersion, options.AllowProvisionalContract))
+            throw new ResearchAgentException(ResearchFailure.Contract);
+        result = ResearchOutputValidator.Normalize(result, lease.RunId, result.ContractVersion);
+        result = await VerifyCapturesAsync(result, ct);
         await using var context = await factory.CreateDbContextAsync(ct);
         await using var transaction = await context.Database.BeginTransactionAsync(ct);
         var job = await OwnedAsync(context, lease, ct);
         if (job is null) return false;
+        try
+        {
+            if (ReadRequest(job, lease).ContractVersion != result.ContractVersion) throw new JsonException();
+        }
+        catch (Exception exception) when (exception is JsonException or NullReferenceException)
+        {
+            throw new ResearchAgentException(ResearchFailure.Contract);
+        }
         var archive = await LockArchiveAsync(context, lease.ArchiveId, ct);
         if (archive.Status == "archived")
         {
@@ -110,7 +141,30 @@ internal sealed class EfResearchQueue(IDbContextFactory<OrionSearchDbContext> fa
         return true;
     }
 
-    public async Task<bool> FailAsync(ResearchLease lease, ResearchFailure failure, CancellationToken ct)
+    private async Task<AgentResult> VerifyCapturesAsync(AgentResult result, CancellationToken ct)
+    {
+        using var budget = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        budget.CancelAfter(TimeSpan.FromSeconds(60));
+        var sources = new List<SourceOutput>();
+        long total = 0;
+        foreach (var source in result.Sources)
+        {
+            if (source.Capture is not { } capture) { sources.Add(source); continue; }
+            var metadata = capture.Metadata.ValueKind == JsonValueKind.Undefined ? new JsonObject() : JsonNode.Parse(capture.Metadata.GetRawText())!.AsObject();
+            metadata.Remove("verified_raw");
+            if (capture.Raw is { } raw)
+            {
+                var content = await captures.ReadAsync(raw.StorageUri, raw.Sha256, result.ResearchRunId, budget.Token);
+                total += content.Bytes.Length;
+                if (total > 16777216) throw new ResearchAgentException(ResearchFailure.Contract);
+                metadata["verified_raw"] = JsonSerializer.SerializeToNode(new { size_bytes = content.Bytes.Length, media_type = content.MediaType });
+            }
+            sources.Add(source with { Capture = capture with { Metadata = JsonSerializer.SerializeToElement(metadata) } });
+        }
+        return result with { Sources = sources.ToArray() };
+    }
+
+    public async Task<bool> FailAsync(ResearchLease lease, ResearchFailure failure, CancellationToken ct, int? retryAfterSeconds = null)
     {
         await using var context = await factory.CreateDbContextAsync(ct);
         await using var transaction = await context.Database.BeginTransactionAsync(ct);
@@ -118,7 +172,7 @@ internal sealed class EfResearchQueue(IDbContextFactory<OrionSearchDbContext> fa
         if (job is null) return false;
         var archive = await LockArchiveAsync(context, lease.ArchiveId, ct);
         if (archive.Status == "archived") failure = ResearchFailure.Archived;
-        var saved = await FinishFailureAsync(context, job, lease, failure, ct);
+        var saved = await FinishFailureAsync(context, job, lease, failure, ct, retryAfterSeconds);
         if (saved) await transaction.CommitAsync(ct);
         return saved;
     }
@@ -169,7 +223,7 @@ internal sealed class EfResearchQueue(IDbContextFactory<OrionSearchDbContext> fa
         return recovered;
     }
 
-    private async Task<bool> FinishFailureAsync(OrionSearchDbContext context, Job job, ResearchLease lease, ResearchFailure failure, CancellationToken ct)
+    private async Task<bool> FinishFailureAsync(OrionSearchDbContext context, Job job, ResearchLease lease, ResearchFailure failure, CancellationToken ct, int? retryAfterSeconds = null)
     {
         var now = await NowAsync(context, ct);
         var retry = ResearchFailures.IsTransient(failure) && job.Attempts < job.MaxAttempts;
@@ -182,7 +236,8 @@ internal sealed class EfResearchQueue(IDbContextFactory<OrionSearchDbContext> fa
         attempt.Status = failure == ResearchFailure.Timeout ? "timed_out" : "failed";
         attempt.FinishedAt = now;
         attempt.ErrorMessage = run.ErrorMessage;
-        return await FinalizeAsync(context, job, lease, state, run.ErrorMessage, now.AddSeconds(options.BackoffSeconds(job.Attempts)), ct);
+        var delay = Math.Max(options.BackoffSeconds(job.Attempts), Math.Clamp(retryAfterSeconds ?? 0, 0, options.RetryMaxSeconds));
+        return await FinalizeAsync(context, job, lease, state, run.ErrorMessage, now.AddSeconds(delay), ct);
     }
 
     private static async Task<bool> FinalizeAsync(OrionSearchDbContext context, Job job, ResearchLease lease,
@@ -212,6 +267,14 @@ internal sealed class EfResearchQueue(IDbContextFactory<OrionSearchDbContext> fa
         // The WHERE predicate can be evaluated before waiting for an unchanged locked row.
         // Recheck with database time now that the lock is ours, before accepting ownership.
         return job is not null && job.LockedUntil > await NowAsync(context, ct) ? job : null;
+    }
+
+    private AgentRequest ReadRequest(Job job, ResearchLease lease)
+    {
+        var request = JsonSerializer.Deserialize<ResearchPayload>(job.Payload, ResearchContract.Json)!.Request;
+        if (request.ResearchRunId != lease.RunId || request.ArchiveId != lease.ArchiveId
+            || !ResearchContract.IsSupported(request.ContractVersion, options.AllowProvisionalContract)) throw new JsonException();
+        return request;
     }
 
     private static Task<Archive> LockArchiveAsync(OrionSearchDbContext context, Guid id, CancellationToken ct) =>

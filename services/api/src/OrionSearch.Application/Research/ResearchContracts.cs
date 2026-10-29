@@ -27,7 +27,7 @@ public interface IResearchQueue
     Task<AgentRequest?> DispatchAsync(ResearchLease lease, CancellationToken ct);
     Task<bool> HeartbeatAsync(ResearchLease lease, CancellationToken ct);
     Task<bool> CompleteAsync(ResearchLease lease, AgentResult result, CancellationToken ct);
-    Task<bool> FailAsync(ResearchLease lease, ResearchFailure failure, CancellationToken ct);
+    Task<bool> FailAsync(ResearchLease lease, ResearchFailure failure, CancellationToken ct, int? retryAfterSeconds = null);
     Task<int> RecoverAsync(CancellationToken ct);
 }
 
@@ -45,6 +45,10 @@ public sealed class ResearchWorkerOptions
     public string? AgentBaseAddress { get; set; }
     public string? AgentApiKey { get; set; }
     public bool AllowProvisionalContract { get; set; }
+
+    public bool HasAgentConfiguration() => AgentApiKey is { Length: > 0 and <= 4096 } key
+        && key.All(character => character is >= '!' and <= '~')
+        && AgentBaseAddress is { } address && ValidAddress(address);
 
     public bool IsValid() => LeaseSeconds is >= 10 and <= 3600 && HeartbeatSeconds >= 1
         && HeartbeatSeconds <= LeaseSeconds / 3 && PollSeconds is >= 1 and <= 300

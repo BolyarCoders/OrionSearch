@@ -10,6 +10,11 @@ internal sealed class ArchiveExceptionHandler(IProblemDetailsService problems) :
     {
         if (exception is not ArchiveRequestException request) return false;
         context.Response.StatusCode = request.StatusCode;
+        if (request.RetryAfterSeconds is { } retry)
+        {
+            context.Response.Headers.RetryAfter = retry.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            context.Response.Headers.CacheControl = "no-store";
+        }
         ProblemDetails problem = request.Field is { } field
             ? new HttpValidationProblemDetails(new Dictionary<string, string[]> { [field] = [request.Message] })
             : new ProblemDetails();

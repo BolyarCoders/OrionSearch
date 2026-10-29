@@ -4,19 +4,21 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Options;
 using OrionSearch.Api.Configuration;
 using OrionSearch.Infrastructure;
-using Microsoft.AspNetCore.Authentication;
 using OrionSearch.Api.Authentication;
 using OrionSearch.Api.Archives;
 using OrionSearch.Application.Abstractions;
 using Microsoft.AspNetCore.Authorization;
+using System.Threading.RateLimiting;
+using OrionSearch.Application.Research;
 
 namespace OrionSearch.Api.Extensions;
 
 public static class ServiceCollectionExtensions
 {
-    public static IServiceCollection AddApiServices(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddApiServices(this IServiceCollection services, IConfiguration configuration, IHostEnvironment environment)
     {
         services.AddInfrastructure(configuration);
+        services.Configure<Microsoft.AspNetCore.Routing.RouteHandlerOptions>(options => options.ThrowOnBadRequest = false);
         services.AddOptions<CorsSettings>()
             .Bind(configuration.GetSection(CorsSettings.SectionName))
             .Validate(settings => settings.AllowedOrigins.All(CorsSettings.IsValidOrigin),
@@ -27,6 +29,9 @@ public static class ServiceCollectionExtensions
             .Bind(configuration.GetSection(ReverseProxySettings.SectionName))
             .Validate(settings => settings.KnownProxies.All(proxy => IPAddress.TryParse(proxy, out _)),
                 "ReverseProxy:KnownProxies must contain IP addresses.")
+            .Validate(settings => !settings.TrustRenderEdge ||
+                configuration["RENDER"] == "true" && configuration["RENDER_SERVICE_TYPE"] == "web",
+                "Render edge trust is restricted to Render web services.")
             .ValidateOnStart();
 
         services.AddCors();
@@ -68,15 +73,38 @@ public static class ServiceCollectionExtensions
 
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUser, TrustedCurrentUser>();
-        services.AddAuthentication("Unconfigured")
-            .AddScheme<AuthenticationSchemeOptions, UnconfiguredAuthenticationHandler>("Unconfigured", _ => { });
+        services.AddNativeIdentity(configuration, environment);
+        services.AddRateLimiter(options =>
+        {
+            options.AddPolicy("research-submissions", context => RateLimitPartition.GetFixedWindowLimiter(
+                RateLimitClientAddress.Get(context), _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = context.RequestServices.GetRequiredService<ResearchLimitOptions>().MaxSubmissionsPerIpPerMinute,
+                    Window = TimeSpan.FromMinutes(1),
+                    QueueLimit = 0
+                }));
+            options.OnRejected = async (context, ct) =>
+            {
+                var retry = context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var delay) ? Math.Max(1, (int)Math.Ceiling(delay.TotalSeconds)) : 60;
+                context.HttpContext.Response.StatusCode = 429;
+                context.HttpContext.Response.Headers.RetryAfter = retry.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                context.HttpContext.Response.Headers.CacheControl = "no-store";
+                await context.HttpContext.RequestServices.GetRequiredService<IProblemDetailsService>().WriteAsync(new()
+                {
+                    HttpContext = context.HttpContext,
+                    ProblemDetails = new() { Status = 429, Title = "Request rate limit exceeded. Retry later." }
+                });
+            };
+        });
         services.AddAuthorization();
         services.AddExceptionHandler<ArchiveExceptionHandler>();
         services.AddOpenApi(options => options.AddOperationTransformer((operation, context, _) =>
         {
             if (context.Description.ActionDescriptor.EndpointMetadata.OfType<IAuthorizeData>().Any())
             {
-                operation.Description += " Authentication is currently unconfigured: normal startup returns 401 until a validated provider maps its subject to the internal application user.";
+                operation.Description += configuration.GetValue<bool>("NativeIdentity:Enabled")
+                    ? " Requires a valid Native Identity access token and an active application user."
+                    : " Authentication is currently unconfigured: configure and enable NativeIdentity before protected requests can succeed.";
             }
             return Task.CompletedTask;
         }));
