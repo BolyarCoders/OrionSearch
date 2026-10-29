@@ -1,7 +1,7 @@
 # Capture storage and integrity (P3)
 
-Implementation and operations, 29 October 2026. Local development only; no hosted store
-or credentials are provisioned by this change.
+Implementation and operations, 29 October 2026. Capture execution remains disabled
+on Render until the release and hosted integration have been verified.
 
 | Architecture question | Decision |
 | --- | --- |
@@ -97,9 +97,28 @@ ORION_CAPTURE_ENDPOINT=https://<trusted-s3-endpoint>
 ORION_CAPTURE_REGION=<region>
 ORION_CAPTURE_BUCKET=<same-private-versioned-bucket>
 ORION_CAPTURE_PREFIX=captures
+ORION_CAPTURE_WRITE_MODE=conditional
 ORION_CAPTURE_ACCESS_KEY=<upload-only-key>
 ORION_CAPTURE_SECRET_KEY=<upload-only-secret>
 ```
+
+The default `conditional` write mode uses `If-None-Match: *`. Backblaze B2
+currently rejects that header, so its explicit `backblaze` mode omits the
+condition. It still requires a non-null immutable version ID, an execution
+nonce in the object key, and SHA-256 verification by .NET. A repeated write can
+create another version; it cannot change the bytes addressed by an earlier
+version ID. Do not delete referenced versions or apply blanket lifecycle rules.
+Unknown write modes fail closed; there is no automatic fallback.
+
+The `orionsearch-captures-6b62412495b7` B2 bucket is private with no lifecycle
+rules and scoped reader/writer keys. A local synthetic probe obtained and read
+an exact version, checked SHA-256, and confirmed both keys are denied deletion.
+The actual .NET capture adapter also read and verified that B2 version.
+The local probe suppressed the HTTP `Expect` header due to a local network
+connection failure; the unmodified Render-to-B2 upload path has not yet been
+verified. Capture must stay disabled until that path is checked. Keys were stored
+encrypted on the operator's Windows account, not yet configured in Render. This
+does not configure hosted backups. For B2 set `ORION_CAPTURE_WRITE_MODE=backblaze`.
 
 Give the producer PutObject only under captures/*; deny object/version deletion
 and bucket-policy/versioning changes. This implementation uses static scoped

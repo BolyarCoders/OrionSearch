@@ -25,6 +25,7 @@ def test_shared_capture_fixture_is_generated_by_the_actual_adapter(monkeypatch):
     raw = (CONTRACT_ROOT / "v1/capture-source.html").read_bytes()
     uploader = object.__new__(CaptureUploader)
     uploader.bucket, uploader.prefix, uploader.uploaded = "test-captures", "captures", {}
+    uploader.write_mode = "conditional"
     uploader.client = SimpleNamespace(put_object=lambda **k: {"VersionId": "fixture-version"})
     actual = enrich_captures(result, request, uploader, fetch=lambda *a: (raw, "text/html", "https://example.com/source"))
     assert actual == json.loads((CONTRACT_ROOT / "v1/capture-result.json").read_text(encoding="utf-8"))
@@ -143,6 +144,7 @@ def test_rejected_source_remains_discovery_and_storage_failure_is_not_hidden():
 def test_upload_requires_versioning_and_retains_exact_digest():
     uploader = object.__new__(CaptureUploader)
     uploader.bucket, uploader.prefix = "test-captures", "captures"
+    uploader.write_mode = "conditional"
     uploader.uploaded = {}
     calls = []
     def put(**values):
@@ -157,6 +159,28 @@ def test_upload_requires_versioning_and_retains_exact_digest():
     assert len(calls) == 1
     uploader.client = SimpleNamespace(put_object=lambda **k: {"VersionId": "null"})
     with pytest.raises(RuntimeError, match="versioning"): uploader.upload("11111111-1111-1111-1111-111111111111", "b" * 32, b"x", "text/plain")
+
+
+def test_backblaze_upload_uses_returned_version_without_conditional_write():
+    uploader = object.__new__(CaptureUploader)
+    uploader.bucket, uploader.prefix, uploader.uploaded = "test-captures", "captures", {}
+    uploader.write_mode = "backblaze"
+    calls = []
+    uploader.client = SimpleNamespace(put_object=lambda **values: calls.append(values) or {"VersionId": "b2-version"})
+    raw = uploader.upload("11111111-1111-1111-1111-111111111111", "a" * 32, b"raw", "text/plain")
+    assert "IfNoneMatch" not in calls[0]
+    assert raw["storageUri"].endswith("?versionId=b2-version")
+    assert raw["sha256"] == hashlib.sha256(b"raw").hexdigest()
+    uploader.client = SimpleNamespace(put_object=lambda **values: {"VersionId": "null"})
+    with pytest.raises(RuntimeError, match="versioning"):
+        uploader.upload("11111111-1111-1111-1111-111111111111", "b" * 32, b"raw", "text/plain")
+
+
+def test_unknown_capture_write_mode_fails_closed(monkeypatch):
+    monkeypatch.setenv("ORION_CAPTURE_BUCKET", "test-captures")
+    monkeypatch.setenv("ORION_CAPTURE_WRITE_MODE", "unsupported")
+    with pytest.raises(RuntimeError, match="write mode"):
+        CaptureUploader()
 
 
 def test_real_disposable_fetch_process_rejects_loopback_before_connecting():

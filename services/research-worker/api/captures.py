@@ -180,6 +180,9 @@ class CaptureUploader:
         from botocore.config import Config
         self.bucket = os.environ["ORION_CAPTURE_BUCKET"]
         self.prefix = os.getenv("ORION_CAPTURE_PREFIX", "captures")
+        self.write_mode = os.getenv("ORION_CAPTURE_WRITE_MODE", "conditional")
+        if self.write_mode not in ("conditional", "backblaze"):
+            raise RuntimeError("Invalid capture write mode")
         self.uploaded = {}
         endpoint = os.environ["ORION_CAPTURE_ENDPOINT"]
         parts = urlsplit(endpoint)
@@ -198,7 +201,10 @@ class CaptureUploader:
         key = f"{self.prefix}/{uuid.UUID(run_id)}/{nonce}/{digest}"
         if key in self.uploaded:
             return dict(self.uploaded[key])
-        response = self.client.put_object(Bucket=self.bucket, Key=key, Body=data, ContentType=media_type, IfNoneMatch="*")
+        arguments = {"Bucket": self.bucket, "Key": key, "Body": data, "ContentType": media_type}
+        if self.write_mode == "conditional":
+            arguments["IfNoneMatch"] = "*"
+        response = self.client.put_object(**arguments)
         version = response.get("VersionId")
         if not version or version == "null":
             raise RuntimeError("Capture bucket versioning is required")
