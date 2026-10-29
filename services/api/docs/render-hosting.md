@@ -29,6 +29,24 @@ backups. No recurring backup job or replacement database has been configured.
 This is a limited live deployment, not full production acceptance. The remaining
 gates in [mvp-acceptance.md](mvp-acceptance.md) still apply.
 
+The Blueprint sets `ReverseProxy__TrustRenderEdge=true` for this Free public
+web service. Render documents that public traffic reaches the service through
+Cloudflare and that its edge overwrites `CF-Connecting-IP`; Free web services
+cannot receive private-network traffic. Both per-IP rate limiters use that one
+address, not the caller-supplied `X-Forwarded-For` chain. Missing or malformed
+values share a conservative `unknown` bucket. This trust relies on that specific
+ingress isolation: do not enable it on a private service, a host reachable
+directly, or a paid service accepting private-network requests. Reassess the
+boundary before changing plans, adding a proxy or enabling private ingress.
+Elsewhere the application uses the socket address or explicitly trusted forwarded
+proxies. Render edge mode fails startup outside a Render web service.
+
+Blueprint sync is paused: this checked-in setting does not change the existing
+service until an operator applies the reviewed configuration and deploys it.
+Local tests simulate the edge contract; a hosted multi-client and spoofing check
+is still required after deployment. References: [Render edge guidance](https://render.com/articles/host-pocketbase-on-render),
+[Render private networking](https://render.com/docs/private-network).
+
 The root [render.yaml](../../../render.yaml) declares one API and one PostgreSQL
 database for `BolyarCoders/OrionSearch`. The deployment destination is Render's
 `My Workspace`, workspace ID `tea-db7tmovavr4c73dv8nog`, explicitly confirmed by

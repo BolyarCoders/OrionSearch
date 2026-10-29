@@ -170,6 +170,17 @@ def test_publisher_filters_do_not_treat_google_news_as_the_article_publisher(req
     assert result["sources"][0]["publisher"] == {"name": "Allowed", "domain": "allowed.example"}
 
 
+def test_exclusions_apply_to_source_and_publisher_independently(request_body):
+    request_body["settings"].update(languages=[], excludedDomains=["excluded.example"])
+    articles = [
+        {"url": "https://sub.excluded.example/article", "publisher_name": "Allowed", "publisher_url": "https://allowed.example"},
+        {"url": "https://allowed.example/article", "publisher_name": "Excluded", "publisher_url": "https://sub.excluded.example"},
+        {"url": "https://allowed.example/kept", "publisher_name": "Allowed", "publisher_url": "https://allowed.example"},
+    ]
+    result = build_result(request_body, ["query"], ["google_news"], articles)
+    assert [source["canonicalUrl"] for source in result["sources"]] == ["https://allowed.example/kept"]
+
+
 def test_prototype_queue_is_disabled_in_integrated_mode(request_body, monkeypatch):
     monkeypatch.delenv("ORION_ENABLE_PROTOTYPE_API", raising=False)
     assert client.post("/prototype/research/jobs", json={"topic": "Topic"}, headers={"X-API-Key": "test-secret"}).status_code == 404

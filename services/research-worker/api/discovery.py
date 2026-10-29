@@ -45,7 +45,7 @@ def build_result(request, queries, providers, articles, today=None):
         filter_host = publisher["domain"] if publisher else host
         if host == "news.google.com" and publisher is None and (settings["preferredDomains"] or settings["excludedDomains"]):
             continue
-        if matches_domain(filter_host, settings["excludedDomains"]):
+        if matches_domain(host, settings["excludedDomains"]) or matches_domain(filter_host, settings["excludedDomains"]):
             continue
         language = article.get("language")
         language = language.lower() if isinstance(language, str) and len(language) == 2 and language.isascii() and language.isalpha() else None

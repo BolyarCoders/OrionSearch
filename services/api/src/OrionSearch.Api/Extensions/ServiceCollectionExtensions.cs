@@ -29,6 +29,9 @@ public static class ServiceCollectionExtensions
             .Bind(configuration.GetSection(ReverseProxySettings.SectionName))
             .Validate(settings => settings.KnownProxies.All(proxy => IPAddress.TryParse(proxy, out _)),
                 "ReverseProxy:KnownProxies must contain IP addresses.")
+            .Validate(settings => !settings.TrustRenderEdge ||
+                configuration["RENDER"] == "true" && configuration["RENDER_SERVICE_TYPE"] == "web",
+                "Render edge trust is restricted to Render web services.")
             .ValidateOnStart();
 
         services.AddCors();
@@ -74,7 +77,7 @@ public static class ServiceCollectionExtensions
         services.AddRateLimiter(options =>
         {
             options.AddPolicy("research-submissions", context => RateLimitPartition.GetFixedWindowLimiter(
-                context.Connection.RemoteIpAddress?.ToString() ?? "unknown", _ => new FixedWindowRateLimiterOptions
+                RateLimitClientAddress.Get(context), _ => new FixedWindowRateLimiterOptions
                 {
                     PermitLimit = context.RequestServices.GetRequiredService<ResearchLimitOptions>().MaxSubmissionsPerIpPerMinute,
                     Window = TimeSpan.FromMinutes(1),

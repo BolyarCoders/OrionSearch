@@ -1082,10 +1082,18 @@ ASP.NET Core loads base appsettings, environment appsettings, Development user s
 | `AllowedHosts` | `*` in checked-in settings; restrict for the intended deployment |
 | `Cors__AllowedOrigins__0` | Development includes `http://localhost:3000`; base settings have no origins |
 | `ReverseProxy__KnownProxies__0` | Extra trusted IPs; none configured by default |
+| `ReverseProxy__TrustRenderEdge` | Explicit rate-limit client IP mode for the isolated Render Free public web service; default false |
 | `Logging__LogLevel__Default` | Information; console logging uses JSON |
 | `ConnectionStrings__OrionSearch` | Explicit Npgsql connection string |
 
 CORS permits methods/headers for configured exact origins, without credentialed cookie requests. Invalid origin/proxy configuration stops startup. Forwarded headers accept only X-Forwarded-For/Proto for one hop from default loopback or configured trusted proxies. Untrusted peers cannot choose their apparent client address/scheme by supplying these headers. HTTPS redirection is not installed for local HTTP; deployment TLS belongs to the configured proxy boundary.
+
+When the Render Free edge mode is enabled, the two IP rate limiters use only
+Render's edge-provided `CF-Connecting-IP` and ignore client-controlled
+`X-Forwarded-For` for partitioning. This mode depends on Render Free's lack of
+private ingress and must not be used when requests can bypass the public edge;
+see [render-hosting.md](render-hosting.md). Other request processing retains the
+configured forwarded-header trust rules.
 
 ### Database connection resolution
 

@@ -8,6 +8,7 @@ using Microsoft.Extensions.Options;
 using OrionSearch.Domain.Auth;
 using OrionSearch.Infrastructure.Authentication;
 using OrionSearch.Infrastructure.Persistence;
+using OrionSearch.Api.Configuration;
 
 namespace OrionSearch.Api.Authentication;
 
@@ -24,7 +25,7 @@ public static class NativeIdentityExtensions
         {
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
             options.AddPolicy("accounts", context => RateLimitPartition.GetFixedWindowLimiter(
-                context.Connection.RemoteIpAddress?.ToString() ?? "unknown", _ => new FixedWindowRateLimiterOptions
+                RateLimitClientAddress.Get(context), _ => new FixedWindowRateLimiterOptions
                 {
                     PermitLimit = context.RequestServices.GetRequiredService<NativeIdentitySettings>().RequestsPerMinute,
                     Window = TimeSpan.FromMinutes(1),

@@ -17,6 +17,8 @@ services:
         value: "10000"
       - key: ResearchWorker__Enabled
         value: "false"
+      - key: ReverseProxy__TrustRenderEdge
+        value: "true"
       - key: DATABASE_URL
         fromDatabase:
           name: orionsearch-postgres
