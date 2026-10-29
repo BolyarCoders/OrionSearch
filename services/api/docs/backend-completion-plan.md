@@ -8,8 +8,13 @@
 Текущ branch: `feature/backend-integration`. P1 е реализиран в `549085a`.
 P2 вече има съвместими .NET/Python v1 реализации, общи fixtures и проверена
 локална HTTP връзка; виж [research integration](research-integration.md).
-Това адресира несъвместимостите от изходната снимка по-долу. P3 остава следващият
-пакет: реални captures, устойчиво съхранение и проверка на доказателствата.
+Това адресира несъвместимостите от изходната снимка по-долу. P3 добавя optional
+versioned S3 captures, byte/digest verification преди транзакцията и разрешено
+четене на текст/raw чрез отделни archive/version grants; виж
+[capture storage](capture-storage.md). Автоматично изтриване на orphan обекти
+не се включва: има консервативна процедура за задържане и ръчна проверка.
+Hosted storage избор/активиране, synthesis и реалното приемане остават отворени.
+Следващият пакет е P4: execution host и results API.
 Външно одобрение на договора, real-provider и hosted acceptance не се подразбират.
 
 ## 1. Цел и граници

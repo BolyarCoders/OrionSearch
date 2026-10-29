@@ -4,6 +4,14 @@ A developer reference for the HTTP API, application rules, PostgreSQL persistenc
 
 **Documentation date:** 2026-10-20. **Code snapshot:** `f08a64029b950e5ba67e5505bcae5ca811a254e7`, branch `feature/ORION-9-backend-foundation`. This guide describes the checked-out implementation. It is not a fresh audit of GitHub, Jira or deployed Railway resources.
 
+**Subsequent implementation:** Native accounts are documented in
+[Native Identity](native-identity.md), the current wire boundary in
+[research integration](research-integration.md), and the P3 version listing,
+normalized-text read and verified raw-download endpoints in
+[capture storage](capture-storage.md). Those documents supersede the historical
+foundation's missing-feature/configuration statements for their respective areas;
+none of these local changes imply hosted activation.
+
 ## Contents
 
 1. [Scope and reading notes](#scope-and-reading-notes)

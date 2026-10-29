@@ -1,13 +1,15 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
 using OrionSearch.Application.Research;
 using OrionSearch.Domain.Jobs;
 using OrionSearch.Domain.Research;
 using OrionSearch.Infrastructure.Persistence;
+using OrionSearch.Application.Content;
 
 namespace OrionSearch.Infrastructure.Research;
 
-internal sealed class EfResearchQueue(IDbContextFactory<OrionSearchDbContext> factory, ResearchWorkerOptions options) : IResearchQueue
+internal sealed class EfResearchQueue(IDbContextFactory<OrionSearchDbContext> factory, ResearchWorkerOptions options, ICaptureStore captures) : IResearchQueue
 {
     public async Task<ResearchLease?> ClaimAsync(string workerId, CancellationToken ct)
     {
@@ -84,6 +86,7 @@ internal sealed class EfResearchQueue(IDbContextFactory<OrionSearchDbContext> fa
         if (result is null || !ResearchContract.IsSupported(result.ContractVersion, options.AllowProvisionalContract))
             throw new ResearchAgentException(ResearchFailure.Contract);
         result = ResearchOutputValidator.Normalize(result, lease.RunId, result.ContractVersion);
+        result = await VerifyCapturesAsync(result, ct);
         await using var context = await factory.CreateDbContextAsync(ct);
         await using var transaction = await context.Database.BeginTransactionAsync(ct);
         var job = await OwnedAsync(context, lease, ct);
@@ -116,6 +119,29 @@ internal sealed class EfResearchQueue(IDbContextFactory<OrionSearchDbContext> fa
         if (!await FinalizeAsync(context, job, lease, "completed", null, job.RunAfter, ct)) return false;
         await transaction.CommitAsync(ct);
         return true;
+    }
+
+    private async Task<AgentResult> VerifyCapturesAsync(AgentResult result, CancellationToken ct)
+    {
+        using var budget = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        budget.CancelAfter(TimeSpan.FromSeconds(60));
+        var sources = new List<SourceOutput>();
+        long total = 0;
+        foreach (var source in result.Sources)
+        {
+            if (source.Capture is not { } capture) { sources.Add(source); continue; }
+            var metadata = capture.Metadata.ValueKind == JsonValueKind.Undefined ? new JsonObject() : JsonNode.Parse(capture.Metadata.GetRawText())!.AsObject();
+            metadata.Remove("verified_raw");
+            if (capture.Raw is { } raw)
+            {
+                var content = await captures.ReadAsync(raw.StorageUri, raw.Sha256, result.ResearchRunId, budget.Token);
+                total += content.Bytes.Length;
+                if (total > 16777216) throw new ResearchAgentException(ResearchFailure.Contract);
+                metadata["verified_raw"] = JsonSerializer.SerializeToNode(new { size_bytes = content.Bytes.Length, media_type = content.MediaType });
+            }
+            sources.Add(source with { Capture = capture with { Metadata = JsonSerializer.SerializeToElement(metadata) } });
+        }
+        return result with { Sources = sources.ToArray() };
     }
 
     public async Task<bool> FailAsync(ResearchLease lease, ResearchFailure failure, CancellationToken ct, int? retryAfterSeconds = null)

@@ -21,6 +21,7 @@ public sealed class OrionSearchDbContext(DbContextOptions<OrionSearchDbContext> 
     public DbSet<Document> Documents => Set<Document>();
     public DbSet<DocumentVersion> DocumentVersions => Set<DocumentVersion>();
     public DbSet<ArchiveDocument> ArchiveDocuments => Set<ArchiveDocument>();
+    public DbSet<ArchiveDocumentVersion> ArchiveDocumentVersions => Set<ArchiveDocumentVersion>();
     public DbSet<DocumentChunk> DocumentChunks => Set<DocumentChunk>();
     public DbSet<Finding> Findings => Set<Finding>();
     public DbSet<FindingEvidence> FindingEvidence => Set<FindingEvidence>();

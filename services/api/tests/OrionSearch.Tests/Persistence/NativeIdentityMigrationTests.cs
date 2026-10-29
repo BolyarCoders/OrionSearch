@@ -82,7 +82,7 @@ public sealed class NativeIdentityMigrationTests(PostgreSqlFixture database)
         Assert.Equal("Legacy user", user.DisplayName);
         Assert.Equal(userId, (await context.Archives.SingleAsync()).OwnerId);
         Assert.Equal(userId, (await context.ArchiveMembers.SingleAsync()).UserId);
-        Assert.Equal(9, (await context.Database.GetAppliedMigrationsAsync()).Count());
+        Assert.Equal(context.Database.GetMigrations().Count(), (await context.Database.GetAppliedMigrationsAsync()).Count());
     }
 
     [Theory]

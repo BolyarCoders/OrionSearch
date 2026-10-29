@@ -45,6 +45,7 @@ app.MapHealthEndpoints();
 app.MapAccountEndpoints();
 app.MapArchiveEndpoints();
 app.MapResearchEndpoints();
+app.MapCaptureEndpoints();
 app.Run();
 
 public partial class Program;

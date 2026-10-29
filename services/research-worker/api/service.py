@@ -34,7 +34,11 @@ def run_contract_research(request):
         raise RuntimeError("Research provider is not configured")
     if not research_lock.acquire(blocking=False):
         raise ResearchBusy("Research capacity is in use")
+    uploader = None
     try:
+        if os.getenv("ORION_CAPTURE_ENABLED") == "true":
+            from api.captures import CaptureUploader
+            uploader = CaptureUploader()
         import ai_agent
         import collector
         from google import genai
@@ -55,11 +59,19 @@ def run_contract_research(request):
             articles, errors = ai_agent.collect_articles(topic, days, queries, selected, persist_output=False)
             if errors:
                 raise RuntimeError("Source collection did not complete")
-            return build_result(request, queries, selected, articles)
+            result = build_result(request, queries, selected, articles)
+            if uploader is not None:
+                from api.captures import enrich_captures
+                result = enrich_captures(result, request, uploader)
+            return result
         finally:
             client.close()
     finally:
-        research_lock.release()
+        try:
+            if uploader is not None:
+                uploader.close()
+        finally:
+            research_lock.release()
 
 
 def run_research(request: ResearchRequest) -> ResearchResult:

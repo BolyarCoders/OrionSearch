@@ -10,6 +10,8 @@ For the proposed architecture, implementation order and acceptance criteria for 
 
 Native ASP.NET Core Identity accounts, activation settings and endpoint contracts are documented in [Native Identity](docs/native-identity.md). This feature is disabled until explicitly configured; no external identity provider is required.
 
+Optional versioned S3 captures, integrity verification and authorized text/raw reads are documented in [Capture storage](docs/capture-storage.md). Storage and Python capture execution are disabled until explicitly configured.
+
 **Foundation scope:** PR #6 provides the backend implementation for team integration. It is not an authenticated, end-to-end accepted product release. The [release-blocker register and integration/security acceptance plan](docs/release-readiness.md) tracks required CI, real authentication, the agreed agent contract, live integration and deployment verification. Those gates must remain open until their required evidence is reviewed; backend Jira completion does not close them.
 
 ## Requirements and local setup
@@ -24,7 +26,7 @@ dotnet test
 dotnet run --project src/OrionSearch.Api
 ```
 
-The checked-in launch profile selects Development and listens on `http://localhost:5190`. Stop the API with Ctrl+C. Starting the API and calling `/health` requires no external service. The full test suite requires Docker or a local PostgreSQL server; see below. Railway is not needed.
+The checked-in launch profile selects Development and listens on `http://localhost:5190`. Stop the API with Ctrl+C. Starting the API and calling `/health` requires no external service. The full test suite requires Docker for the isolated PostgreSQL and versioned S3 storage tests. A local PostgreSQL server can replace the database container; the S3 tests still use a disposable SeaweedFS 4.51 container. Railway is not needed.
 
 | Endpoint | Response |
 | --- | --- |
@@ -204,7 +206,7 @@ dotnet test
 dotnet format OrionSearch.sln --verify-no-changes
 ```
 
-If Docker is unavailable, set `ORIONSEARCH_TEST_POSTGRES` to an admin connection on a local test server, then run `dotnet test`. The test role must be able to create databases and install `citext`. The fixture creates random `orion_tests_<uuid>` databases and deletes only those databases afterward. It never migrates, truncates or drops the database named in the admin connection. Use a local test server rather than a production server. Without Docker or this setting the PostgreSQL tests fail; they are not silently skipped.
+To replace the PostgreSQL container, set `ORIONSEARCH_TEST_POSTGRES` to an admin connection on a local test server. The test role must be able to create databases and install `citext`. The fixture creates random `orion_tests_<uuid>` databases and deletes only those databases afterward. It never migrates, truncates or drops the database named in the admin connection. Use a local test server rather than a production server. Without Docker or this setting the PostgreSQL tests fail; they are not silently skipped. The full suite also includes S3 integration tests that require Docker even when PostgreSQL is supplied locally; filter out `CaptureStorageIntegrationTests` only when deliberately running a partial suite.
 
 With Docker available, select each major version in PowerShell:
 

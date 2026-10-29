@@ -19,6 +19,19 @@ authoritative account fields, not derived caches. The nonnegative failed-access
 count is constrained in PostgreSQL. Data Protection XML is private key material,
 encrypted by certificate outside Development and never exposed through the API.
 
+## Capture access grants (P3)
+
+`20261028220005_ScopeCapturedVersionsToArchives` adds
+content.archive_document_versions after the nine existing migrations. It binds
+archive/document/version through composite foreign keys and stores the raw
+URI/digest accepted by that archive, separately from globally deduplicated text.
+Backfill grants only evidence-proven text versions; historical raw locators are
+not made downloadable. Fresh/upgrade/idempotence and mismatch constraints are
+covered by PostgreSQL tests. Downgrade refuses to discard populated access
+grants. See [capture storage](capture-storage.md) for byte verification, ownership,
+authorization, indices and conservative orphan retention. No hosted migration is
+applied automatically by API startup.
+
 ## Original foundation
 
 ORION-10 implements the 15-table MVP. The broader version-1.0 database specification was not present in the repository; the task's explicit table and integrity requirements are the implementation target.

@@ -55,7 +55,7 @@ Never commit secrets, API keys, local `.env` files, or user data.
 
 The current branch includes a prototype research worker with four public-source adapters (Google News RSS, arXiv RSS, the Hacker News Algolia API, and the Hugging Face blog feed), article filtering/deduplication, Gemini-assisted research planning and analysis, Markdown/JSON report output, and a FastAPI interface for synchronous research and background-job status.
 
-The worker now implements the [research v1 contract](packages/contracts/research/v1/README.md) consumed by the .NET executor. PostgreSQL queue ownership and ingestion remain in .NET; Python receives no database credentials. The current producer returns discovered sources and metadata, with no full-text captures or findings. LangGraph, durable captures and real hosted end-to-end acceptance remain pending. See [research integration](services/api/docs/research-integration.md).
+The worker implements the [research v1 contract](packages/contracts/research/v1/README.md) consumed by the .NET executor. PostgreSQL queue ownership and ingestion remain in .NET; Python receives no database credentials. Discovery is the default. An explicit optional capture stage fetches public HTML/text and uploads immutable versions to private S3-compatible storage; .NET verifies actual bytes before ingestion and authorizes reads per archive. See [capture storage](services/api/docs/capture-storage.md) for configuration and limits. Synthesis, LangGraph and real hosted end-to-end acceptance remain pending. See [research integration](services/api/docs/research-integration.md).
 
 ### Install and run tests
 

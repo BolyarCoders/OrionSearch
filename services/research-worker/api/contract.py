@@ -112,8 +112,8 @@ def validate_result(result, request):
         raise ContractError("Result correlation failed")
     if not validator("result", request["contractVersion"] == PROVISIONAL_VERSION).is_valid(result):
         raise ContractError("Invalid result")
-    # The P2 producer returns discoveries only. Capture/evidence semantics remain
-    # enforced by .NET for full v1 fixtures and by the later capture implementation.
+    # .NET additionally verifies object bytes and the normalized text/quote rules
+    # before granting access or committing any accepted capture/evidence.
     encoded = json.dumps(result, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode("utf-8")
     if len(encoded) > MAX_RESPONSE_BYTES:
         raise ContractError("Result too large")

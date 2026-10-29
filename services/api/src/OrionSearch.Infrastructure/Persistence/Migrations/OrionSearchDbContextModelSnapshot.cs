@@ -215,6 +215,42 @@ namespace OrionSearch.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("OrionSearch.Domain.Content.ArchiveDocumentVersion", b =>
+                {
+                    b.Property<Guid>("ArchiveId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("archive_id");
+
+                    b.Property<Guid>("DocumentVersionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("document_version_id");
+
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("document_id");
+
+                    b.Property<string>("RawSha256")
+                        .HasColumnType("text")
+                        .HasColumnName("raw_sha256");
+
+                    b.Property<string>("StorageUri")
+                        .HasColumnType("text")
+                        .HasColumnName("storage_uri");
+
+                    b.HasKey("ArchiveId", "DocumentVersionId")
+                        .HasName("pk_archive_document_versions");
+
+                    b.HasIndex("ArchiveId", "DocumentId");
+
+                    b.HasIndex("DocumentVersionId", "DocumentId")
+                        .HasDatabaseName("idx_archive_versions_version");
+
+                    b.ToTable("archive_document_versions", "content", t =>
+                        {
+                            t.HasCheckConstraint("ck_archive_versions_raw", "(storage_uri IS NULL AND raw_sha256 IS NULL) OR (storage_uri IS NOT NULL AND btrim(storage_uri) <> '' AND raw_sha256 IS NOT NULL AND raw_sha256 ~ '^[0-9a-f]{64}$')");
+                        });
+                });
+
             modelBuilder.Entity("OrionSearch.Domain.Content.Document", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1022,6 +1058,22 @@ namespace OrionSearch.Infrastructure.Persistence.Migrations
                     b.HasOne("OrionSearch.Domain.Content.Document", null)
                         .WithMany()
                         .HasForeignKey("DocumentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("OrionSearch.Domain.Content.ArchiveDocumentVersion", b =>
+                {
+                    b.HasOne("OrionSearch.Domain.Content.ArchiveDocument", null)
+                        .WithMany()
+                        .HasForeignKey("ArchiveId", "DocumentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OrionSearch.Domain.Content.DocumentVersion", null)
+                        .WithMany()
+                        .HasForeignKey("DocumentVersionId", "DocumentId")
+                        .HasPrincipalKey("Id", "DocumentId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

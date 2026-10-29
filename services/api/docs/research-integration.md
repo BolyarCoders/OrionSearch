@@ -3,6 +3,11 @@
 Candidate implementation, 2026-10-28. This step joins the existing .NET consumer
 and Python producer; hosted/real-provider acceptance remains a separate gate.
 
+P3 update (2026-10-29): optional captures and verified storage are now implemented
+in [capture storage](capture-storage.md). The P2 discovery behavior and results
+below remain the historical baseline; captures are explicitly configured, not
+automatically enabled by the P2 wire integration.
+
 | Architecture question | Decision |
 | --- | --- |
 | Source of truth | PostgreSQL owns runs, attempts, leases and accepted results. Python produces a response, never a second authoritative job. |

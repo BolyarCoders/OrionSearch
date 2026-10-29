@@ -27,7 +27,7 @@ internal sealed class ArchiveApiScenario(PostgreSqlFixture database, string conn
     public OrionSearchDbContext Context() => database.CreateContext(ConnectionString);
     public AsyncServiceScope Scope() => _factory!.Services.CreateAsyncScope();
 
-    public static async Task<ArchiveApiScenario> CreateAsync(PostgreSqlFixture database)
+    public static async Task<ArchiveApiScenario> CreateAsync(PostgreSqlFixture database, Action<IServiceCollection>? configure = null)
     {
         var scenario = new ArchiveApiScenario(database, await database.CreateDatabaseAsync());
         await using var context = scenario.Context();
@@ -58,8 +58,12 @@ internal sealed class ArchiveApiScenario(PostgreSqlFixture database, string conn
         {
             builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(
                 new Dictionary<string, string?> { ["ConnectionStrings:OrionSearch"] = scenario.ConnectionString }));
-            builder.ConfigureServices(services => services.AddAuthentication("ArchiveTest")
-                .AddScheme<AuthenticationSchemeOptions, ArchiveTestAuthenticationHandler>("ArchiveTest", _ => { }));
+            builder.ConfigureServices(services =>
+            {
+                services.AddAuthentication("ArchiveTest")
+                    .AddScheme<AuthenticationSchemeOptions, ArchiveTestAuthenticationHandler>("ArchiveTest", _ => { });
+                configure?.Invoke(services);
+            });
         });
         return scenario;
     }

@@ -10,8 +10,17 @@ from api.contract import CONTRACT_ROOT
 
 
 @pytest.mark.parametrize("collection_fails", [False, True])
-def test_integrated_service_uses_existing_planner_without_reports_or_second_job_store(monkeypatch, collection_fails):
+@pytest.mark.parametrize("capture_enabled", [False, True])
+def test_integrated_service_uses_existing_planner_without_reports_or_second_job_store(monkeypatch, collection_fails, capture_enabled):
     calls = []
+    from api import captures
+    monkeypatch.setenv("ORION_CAPTURE_ENABLED", "true" if capture_enabled else "false")
+    monkeypatch.setattr(captures, "CaptureUploader", lambda: SimpleNamespace(close=lambda: calls.append("storage-closed")))
+    def enrich(result, payload, uploader):
+        assert payload["researchRunId"] == result["researchRunId"]
+        calls.append("captures")
+        return result
+    monkeypatch.setattr(captures, "enrich_captures", enrich)
     request = json.loads((CONTRACT_ROOT / "v1/request.json").read_text(encoding="utf-8"))
     request["settings"]["config"] = {"apiKey": "untrusted-override", "agentEndpoint": "https://untrusted.example"}
 
@@ -52,7 +61,7 @@ def test_integrated_service_uses_existing_planner_without_reports_or_second_job_
         result = service.run_contract_research(request)
         assert len(result["sources"]) == 1
         assert result["findings"] == []
-    assert calls == ["closed"]
+    assert calls == (["captures"] if capture_enabled and not collection_fails else []) + ["closed"] + (["storage-closed"] if capture_enabled else [])
     assert not service.research_lock.locked()
 
 

@@ -126,7 +126,7 @@ public sealed class ResearchCompletionTests(PostgreSqlFixture database)
     }
 
     [Fact]
-    public async Task ProcessorSettlesAnInFlightHeartbeatBeforeEnteringCompletion()
+    public async Task ProcessorSettlesAnInFlightHeartbeatBeforeReturningFromCompletion()
     {
         await using var scenario = await ArchiveApiScenario.CreateAsync(database);
         await ResearchTestData.SubmitAsync(scenario);
@@ -145,8 +145,12 @@ public sealed class ResearchCompletionTests(PostgreSqlFixture database)
         {
             await queue.Renewed.Task.WaitAsync(TimeSpan.FromSeconds(15));
             response.SetResult();
+            await queue.CompletionEntered.Task.WaitAsync(TimeSpan.FromSeconds(15));
             await queue.StopRequested.Task.WaitAsync(TimeSpan.FromSeconds(15));
-            Assert.False(queue.CompletionEntered.Task.IsCompleted);
+            // P3 keeps renewal alive during pre-transaction object verification.
+            // Completion does not await the pulse while it owns a row lock, but
+            // the processor must still settle it before returning to its caller.
+            Assert.False(processing.IsCompleted);
         }
         finally
         {

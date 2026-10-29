@@ -21,7 +21,7 @@ public sealed class MigrationTests(PostgreSqlFixture database)
         var tables = await ReadStringsAsync(database.ConnectionString, TableQuery);
         Assert.Equal(new[]
         {
-            "auth.archive_members", "auth.users", "content.archive_documents", "content.document_chunks",
+            "auth.archive_members", "auth.users", "content.archive_document_versions", "content.archive_documents", "content.document_chunks",
             "content.document_versions", "content.documents", "content.publishers", "knowledge.finding_evidence",
             "knowledge.findings", "research.archive_settings", "research.archives", "research.research_queries",
             "research.research_runs", "system.data_protection_keys", "system.job_attempts", "system.jobs"
@@ -62,7 +62,7 @@ public sealed class MigrationTests(PostgreSqlFixture database)
         await migrator.MigrateAsync();
 
         Assert.True(await context.Users.AnyAsync(x => x.Id == userId));
-        Assert.Equal(16, (await ReadStringsAsync(connectionString, TableQuery)).Length);
+        Assert.Equal(17, (await ReadStringsAsync(connectionString, TableQuery)).Length);
     }
 
     [Fact]
@@ -77,7 +77,7 @@ public sealed class MigrationTests(PostgreSqlFixture database)
         await command.ExecuteNonQueryAsync();
         await command.ExecuteNonQueryAsync();
 
-        Assert.Equal(16, (await ReadStringsAsync(connectionString, TableQuery)).Length);
+        Assert.Equal(17, (await ReadStringsAsync(connectionString, TableQuery)).Length);
         Assert.Equal(context.Database.GetMigrations().Count(), (await context.Database.GetAppliedMigrationsAsync()).Count());
     }
 
@@ -162,7 +162,7 @@ public sealed class MigrationTests(PostgreSqlFixture database)
 
         await migrator.MigrateAsync();
 
-        Assert.Equal(16, (await ReadStringsAsync(connectionString, TableQuery)).Length);
+        Assert.Equal(17, (await ReadStringsAsync(connectionString, TableQuery)).Length);
     }
 
     [Fact]
