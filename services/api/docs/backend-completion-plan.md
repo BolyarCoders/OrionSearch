@@ -262,3 +262,5 @@ Rollback връща съвместима application версия. Не изпъ
 - [Provisional agent contract](../../../packages/contracts/research/provisional-v1/README.md)
 
 Първата имплементация е P1 с native ASP.NET Core Identity и регистрация без писма. За live активиране са нужни сертификат, frontend форми за регистрация/вход и миграция. P2 се договаря с AI екипа успоредно; без него включването на worker-а само ще произведе неуспешни задачи.
+
+P5 local hardening and remaining acceptance gates are recorded in [mvp-acceptance.md](mvp-acceptance.md). Hosted and human acceptance remain open.

@@ -28,5 +28,6 @@ public sealed class ResearchRunConfiguration : IEntityTypeConfiguration<Research
 
         builder.HasOne<Archive>().WithMany().HasForeignKey(x => x.ArchiveId).OnDelete(DeleteBehavior.Restrict);
         builder.HasIndex(x => new { x.ArchiveId, x.CreatedAt }).IsDescending(false, true).HasDatabaseName("idx_research_runs_archive_created");
+        builder.HasIndex(x => x.CreatedAt).HasDatabaseName("idx_research_runs_created_budget");
     }
 }

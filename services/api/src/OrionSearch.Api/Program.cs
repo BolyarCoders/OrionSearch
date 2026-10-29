@@ -19,15 +19,18 @@ app.Use(async (context, next) =>
         context.Response.Headers.Pragma = "no-cache";
         context.Response.Headers["Referrer-Policy"] = "no-referrer";
     }
-    if (context.Request.Path.StartsWithSegments("/auth"))
+    long? maximumBodyBytes = context.Request.Path.StartsWithSegments("/auth") ? 32768
+        : HttpMethods.IsPost(context.Request.Method) && context.Request.Path.StartsWithSegments("/archives")
+            && context.Request.Path.Value!.EndsWith("/research-jobs", StringComparison.Ordinal) ? 16384 : null;
+    if (maximumBodyBytes is { } maximum)
     {
-        if (context.Request.ContentLength > 32768)
+        if (context.Request.ContentLength > maximum)
         {
             context.Response.StatusCode = StatusCodes.Status413PayloadTooLarge;
             return;
         }
         if (context.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpMaxRequestBodySizeFeature>() is { IsReadOnly: false } limit)
-            limit.MaxRequestBodySize = 32768;
+            limit.MaxRequestBodySize = maximum;
     }
     await next();
 });

@@ -660,6 +660,9 @@ namespace OrionSearch.Infrastructure.Persistence.Migrations
                     b.HasKey("Id")
                         .HasName("pk_job_attempts");
 
+                    b.HasIndex("StartedAt")
+                        .HasDatabaseName("idx_job_attempts_started_budget");
+
                     b.HasIndex("JobId", "AttemptNumber")
                         .IsUnique()
                         .HasDatabaseName("ux_job_attempts_number");
@@ -1015,6 +1018,9 @@ namespace OrionSearch.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_research_runs");
+
+                    b.HasIndex("CreatedAt")
+                        .HasDatabaseName("idx_research_runs_created_budget");
 
                     b.HasIndex("ArchiveId", "CreatedAt")
                         .IsDescending(false, true)

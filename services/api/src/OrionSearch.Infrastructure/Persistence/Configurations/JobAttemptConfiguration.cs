@@ -25,5 +25,6 @@ public sealed class JobAttemptConfiguration : IEntityTypeConfiguration<JobAttemp
 
         builder.HasOne<Job>().WithMany().HasForeignKey(x => x.JobId).OnDelete(DeleteBehavior.Restrict);
         builder.HasIndex(x => new { x.JobId, x.AttemptNumber }).IsUnique().HasDatabaseName("ux_job_attempts_number");
+        builder.HasIndex(x => x.StartedAt).HasDatabaseName("idx_job_attempts_started_budget");
     }
 }

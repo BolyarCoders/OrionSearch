@@ -8,6 +8,8 @@ using OrionSearch.Api.Authentication;
 using OrionSearch.Api.Archives;
 using OrionSearch.Application.Abstractions;
 using Microsoft.AspNetCore.Authorization;
+using System.Threading.RateLimiting;
+using OrionSearch.Application.Research;
 
 namespace OrionSearch.Api.Extensions;
 
@@ -69,6 +71,28 @@ public static class ServiceCollectionExtensions
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUser, TrustedCurrentUser>();
         services.AddNativeIdentity(configuration, environment);
+        services.AddRateLimiter(options =>
+        {
+            options.AddPolicy("research-submissions", context => RateLimitPartition.GetFixedWindowLimiter(
+                context.Connection.RemoteIpAddress?.ToString() ?? "unknown", _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = context.RequestServices.GetRequiredService<ResearchLimitOptions>().MaxSubmissionsPerIpPerMinute,
+                    Window = TimeSpan.FromMinutes(1),
+                    QueueLimit = 0
+                }));
+            options.OnRejected = async (context, ct) =>
+            {
+                var retry = context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var delay) ? Math.Max(1, (int)Math.Ceiling(delay.TotalSeconds)) : 60;
+                context.HttpContext.Response.StatusCode = 429;
+                context.HttpContext.Response.Headers.RetryAfter = retry.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                context.HttpContext.Response.Headers.CacheControl = "no-store";
+                await context.HttpContext.RequestServices.GetRequiredService<IProblemDetailsService>().WriteAsync(new()
+                {
+                    HttpContext = context.HttpContext,
+                    ProblemDetails = new() { Status = 429, Title = "Request rate limit exceeded. Retry later." }
+                });
+            };
+        });
         services.AddAuthorization();
         services.AddExceptionHandler<ArchiveExceptionHandler>();
         services.AddOpenApi(options => options.AddOperationTransformer((operation, context, _) =>

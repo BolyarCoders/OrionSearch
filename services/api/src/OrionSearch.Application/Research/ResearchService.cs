@@ -7,7 +7,7 @@ using OrionSearch.Domain.Research;
 
 namespace OrionSearch.Application.Research;
 
-public sealed class ResearchService(IArchiveStore archives, ArchiveAuthorization authorization, IResearchStore store, ResearchWorkerOptions options)
+public sealed class ResearchService(IArchiveStore archives, ArchiveAuthorization authorization, IResearchStore store, ResearchWorkerOptions options, IResearchAdmission admission)
 {
     public async Task<ResearchStatus> SubmitAsync(Guid archiveId, string? objective, string? clientKey, CancellationToken ct)
     {
@@ -31,9 +31,10 @@ public sealed class ResearchService(IArchiveStore archives, ArchiveAuthorization
             return existing!;
         }
         if (access.Archive.Status != "active") throw new ArchiveRequestException(409, "Research requires an active archive.");
+        var admittedAt = await admission.RequireCapacityAsync(access.Archive.OwnerId, archiveId, ct);
         var settings = access.Settings;
         ArchiveValidation.Settings(settings);
-        var run = new ResearchRun { Id = Guid.NewGuid(), ArchiveId = archiveId };
+        var run = new ResearchRun { Id = Guid.NewGuid(), ArchiveId = archiveId, CreatedAt = admittedAt };
         var request = new AgentRequest(ResearchContract.Version, run.Id, archiveId, access.Archive.Title, access.Archive.Description,
             objective ?? access.Archive.Title, new ArchiveSettingsData(settings.DateFrom, settings.DateTo, settings.Languages,
                 settings.PreferredDomains, settings.ExcludedDomains, JsonSerializer.Deserialize<JsonElement>(settings.Config), settings.UpdatedAt));
@@ -42,6 +43,7 @@ public sealed class ResearchService(IArchiveStore archives, ArchiveAuthorization
             Id = Guid.NewGuid(),
             ResearchRunId = run.Id,
             JobType = "research_plan",
+            CreatedAt = admittedAt,
             MaxAttempts = options.MaxAttempts,
             Payload = JsonSerializer.Serialize(new ResearchPayload(fingerprint, request), ResearchContract.Json),
             IdempotencyKey = key

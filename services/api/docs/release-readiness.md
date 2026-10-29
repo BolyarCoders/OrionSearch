@@ -133,3 +133,5 @@ Close each RB gate only by adding evidence, not by changing its label optimistic
 | Decision | Accepted/rejected/pending per gate, date and reviewer |
 
 No gate in this register is currently accepted for release. Keep these blockers visible after any foundation merge and before any later deployment or release decision.
+
+P5 local limits, recovery drill and current hosted observations: [mvp-acceptance.md](mvp-acceptance.md). This does not constitute release approval.

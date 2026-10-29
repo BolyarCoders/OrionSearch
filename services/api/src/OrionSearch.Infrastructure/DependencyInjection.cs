@@ -32,6 +32,7 @@ public static class DependencyInjection
             services.AddScoped<ResearchService>();
             services.AddScoped<IResearchResultsStore, EfResearchResultsStore>();
             services.AddScoped<ResearchResultsService>();
+            services.AddScoped<IResearchAdmission, EfResearchAdmission>();
         }
         services.AddOptions<CaptureStoreOptions>().Bind(configuration.GetSection("CaptureStore"))
             .Validate(options => options.IsValid(), "CaptureStore requires a safe endpoint, private bucket and credentials.").ValidateOnStart();
@@ -58,6 +59,9 @@ public static class DependencyInjection
         services.AddOptions<ResearchWorkerOptions>().Bind(configuration.GetSection("ResearchWorker"))
             .Validate(options => options.IsValid(), "ResearchWorker settings contain invalid limits or an unsafe agent address.").ValidateOnStart();
         services.AddSingleton(provider => provider.GetRequiredService<IOptions<ResearchWorkerOptions>>().Value);
+        services.AddOptions<ResearchLimitOptions>().Bind(configuration.GetSection("ResearchLimits"))
+            .Validate(options => options.IsValid(), "ResearchLimits must contain finite positive limits.").ValidateOnStart();
+        services.AddSingleton(provider => provider.GetRequiredService<IOptions<ResearchLimitOptions>>().Value);
         services.AddScoped<IResearchStore, EfResearchStore>();
         services.AddScoped<IResearchQueue, EfResearchQueue>();
         services.AddScoped<ResearchProcessor>();

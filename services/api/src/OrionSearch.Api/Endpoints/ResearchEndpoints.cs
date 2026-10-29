@@ -16,10 +16,10 @@ public static class ResearchEndpoints
             var result = await service.SubmitAsync(archiveId, request.Objective, key, ct);
             context.Response.Headers.CacheControl = "no-store";
             return Results.Accepted($"/research-jobs/{result.Id}", result);
-        }).RequireAuthorization().WithTags("Research").WithName("StartResearch")
+        }).RequireAuthorization().RequireRateLimiting("research-submissions").WithTags("Research").WithName("StartResearch")
             .WithSummary("Queue research for an active archive without waiting for AI execution")
             .WithDescription("An active authenticated application user is required. Owner/editor membership required. An omitted objective defaults to the archive title; explicit objectives must be nonblank and at most 2000 characters. Optional Idempotency-Key: 1–200 visible ASCII characters, scoped to the archive. Matching retries return the original run; incompatible reuse returns 409. Without a key each request creates a new run. Archive settings are snapshotted by the server. The public id is research_runs.id, never the internal jobs.id. Processing and versioned agent integration require explicit server configuration.")
-            .Produces<ResearchStatus>(202).ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
+            .Produces<ResearchStatus>(202).ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409).ProducesProblem(429);
         endpoints.MapGet("/research-jobs/{id:guid}", async (Guid id, ResearchService service, HttpContext context, CancellationToken ct) =>
         {
             var result = await service.GetAsync(id, ct);
