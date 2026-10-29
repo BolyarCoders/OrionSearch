@@ -53,10 +53,16 @@ public static class NativeIdentityExtensions
         var protection = services.AddDataProtection().SetApplicationName("OrionSearch.Api")
             .PersistKeysToDbContext<OrionSearchDbContext>();
         var certificatePath = configuration["NativeIdentity:KeyEncryptionCertificatePath"];
-        if (configuration.GetValue<bool>("NativeIdentity:Enabled") && !string.IsNullOrWhiteSpace(certificatePath))
+        var certificateBase64 = configuration["NativeIdentity:KeyEncryptionCertificateBase64"];
+        if (configuration.GetValue<bool>("NativeIdentity:Enabled") &&
+            (!string.IsNullOrWhiteSpace(certificatePath) || !string.IsNullOrWhiteSpace(certificateBase64)))
         {
-            var certificate = X509CertificateLoader.LoadPkcs12FromFile(certificatePath,
-                configuration["NativeIdentity:KeyEncryptionCertificatePassword"], X509KeyStorageFlags.EphemeralKeySet);
+            if (!string.IsNullOrWhiteSpace(certificatePath) && !string.IsNullOrWhiteSpace(certificateBase64))
+                throw new InvalidOperationException("Configure only one data-protection certificate source.");
+            var password = configuration["NativeIdentity:KeyEncryptionCertificatePassword"];
+            var certificate = !string.IsNullOrWhiteSpace(certificateBase64)
+                ? X509CertificateLoader.LoadPkcs12(Convert.FromBase64String(certificateBase64), password, X509KeyStorageFlags.EphemeralKeySet)
+                : X509CertificateLoader.LoadPkcs12FromFile(certificatePath!, password, X509KeyStorageFlags.EphemeralKeySet);
             if (!certificate.HasPrivateKey) throw new InvalidOperationException("The data-protection certificate requires a private key.");
             // The framework also registers the certificate for decryption after a process restart.
             protection.ProtectKeysWithCertificate(certificate);

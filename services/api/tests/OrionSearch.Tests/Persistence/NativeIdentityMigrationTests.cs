@@ -22,8 +22,10 @@ public sealed class NativeIdentityMigrationTests(PostgreSqlFixture database)
 {
     private const string PreviousMigration = "20261018073825_ImplementResearchExecution";
 
-    [Fact]
-    public async Task ProductionCertificateConfigurationDecryptsPersistedKeysInANewProvider()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ProductionCertificateConfigurationDecryptsPersistedKeysInANewProvider(bool useEncodedCertificate)
     {
         var connectionString = await database.CreateDatabaseAsync();
         await using (var context = database.CreateContext(connectionString)) await context.Database.MigrateAsync();
@@ -34,12 +36,14 @@ public sealed class NativeIdentityMigrationTests(PostgreSqlFixture database)
             using var rsa = RSA.Create(2048);
             var request = new CertificateRequest("CN=OrionSearch Test Keys", rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
             using var certificate = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddDays(2));
-            await File.WriteAllBytesAsync(path, certificate.Export(X509ContentType.Pfx, password));
+            var pfx = certificate.Export(X509ContentType.Pfx, password);
+            await File.WriteAllBytesAsync(path, pfx);
             var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["ConnectionStrings:OrionSearch"] = connectionString,
                 ["NativeIdentity:Enabled"] = "true",
-                ["NativeIdentity:KeyEncryptionCertificatePath"] = path,
+                ["NativeIdentity:KeyEncryptionCertificatePath"] = useEncodedCertificate ? null : path,
+                ["NativeIdentity:KeyEncryptionCertificateBase64"] = useEncodedCertificate ? Convert.ToBase64String(pfx) : null,
                 ["NativeIdentity:KeyEncryptionCertificatePassword"] = password
             }).Build();
             ServiceProvider Provider()

@@ -1,39 +1,188 @@
-import json
+import html
+import logging
+import os
 import re
+
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
+from time import perf_counter
 from urllib.parse import urlencode
 
 import feedparser
 import requests
 
-BASE_DIR = Path(__file__).resolve().parent
-CONFIG = json.loads((BASE_DIR / "config.json").read_text(encoding="utf-8"))
-OUTPUT_DIR = BASE_DIR / "output"
+logger = logging.getLogger("orionsearch.collector")
 
 
-def get_rss(url, source):
-    response = requests.get(url, timeout=20, headers={"User-Agent": "OrionSearch/0.1"})
+# ============================================================
+# CONFIGURATION
+# ============================================================
+
+SOURCES = (
+    "google_news",
+    "hacker_news",
+    "arxiv",
+    "hugging_face",
+)
+
+TIMEOUT = (3, 8)
+MAX_WORKERS = 6
+
+
+# Original OrionSearch trend categories.
+# Stored directly in Python instead of config.json.
+
+TREND_CATEGORIES = {
+    "AI agents": [
+        "agentic",
+        "ai agents",
+        "agent framework",
+        "multi-agent",
+        "tool use",
+    ],
+    "Language models": [
+        "llm",
+        "large language model",
+        "reasoning model",
+        "transformer",
+    ],
+    "Multimodal AI": [
+        "multimodal",
+        "vision language",
+        "video generation",
+        "image generation",
+    ],
+    "AI hardware": [
+        "gpu",
+        "inference chip",
+        "accelerator",
+        "compute infrastructure",
+    ],
+    "Robotics": [
+        "robotics",
+        "humanoid",
+        "embodied ai",
+    ],
+    "Open source AI": [
+        "open source model",
+        "open-weight",
+        "open weights",
+        "hugging face",
+    ],
+}
+
+
+# ============================================================
+# VALIDATION
+# ============================================================
+
+
+def get_feed_limit():
+    raw = os.getenv("RESEARCH_FEED_LIMIT", "12")
+
+    try:
+        limit = int(raw)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            "RESEARCH_FEED_LIMIT must be an integer from 1 to 100"
+        ) from exc
+
+    if not 1 <= limit <= 100:
+        raise ValueError("RESEARCH_FEED_LIMIT must be an integer from 1 to 100")
+
+    return limit
+
+
+def get_selected_sources():
+    raw = os.getenv("RESEARCH_SOURCES")
+
+    if raw is None:
+        return ["google_news", "hacker_news"]
+
+    sources = [source.strip() for source in raw.split(",")]
+
+    unknown = set(sources) - set(SOURCES)
+
+    if not sources or any(not source for source in sources) or unknown:
+        raise ValueError(
+            f"Invalid RESEARCH_SOURCES={raw!r}. " f"Allowed: {', '.join(SOURCES)}"
+        )
+
+    return list(dict.fromkeys(sources))
+
+
+def validate_limits(days, max_articles=None):
+    if type(days) is not int or not 1 <= days <= 90:
+        raise ValueError("days must be between 1 and 90")
+
+    if max_articles is not None:
+        if type(max_articles) is not int or not 1 <= max_articles <= 50:
+            raise ValueError("max_articles must be between 1 and 50")
+
+
+# ============================================================
+# TEXT PROCESSING
+# ============================================================
+
+
+def clean_text(value):
+    return html.unescape(re.sub(r"<[^>]+>", "", value or "")).strip()
+
+
+def classify_trends(article):
+    """
+    Classify articles using title and summary keywords.
+
+    A single article can belong to multiple trend categories.
+
+    This function does not perform AI requests or create files.
+    """
+
+    text = (
+        f"{article.get('title') or ''} " f"{article.get('summary') or ''}"
+    ).casefold()
+
+    matched_categories = []
+
+    for category, keywords in TREND_CATEGORIES.items():
+        if any(keyword.casefold() in text for keyword in keywords):
+            matched_categories.append(category)
+
+    return matched_categories
+
+
+# ============================================================
+# RSS COLLECTOR
+# ============================================================
+
+
+def get_rss(url, source, limit):
+    response = requests.get(
+        url,
+        timeout=TIMEOUT,
+        headers={"User-Agent": "OrionSearch/1.0"},
+    )
+
     response.raise_for_status()
+
     feed = feedparser.parse(response.content)
     articles = []
 
-    for entry in feed.entries[: CONFIG["max_per_source"]]:
+    for entry in feed.entries[:limit]:
         date = entry.get("published_parsed") or entry.get("updated_parsed")
+
         published_at = (
             datetime(*date[:6], tzinfo=timezone.utc).isoformat() if date else None
         )
 
         articles.append(
             {
-                "title": re.sub(r"<[^>]+>", "", entry.get("title", "")).strip(),
+                "title": clean_text(entry.get("title")),
                 "url": entry.get("link", ""),
                 "source": source,
                 "published_at": published_at,
                 "publication_date_kind": "published" if entry.get("published_parsed") else "updated",
-                "summary": re.sub(r"<[^>]+>", "", entry.get("summary", "")).strip()[
-                    :700
-                ],
+                "summary": clean_text(entry.get("summary"))[:500],
             }
         )
         publisher = entry.get("source") or {}
@@ -44,187 +193,331 @@ def get_rss(url, source):
     return articles
 
 
-def search_google_news():
-    articles = []
-
-    for query in CONFIG["queries"]:
-        params = {
-            "q": f'{query} when:{CONFIG["days_back"]}d',
-            "hl": "en-US",
-            "gl": "US",
-            "ceid": "US:en",
-        }
-        url = "https://news.google.com/rss/search?" + urlencode(params)
-        articles.extend(get_rss(url, "Google News"))
-
-    return articles
+# ============================================================
+# GOOGLE NEWS
+# ============================================================
 
 
-def search_arxiv():
-    return get_rss("https://rss.arxiv.org/rss/cs.AI+cs.LG+cs.CL", "arXiv")
+def search_google_news(query, days, limit):
+    params = {
+        "q": f"{query} when:{days}d",
+        "hl": "en-US",
+        "gl": "US",
+        "ceid": "US:en",
+    }
+
+    url = "https://news.google.com/rss/search?" + urlencode(params)
+
+    return get_rss(url, "Google News", limit)
 
 
-def search_hacker_news():
-    articles = []
-    since = int(
-        (datetime.now(timezone.utc) - timedelta(days=CONFIG["days_back"])).timestamp()
+# ============================================================
+# HACKER NEWS
+# ============================================================
+
+
+def search_hacker_news(query, days, limit):
+    since = int((datetime.now(timezone.utc) - timedelta(days=days)).timestamp())
+
+    params = {
+        "query": query,
+        "tags": "story",
+        "hitsPerPage": limit,
+        "numericFilters": f"created_at_i>{since}",
+    }
+
+    response = requests.get(
+        "https://hn.algolia.com/api/v1/search_by_date",
+        params=params,
+        timeout=TIMEOUT,
     )
 
-    for query in CONFIG["queries"]:
-        params = {
-            "query": query,
-            "tags": "story",
-            "hitsPerPage": CONFIG["max_per_source"],
-            "numericFilters": f"created_at_i>{since}",
-        }
-        response = requests.get(
-            "https://hn.algolia.com/api/v1/search_by_date", params=params, timeout=20
-        )
-        response.raise_for_status()
+    response.raise_for_status()
 
-        for item in response.json().get("hits", []):
-            articles.append(
-                {
-                    "title": item.get("title") or "",
-                    "url": item.get("url")
-                    or f'https://news.ycombinator.com/item?id={item["objectID"]}',
-                    "source": "Hacker News",
-                    "published_at": item.get("created_at"),
-                    "publication_date_kind": "discovery" if item.get("url") else "published",
-                    "summary": "",
-                }
-            )
+    articles = []
+
+    for item in response.json().get("hits", []):
+        article_id = item.get("objectID", "")
+
+        articles.append(
+            {
+                "title": item.get("title") or "",
+                "url": (
+                    item.get("url")
+                    or ("https://news.ycombinator.com/" f"item?id={article_id}")
+                ),
+                "source": "Hacker News",
+                "published_at": item.get("created_at"),
+                "publication_date_kind": "discovery" if item.get("url") else "published",
+                "summary": "",
+            }
+        )
 
     return articles
 
 
-def search_hugging_face():
-    return get_rss("https://huggingface.co/blog/feed.xml", "Hugging Face")
+# ============================================================
+# ARXIV
+# ============================================================
 
 
-def process_articles(articles):
+def search_arxiv(limit):
+    return get_rss(
+        "https://rss.arxiv.org/rss/cs.AI+cs.LG+cs.CL",
+        "arXiv",
+        limit,
+    )
+
+
+# ============================================================
+# HUGGING FACE
+# ============================================================
+
+
+def search_hugging_face(limit):
+    return get_rss(
+        "https://huggingface.co/blog/feed.xml",
+        "Hugging Face",
+        limit,
+    )
+
+
+# ============================================================
+# ARTICLE PROCESSING
+# ============================================================
+
+
+def process_articles(articles, days, max_articles=None):
+    """
+    Filter, normalize, classify and deduplicate articles.
+
+    - Validates publication dates.
+    - Removes articles outside the requested period.
+    - Deduplicates normalized titles.
+    - Restores original trend classification.
+    - Sorts newest first.
+    - Optionally limits the returned articles.
+
+    Does not mutate input articles.
+    """
+
+    validate_limits(days, max_articles)
+
     now = datetime.now(timezone.utc)
-    cutoff = now - timedelta(days=CONFIG["days_back"])
+    cutoff = now - timedelta(days=days)
+
     unique = {}
 
     for article in articles:
-        title = article.get("title")
-        url = article.get("url")
-        published_at = article.get("published_at")
-        if not title or not url or not published_at:
+        title = article.get("title", "")
+        url = article.get("url", "")
+        published = article.get("published_at")
+
+        if not title or not url or not published:
             continue
 
         try:
-            date = datetime.fromisoformat(published_at.replace("Z", "+00:00"))
+            date = datetime.fromisoformat(str(published).replace("Z", "+00:00"))
+
             if date.tzinfo is None:
                 date = date.replace(tzinfo=timezone.utc)
-        except (AttributeError, TypeError, ValueError):
+
+            date = date.astimezone(timezone.utc)
+
+        except (TypeError, ValueError):
             continue
 
-        if date < cutoff or date > now + timedelta(days=1):
+        # Reject outdated and future-dated articles.
+        if not cutoff <= date <= now:
             continue
 
-        key = re.sub(r"\W+", "", title.lower())
-        if key in unique:
+        # Normalize title for deduplication.
+        key = re.sub(r"\W+", "", title.casefold())
+
+        if not key:
             continue
 
         normalized = dict(article)
-        text = f'{title} {article.get("summary", "")}'.lower()
-        normalized["trends"] = [
-            name
-            for name, keywords in CONFIG["trend_categories"].items()
-            if any(keyword.lower() in text for keyword in keywords)
-        ]
+
         normalized["published_at"] = date.isoformat()
-        unique[key] = normalized
 
-    return sorted(
-        unique.values(), key=lambda article: article["published_at"], reverse=True
+        # Restore keyword-based trend classification.
+        normalized["trends"] = classify_trends(normalized)
+
+        previous = unique.get(key)
+
+        # Keep the newest article when titles are duplicates.
+        if previous is None or (
+            normalized["published_at"],
+            normalized["url"],
+        ) > (
+            previous["published_at"],
+            previous["url"],
+        ):
+            unique[key] = normalized
+
+    result = sorted(
+        unique.values(),
+        key=lambda article: (
+            article["published_at"],
+            article["url"],
+        ),
+        reverse=True,
     )
 
+    if max_articles is not None:
+        return result[:max_articles]
 
-def save_results(articles, errors):
-    OUTPUT_DIR.mkdir(exist_ok=True)
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-    json_path = OUTPUT_DIR / f"research_{timestamp}.json"
-    md_path = OUTPUT_DIR / f"research_{timestamp}.md"
+    return result
 
-    trends = {}
-    for article in articles:
-        for trend in article["trends"]:
-            trends[trend] = trends.get(trend, 0) + 1
 
-    result = {
-        "topic": CONFIG["topic"],
-        "generated_at": datetime.now(timezone.utc).isoformat(),
-        "total_results": len(articles),
-        "trends": trends,
-        "articles": articles[: CONFIG["top_results"]],
-        "errors": errors,
-    }
-    json_path.write_text(
-        json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+# ============================================================
+# CONCURRENT ARTICLE COLLECTION
+# ============================================================
 
-    lines = [
-        f'# OrionSearch: {CONFIG["topic"]}',
-        "",
-        f"Found {len(articles)} articles.",
-        "",
-        "## Keyword signals",
-        "",
-    ]
-    for name, count in sorted(trends.items(), key=lambda item: item[1], reverse=True):
-        lines.append(f"- {name}: {count} articles")
 
-    lines.extend(["", "## Articles", ""])
-    for article in result["articles"]:
-        lines.extend(
-            [
-                f'### {article["title"]}',
-                f'- Source: {article["source"]}',
-                f'- Date: {article["published_at"]}',
-                f'- Link: {article["url"]}',
-                f'- Tags: {", ".join(article["trends"]) or "none"}',
-                "",
-            ]
+def collect(
+    topic,
+    days,
+    queries,
+    selected_sources,
+    max_articles=10,
+):
+    """
+    Collect articles concurrently from selected sources.
+
+    Returns:
+        selected_articles:
+            Articles selected after max_articles limiting.
+
+        errors:
+            Dictionary of errors with source/query context.
+
+        total_articles:
+            Total unique matching articles before truncation.
+
+    No JSON or Markdown files are generated.
+    """
+
+    validate_limits(days, max_articles)
+
+    feed_limit = get_feed_limit()
+
+    if not isinstance(selected_sources, (list, tuple, set)):
+        raise ValueError("selected_sources must be a list of source names")
+
+    invalid_sources = set(selected_sources) - set(SOURCES)
+
+    if invalid_sources or not selected_sources:
+        raise ValueError(f"Invalid selected_sources: {sorted(invalid_sources)}")
+
+    query_list = list(
+        dict.fromkeys(
+            query.strip()
+            for query in queries
+            if isinstance(query, str) and query.strip()
         )
+    )[:2] or [topic]
 
-    if errors:
-        lines.extend(["## Errors", ""])
-        for source, error in errors.items():
-            lines.append(f"- {source}: {error}")
+    tasks = []
 
-    md_path.write_text("\n".join(lines), encoding="utf-8")
-    print(f"Saved: {json_path}\nSaved: {md_path}")
+    # Build source-specific tasks.
+    for source in dict.fromkeys(selected_sources):
 
+        if source == "google_news":
+            for query in query_list:
+                tasks.append(
+                    (
+                        f"google_news:{query}",
+                        search_google_news,
+                        (query, days, feed_limit),
+                    )
+                )
 
-def main():
-    sources = {
-        "google_news": search_google_news,
-        "arxiv": search_arxiv,
-        "hacker_news": search_hacker_news,
-        "hugging_face": search_hugging_face,
-    }
-    articles = []
+        elif source == "hacker_news":
+            for query in query_list:
+                tasks.append(
+                    (
+                        f"hacker_news:{query}",
+                        search_hacker_news,
+                        (query, days, feed_limit),
+                    )
+                )
+
+        elif source == "arxiv":
+            tasks.append(
+                (
+                    "arxiv",
+                    search_arxiv,
+                    (feed_limit,),
+                )
+            )
+
+        elif source == "hugging_face":
+            tasks.append(
+                (
+                    "hugging_face",
+                    search_hugging_face,
+                    (feed_limit,),
+                )
+            )
+
+    start = perf_counter()
+
+    raw_articles = []
     errors = {}
 
-    for name, search in sources.items():
-        if not CONFIG["sources"].get(name):
-            continue
+    # Execute independent source requests concurrently.
+    with ThreadPoolExecutor(max_workers=min(MAX_WORKERS, len(tasks))) as executor:
 
-        try:
-            results = search()
-            articles.extend(results)
-            print(f"{name}: {len(results)} articles")
-        except (requests.RequestException, ValueError) as error:
-            errors[name] = str(error)
-            print(f"{name}: {error}")
+        pending = {
+            executor.submit(function, *args): task_name
+            for task_name, function, args in tasks
+        }
 
-    articles = process_articles(articles)
-    print(f"Unique recent articles: {len(articles)}")
-    save_results(articles, errors)
+        for future in as_completed(pending):
+            task_name = pending[future]
 
+            try:
+                results = future.result()
 
-if __name__ == "__main__":
-    main()
+                raw_articles.extend(results)
+
+                logger.info(
+                    "%s: %d articles",
+                    task_name,
+                    len(results),
+                )
+
+            except Exception as exc:
+                # Include task/query to prevent error overwrites.
+                errors[task_name] = str(exc)
+
+                logger.warning(
+                    "%s failed: %s",
+                    task_name,
+                    exc,
+                )
+
+    # Process all collected articles before applying the limit.
+    all_articles = process_articles(
+        raw_articles,
+        days,
+    )
+
+    # Preserve total count separately.
+    total_articles = len(all_articles)
+
+    # Apply API response and analysis limit.
+    selected_articles = all_articles[:max_articles]
+
+    elapsed = perf_counter() - start
+
+    logger.info(
+        "Collection completed in %.2fs; " "%d unique articles, %d returned",
+        elapsed,
+        total_articles,
+        len(selected_articles),
+    )
+
+    return selected_articles, errors, total_articles

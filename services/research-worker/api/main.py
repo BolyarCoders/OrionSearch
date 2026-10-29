@@ -70,7 +70,9 @@ def prototype_research(request: ResearchRequest):
         return run_research(request)
     except Exception:
         logger.exception("Research request failed")
-        raise HTTPException(status_code=502, detail="Research failed. Check worker logs")
+        raise HTTPException(
+            status_code=502, detail="Research failed. Check worker logs"
+        )
 
 
 def process_job(job_id: str, request: ResearchRequest):
@@ -83,16 +85,44 @@ def process_job(job_id: str, request: ResearchRequest):
     except Exception:
         logger.exception("Research job %s failed", job_id)
         with jobs_lock:
-            jobs[job_id].update(status="failed", error="Research failed. Check worker logs")
+            jobs[job_id].update(
+                status="failed", error="Research failed. Check worker logs"
+            )
+
+
+def _make_job_room():
+    """Evict oldest terminal jobs when capacity is needed; never evict active jobs."""
+    terminal_states = {"completed", "failed"}
+    while len(jobs) >= MAX_JOBS:
+        terminal_id = next(
+            (
+                job_id
+                for job_id, job in jobs.items()
+                if job.get("status") in terminal_states
+            ),
+            None,
+        )
+        if terminal_id is None:
+            return False
+        del jobs[terminal_id]
+    return True
 
 
 @app.post("/prototype/research/jobs", response_model=JobCreated, status_code=202, dependencies=[Depends(prototype_enabled), Depends(require_api_key)])
 def create_job(request: ResearchRequest, tasks: BackgroundTasks):
     with jobs_lock:
-        if len(jobs) >= MAX_JOBS:
-            raise HTTPException(status_code=503, detail="Job store is full. Restart or enable persistent storage")
+        if not _make_job_room():
+            raise HTTPException(
+                status_code=503,
+                detail="All job slots are occupied by queued or running jobs",
+            )
         job_id = str(uuid4())
-        jobs[job_id] = {"job_id": job_id, "status": "queued", "result": None, "error": None}
+        jobs[job_id] = {
+            "job_id": job_id,
+            "status": "queued",
+            "result": None,
+            "error": None,
+        }
     tasks.add_task(process_job, job_id, request)
     return JobCreated(job_id=job_id, status="queued", status_url=f"/prototype/research/jobs/{job_id}")
 

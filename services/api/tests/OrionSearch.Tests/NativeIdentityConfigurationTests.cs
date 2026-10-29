@@ -48,6 +48,10 @@ public sealed class NativeIdentityConfigurationTests
         Assert.True(settings.IsValid(development: true));
         settings.KeyEncryptionCertificatePath = Path.Combine(Path.GetTempPath(), "identity.pfx");
         Assert.True(settings.IsValid(development: false));
+        settings.KeyEncryptionCertificateBase64 = "encoded";
+        Assert.False(settings.IsValid(development: false));
+        settings.KeyEncryptionCertificatePath = "";
+        Assert.True(settings.IsValid(development: false));
     }
 
     [Theory]

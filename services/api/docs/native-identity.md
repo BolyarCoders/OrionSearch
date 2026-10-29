@@ -43,7 +43,12 @@ or apply migrations to Render. Incomplete enabled configuration fails startup.
 | `NativeIdentity__Enabled` | `true` to activate account routes |
 | `NativeIdentity__RequestsPerMinute` | Auth requests per client IP; default 10, range 1–1000 |
 | `NativeIdentity__KeyEncryptionCertificatePath` | Absolute mounted private-key PFX path; required outside Development |
+| `NativeIdentity__KeyEncryptionCertificateBase64` | Alternative to the path: base64-encoded PFX supplied as a secret environment variable; never configure both sources |
 | `NativeIdentity__KeyEncryptionCertificatePassword` | PFX password, supplied through secret configuration |
+
+Store a recovery copy of the PFX and its password outside Render. Loss of the
+certificate prevents decryption of persisted Data Protection keys. The encoded
+certificate and password are secrets and must never enter source control or logs.
 
 Configure the existing PostgreSQL connection, apply the ninth migration with
 the existing EF tooling, mount the certificate, then enable Identity. Development
