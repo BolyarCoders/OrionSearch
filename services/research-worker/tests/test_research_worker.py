@@ -293,6 +293,22 @@ def test_gemini_nonretryable_error(monkeypatch):
     assert calls == ["primary"]
 
 
+def test_gemini_client_error_logs_status_without_provider_body(monkeypatch, caplog):
+    class FakeClientError(Exception):
+        code = 429
+
+    class FakeModels:
+        def generate_content(self, **kwargs):
+            raise FakeClientError("private provider response")
+
+    monkeypatch.setattr(ai_agent.errors, "ClientError", FakeClientError)
+    with caplog.at_level("WARNING"), pytest.raises(FakeClientError):
+        ai_agent.ask_ai(SimpleNamespace(models=FakeModels()), "private prompt")
+    assert "status 429" in caplog.text
+    assert "private provider response" not in caplog.text
+    assert "private prompt" not in caplog.text
+
+
 def test_api_total_articles_semantics(monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
 
