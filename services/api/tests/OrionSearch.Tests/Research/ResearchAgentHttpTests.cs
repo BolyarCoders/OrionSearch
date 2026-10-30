@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using Microsoft.Extensions.Logging;
 using OrionSearch.Application.Archives;
 using OrionSearch.Application.Research;
 using OrionSearch.Infrastructure.Research;
@@ -108,6 +109,16 @@ public sealed class ResearchAgentHttpTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => new HttpResearchAgentClient(failed, Options()).ExecuteAsync(Request(), cancellation.Token));
     }
 
+    [Fact]
+    public async Task NetworkDiagnosticsDoNotLogPrivateExceptionDetails()
+    {
+        var logger = new RecordingLogger();
+        using var client = new HttpClient(new StubHandler((_, _) => throw new HttpRequestException("private network address")));
+        await Assert.ThrowsAsync<ResearchAgentException>(() => new HttpResearchAgentClient(client, Options(), logger: logger).ExecuteAsync(Request(), default));
+        Assert.Contains("network failure", logger.Message);
+        Assert.DoesNotContain("private network address", logger.Message);
+    }
+
     [Theory]
     [InlineData("http://public-agent.example/")]
     [InlineData("https://name:credential@agent.example/")]
@@ -170,6 +181,14 @@ public sealed class ResearchAgentHttpTests
     private sealed class StubHandler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> send) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) => send(request, cancellationToken);
+    }
+    private sealed class RecordingLogger : ILogger<HttpResearchAgentClient>
+    {
+        public string Message { get; private set; } = "";
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel logLevel) => true;
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) =>
+            Message = formatter(state, exception);
     }
     private sealed class NonSeekableMemoryStream(byte[] bytes) : MemoryStream(bytes)
     {
