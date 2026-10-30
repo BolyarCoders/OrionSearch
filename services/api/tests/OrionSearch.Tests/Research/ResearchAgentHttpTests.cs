@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using Microsoft.Extensions.Logging;
 using OrionSearch.Application.Archives;
 using OrionSearch.Application.Research;
 using OrionSearch.Infrastructure.Research;
@@ -8,6 +9,40 @@ namespace OrionSearch.Tests.Research;
 
 public sealed class ResearchAgentHttpTests
 {
+    [Fact]
+    public async Task OptInRequestsAndValidatesAReport()
+    {
+        var request = Request();
+        var options = Options();
+        options.IncludeReport = true;
+        using var client = new HttpClient(new StubHandler(async (message, _) =>
+        {
+            var sent = await message.Content!.ReadFromJsonAsync<AgentRequest>(ResearchContract.Json);
+            Assert.True(sent!.IncludeReport);
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(ResearchTestData.Output(request.ResearchRunId) with { Report = "Analysis [1]" }, options: ResearchContract.Json) };
+        }));
+        Assert.Equal("Analysis [1]", (await new HttpResearchAgentClient(client, options).ExecuteAsync(request, default)).Report);
+    }
+
+    [Fact]
+    public async Task MissingRequestedReportIsAContractFailure()
+    {
+        var request = Request();
+        var options = Options();
+        options.IncludeReport = true;
+        using var client = new HttpClient(new StubHandler((_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        { Content = JsonContent.Create(ResearchTestData.Output(request.ResearchRunId), options: ResearchContract.Json) })));
+        Assert.Equal(ResearchFailure.Contract, (await Assert.ThrowsAsync<ResearchAgentException>(() => new HttpResearchAgentClient(client, options).ExecuteAsync(request, default))).Failure);
+    }
+
+    [Fact]
+    public async Task UnrequestedReportIsAContractFailure()
+    {
+        var request = Request();
+        using var client = new HttpClient(new StubHandler((_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        { Content = JsonContent.Create(ResearchTestData.Output(request.ResearchRunId) with { Report = "Unexpected" }, options: ResearchContract.Json) })));
+        Assert.Equal(ResearchFailure.Contract, (await Assert.ThrowsAsync<ResearchAgentException>(() => new HttpResearchAgentClient(client, Options()).ExecuteAsync(request, default))).Failure);
+    }
     [Fact]
     public async Task HttpClientUsesOnlyConfiguredAddressAuthenticationAndVersionedBody()
     {
@@ -74,6 +109,16 @@ public sealed class ResearchAgentHttpTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => new HttpResearchAgentClient(failed, Options()).ExecuteAsync(Request(), cancellation.Token));
     }
 
+    [Fact]
+    public async Task NetworkDiagnosticsDoNotLogPrivateExceptionDetails()
+    {
+        var logger = new RecordingLogger();
+        using var client = new HttpClient(new StubHandler((_, _) => throw new HttpRequestException("private network address")));
+        await Assert.ThrowsAsync<ResearchAgentException>(() => new HttpResearchAgentClient(client, Options(), logger: logger).ExecuteAsync(Request(), default));
+        Assert.Contains("network failure", logger.Message);
+        Assert.DoesNotContain("private network address", logger.Message);
+    }
+
     [Theory]
     [InlineData("http://public-agent.example/")]
     [InlineData("https://name:credential@agent.example/")]
@@ -136,6 +181,14 @@ public sealed class ResearchAgentHttpTests
     private sealed class StubHandler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> send) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) => send(request, cancellationToken);
+    }
+    private sealed class RecordingLogger : ILogger<HttpResearchAgentClient>
+    {
+        public string Message { get; private set; } = "";
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel logLevel) => true;
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) =>
+            Message = formatter(state, exception);
     }
     private sealed class NonSeekableMemoryStream(byte[] bytes) : MemoryStream(bytes)
     {

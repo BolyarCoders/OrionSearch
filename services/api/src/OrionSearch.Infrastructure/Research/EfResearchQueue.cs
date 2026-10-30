@@ -131,6 +131,7 @@ internal sealed class EfResearchQueue(IDbContextFactory<OrionSearchDbContext> fa
         run.Status = "completed";
         run.FinishedAt = await NowAsync(context, ct);
         run.ErrorMessage = null;
+        run.Report = result.Report;
         run.Stats = JsonSerializer.Serialize(new RunStatistics(result.Queries.Length, result.Sources.Length,
             result.Sources.Count(source => source.Capture is not null), result.Findings.Length), ResearchContract.Json);
         var attempt = await CurrentAttemptAsync(context, lease, ct);

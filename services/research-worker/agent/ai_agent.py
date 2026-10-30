@@ -70,11 +70,15 @@ def ask_ai(client, prompt):
 
         except errors.ServerError as error:
             logger.warning(
-                "Gemini %s failed after %.2fs: %s", model, perf_counter() - start, error
+                "Gemini %s failed after %.2fs (status %s)", model, perf_counter() - start, error.code
             )
 
             if error.code not in (503, 504) or index == len(models) - 1:
                 raise
+
+        except errors.ClientError as error:
+            logger.warning("Gemini %s failed (status %s)", model, error.code)
+            raise
 
 
 def plan_research(client, topic, days):

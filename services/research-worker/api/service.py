@@ -33,6 +33,7 @@ def run_contract_research(request):
 
     days, _, _, _ = execution_window(request)
     if not os.getenv("GEMINI_API_KEY"):
+        logger.warning("Research provider is not configured")
         raise RuntimeError("Research provider is not configured")
     if not research_lock.acquire(blocking=False):
         raise ResearchBusy("Research capacity is in use")
@@ -51,17 +52,37 @@ def run_contract_research(request):
         client = genai.Client(api_key=os.environ["GEMINI_API_KEY"], http_options=types.HttpOptions(
             timeout=60000, retry_options=types.HttpRetryOptions(attempts=1)))
         try:
-            queries, selected = ai_agent.plan_research(client, topic, days)
+            queries, selected = ai_agent.plan_research(client, request["objective"], days)
             if not queries or len(queries) > 5 or any(not isinstance(query, str) or not query.strip() or len(query) > 1000 for query in queries):
                 from api.contract import ContractError
                 raise ContractError("Invalid research plan")
             selected = [name for name in selected if name in collector.SOURCES]
             if not selected:
+                logger.warning("Research has no enabled discovery sources")
                 raise RuntimeError("No discovery source is enabled")
-            articles, errors, _ = ai_agent.collect_articles(topic, days, queries, selected, max_articles=50)
+            articles, errors, _ = ai_agent.collect_articles(request["objective"], days, queries, selected, max_articles=50)
             if errors:
+                logger.warning("Research source collection did not complete")
                 raise RuntimeError("Source collection did not complete")
-            result = build_result(request, queries, selected, articles)
+            selected_articles = []
+            result = build_result(request, queries, selected, articles, selected_articles=selected_articles)
+            if request.get("includeReport", False):
+                # Use exactly the filtered, deduplicated and ordered sources for
+                # the report so its numbered citations refer to accepted sources.
+                report_articles = []
+                for source, article in zip(result["sources"], selected_articles, strict=True):
+                    report_articles.append({
+                        "title": source.get("title") or "Untitled",
+                        "url": source["canonicalUrl"],
+                        "source": str(article.get("source") or "Unknown")[:200],
+                        "published_at": source.get("publishedAt") or "Unknown",
+                        "summary": str(article.get("summary") or "")[:350],
+                    })
+                try:
+                    result["report"] = ai_agent.analyze_articles(client, topic, days, report_articles)
+                except Exception:
+                    logger.warning("Research report generation failed")
+                    raise
             if uploader is not None:
                 from api.captures import enrich_captures
                 result = enrich_captures(result, request, uploader)

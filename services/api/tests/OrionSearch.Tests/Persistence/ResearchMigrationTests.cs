@@ -15,6 +15,53 @@ public sealed class ResearchMigrationTests(PostgreSqlFixture database)
     private const string PreviousMigration = "20261016095458_AllowRawOnlyDocumentVersions";
 
     [Fact]
+    public async Task ReportMigrationUpgradesPreviousSchema()
+    {
+        var connectionString = await database.CreateDatabaseAsync();
+        await using var context = database.CreateContext(connectionString);
+        var migrator = context.GetService<IMigrator>();
+        await migrator.MigrateAsync("20261029064332_IndexResearchAdmissionBudgets");
+        Assert.Equal(0, await context.Database.SqlQuery<int>($"""
+            SELECT count(*)::int AS "Value" FROM information_schema.columns
+            WHERE table_schema = 'research' AND table_name = 'research_runs' AND column_name = 'report'
+            """).SingleAsync());
+        await migrator.MigrateAsync();
+        Assert.Equal(1, await context.Database.SqlQuery<int>($"""
+            SELECT count(*)::int AS "Value" FROM information_schema.columns
+            WHERE table_schema = 'research' AND table_name = 'research_runs' AND column_name = 'report'
+            """).SingleAsync());
+    }
+
+    [Fact]
+    public async Task ReportMigrationPreservesExistingResearchRuns()
+    {
+        await using var scenario = await ArchiveApiScenario.CreateAsync(database);
+        var run = await ResearchTestData.SubmitAsync(scenario);
+        await using var context = scenario.Context();
+        var migrator = context.GetService<IMigrator>();
+        await migrator.MigrateAsync("20261029064332_IndexResearchAdmissionBudgets");
+        await migrator.MigrateAsync();
+        var stored = await context.ResearchRuns.AsNoTracking().SingleAsync(item => item.Id == run.Id);
+        Assert.Equal("queued", stored.Status);
+        Assert.Null(stored.Report);
+    }
+
+    [Fact]
+    public async Task ReportMigrationDowngradeRefusesToDiscardStoredReports()
+    {
+        await using var scenario = await ArchiveApiScenario.CreateAsync(database);
+        var run = await ResearchTestData.SubmitAsync(scenario);
+        await using var scope = scenario.Scope();
+        var queue = ResearchTestData.Queue(scope);
+        var lease = (await queue.ClaimAsync("report-worker", default))!;
+        Assert.True(await queue.CompleteAsync(lease, ResearchTestData.Output(run.Id) with { Report = "Saved report" }, default));
+        await using var context = scenario.Context();
+        var error = await Assert.ThrowsAsync<PostgresException>(() => context.GetService<IMigrator>().MigrateAsync("20261029064332_IndexResearchAdmissionBudgets"));
+        Assert.Equal(PostgresErrorCodes.CheckViolation, error.SqlState);
+        Assert.Equal("Saved report", (await context.ResearchRuns.SingleAsync()).Report);
+    }
+
+    [Fact]
     public async Task UpgradeRefusesLegacyBlankCapturesWithoutRewritingOrDeletingThem()
     {
         var connectionString = await database.CreateDatabaseAsync();

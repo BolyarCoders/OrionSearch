@@ -991,6 +991,10 @@ namespace OrionSearch.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("finished_at");
 
+                    b.Property<string>("Report")
+                        .HasColumnType("text")
+                        .HasColumnName("report");
+
                     b.Property<DateTime?>("StartedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("started_at");
@@ -1028,6 +1032,8 @@ namespace OrionSearch.Infrastructure.Persistence.Migrations
 
                     b.ToTable("research_runs", "research", t =>
                         {
+                            t.HasCheckConstraint("ck_research_runs_report", "report IS NULL OR (char_length(report) BETWEEN 1 AND 100000 AND btrim(report) <> '')");
+
                             t.HasCheckConstraint("ck_research_runs_stats", "jsonb_typeof(stats) = 'object'");
 
                             t.HasCheckConstraint("ck_research_runs_status", "status IN ('queued', 'running', 'completed', 'failed', 'cancelled')");

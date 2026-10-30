@@ -24,10 +24,11 @@ def matches_domain(host, domains):
     return any(host == domain or host.endswith("." + domain) for domain in domains)
 
 
-def build_result(request, queries, providers, articles, today=None):
+def build_result(request, queries, providers, articles, today=None, selected_articles=None):
     _, start, end, maximum = execution_window(request, today)
     settings = request["settings"]
     sources = {}
+    accepted_articles = {}
     for article in articles:
         try:
             url = canonical_url(article.get("url"))
@@ -77,8 +78,11 @@ def build_result(request, queries, providers, articles, today=None):
         if publisher:
             source["publisher"] = publisher
         sources[url] = source
+        accepted_articles[url] = article
     ordered = sorted(sources.values(), key=lambda source: (
         not matches_domain(source.get("publisher", {}).get("domain", urlsplit(source["canonicalUrl"]).hostname), settings["preferredDomains"]), source["canonicalUrl"]))[:maximum]
+    if selected_articles is not None:
+        selected_articles.extend(accepted_articles[source["canonicalUrl"]] for source in ordered)
     executed = []
     for provider in providers:
         actual_queries = queries if provider in ("google_news", "hacker_news") else ["cs.AI+cs.LG+cs.CL" if provider == "arxiv" else "hugging_face_blog_feed"]

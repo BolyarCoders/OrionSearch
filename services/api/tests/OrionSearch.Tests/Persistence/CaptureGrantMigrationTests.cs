@@ -28,10 +28,12 @@ public sealed class CaptureGrantMigrationTests(PostgreSqlFixture database)
             new ArchiveDocument { ArchiveId = archive.Id, DocumentId = version.DocumentId },
             new ArchiveDocument { ArchiveId = archive.Id, DocumentId = unknown.DocumentId },
             new ArchiveDocument { ArchiveId = other.Id, DocumentId = version.DocumentId });
-        var run = new ResearchRun { ArchiveId = archive.Id };
-        context.ResearchRuns.Add(run);
         await context.SaveChangesAsync();
-        var finding = new Finding { Statement = "Existing finding", ResearchRunId = run.Id };
+        // Seed through the old schema: the current EF model also contains fields
+        // introduced by migrations that have not been applied yet.
+        var runId = Guid.NewGuid();
+        await context.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO research.research_runs (id, archive_id) VALUES ({runId}, {archive.Id})");
+        var finding = new Finding { Statement = "Existing finding", ResearchRunId = runId };
         context.Findings.Add(finding);
         await context.SaveChangesAsync();
         context.FindingEvidence.Add(new FindingEvidence { FindingId = finding.Id, DocumentVersionId = version.Id });

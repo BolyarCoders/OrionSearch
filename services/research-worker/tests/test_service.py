@@ -32,11 +32,12 @@ def test_integrated_service_uses_existing_planner_without_reports_or_second_job_
         def close(self): calls.append("closed")
 
     def plan(client, topic, days):
-        assert request["title"] in topic and request["objective"] in topic
+        assert topic == request["objective"]
         assert days == 7
         return ["research methods"], ["google_news"]
 
     def collect(topic, days, queries, selected, *, max_articles):
+        assert topic == request["objective"]
         assert max_articles == 50
         return ([{"url": "https://example.com/source", "language": "en", "title": "Discovered"}],
                 {"google_news": "private upstream body"} if collection_fails else {}, 1)

@@ -61,5 +61,15 @@ public sealed class ResearchService(IArchiveStore archives, ArchiveAuthorization
         return (await store.StatusAsync(id, ct))!;
     }
 
+    public async Task<ResearchReport> GetReportAsync(Guid id, CancellationToken ct)
+    {
+        var userId = await authorization.RequireUserAsync(ct);
+        var run = await store.FindRunAsync(id, ct) ?? throw new ArchiveRequestException(404, "Research run not found.");
+        await authorization.RequireAccessAsync(userId, run.ArchiveId, false, ct);
+        if (run.Status != "completed" || run.Report is null)
+            throw new ArchiveRequestException(404, "Research report not available.");
+        return new ResearchReport(run.Id, run.Report);
+    }
+
     private static string Hash(string value) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
 }
