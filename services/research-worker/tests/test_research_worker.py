@@ -208,6 +208,19 @@ def test_multiple_failures_same_source(monkeypatch):
     assert errors["google_news:first"] != errors["google_news:second"]
 
 
+def test_collector_logs_do_not_include_queries_or_provider_errors(monkeypatch, caplog):
+    def fail(*args):
+        raise RuntimeError("private provider details")
+
+    monkeypatch.setattr(collector, "search_google_news", fail)
+    with caplog.at_level("INFO"):
+        _, errors, _ = collector.collect("private topic", 1, ["private query"], ["google_news"])
+    assert errors
+    assert "google_news collection failed" in caplog.text
+    assert "private query" not in caplog.text
+    assert "private provider details" not in caplog.text
+
+
 def test_all_sources_failure(monkeypatch):
     monkeypatch.setenv("RESEARCH_FEED_LIMIT", "8")
 
