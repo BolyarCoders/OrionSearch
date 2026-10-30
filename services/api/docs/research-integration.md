@@ -47,6 +47,15 @@ successful `/health` check only establishes that the worker process responds;
 it does not prove Gemini, feeds, credentials or report generation are working.
 An authenticated end-to-end run is required before enabling production traffic.
 
+On 2026-10-30, live diagnostics identified a Google News 503 from the Render
+worker and a Gemini `gemini-3.8-flash` 504. The worker was temporarily configured
+to use only `hacker_news`, with `gemini-2.5-flash-lite` as fallback. This reduces
+source coverage and does not establish that the fallback or full product flow
+works. Restore additional sources only after verifying their availability; the
+integrated route currently fails the run on any source error rather than
+silently publishing an incomplete report. Feed queries use the research
+objective; the title and description are context for report generation.
+
 Candidate implementation, 2026-10-28. This step joins the existing .NET consumer
 and Python producer; hosted/real-provider acceptance remains a separate gate.
 
