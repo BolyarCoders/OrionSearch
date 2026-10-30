@@ -49,9 +49,12 @@ An authenticated end-to-end run is required before enabling production traffic.
 
 On 2026-10-30, live diagnostics identified a Google News 503 from the Render
 worker and a Gemini `gemini-3.8-flash` 504. The worker was temporarily configured
-to use only `hacker_news`, with `gemini-2.5-flash-lite` as fallback. This reduces
-source coverage and does not establish that the fallback or full product flow
-works. Restore additional sources only after verifying their availability; the
+to use only `hacker_news`. A `gemini-2.5-flash-lite` fallback returned 404, so
+`gemini-3.5-flash-lite` was configured as fallback. An authenticated hosted
+request returned three Hacker News sources and a generated report after the
+primary model timed out; full API-to-database acceptance remains separate.
+This reduces source coverage. Restore additional sources only after verifying
+their availability; the
 integrated route currently fails the run on any source error rather than
 silently publishing an incomplete report. Feed queries use the research
 objective; the title and description are context for report generation.
