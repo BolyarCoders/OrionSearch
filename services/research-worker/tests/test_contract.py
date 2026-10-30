@@ -195,11 +195,13 @@ def test_report_uses_only_selected_sources_and_is_opt_in(request_body, monkeypat
         {"url": "https://example.com/kept#fragment", "title": "Kept", "summary": "Allowed summary"},
     ]
     monkeypatch.setattr(genai, "Client", lambda **kwargs: type("Client", (), {"close": lambda self: None})())
-    monkeypatch.setattr(service.ai_agent, "plan_research", lambda *args: (["query"], ["google_news"]))
+    topics = []
+    monkeypatch.setattr(service.ai_agent, "plan_research", lambda client, topic, days: (topics.append(topic) or ["query"], ["google_news"]))
     monkeypatch.setattr(service.ai_agent, "collect_articles", lambda *args, **kwargs: (articles, {}, 2))
     seen = []
     monkeypatch.setattr(service.ai_agent, "analyze_articles", lambda client, topic, days, selected: seen.extend(selected) or "Report [1]")
     result = service.run_contract_research(request_body)
+    assert topics == [request_body["objective"]]
     assert result["report"] == "Report [1]"
     assert [item["url"] for item in seen] == ["https://example.com/kept"]
     assert seen[0]["summary"] == "Allowed summary"

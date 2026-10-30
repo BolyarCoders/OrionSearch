@@ -52,7 +52,7 @@ def run_contract_research(request):
         client = genai.Client(api_key=os.environ["GEMINI_API_KEY"], http_options=types.HttpOptions(
             timeout=60000, retry_options=types.HttpRetryOptions(attempts=1)))
         try:
-            queries, selected = ai_agent.plan_research(client, topic, days)
+            queries, selected = ai_agent.plan_research(client, request["objective"], days)
             if not queries or len(queries) > 5 or any(not isinstance(query, str) or not query.strip() or len(query) > 1000 for query in queries):
                 from api.contract import ContractError
                 raise ContractError("Invalid research plan")
@@ -60,7 +60,7 @@ def run_contract_research(request):
             if not selected:
                 logger.warning("Research has no enabled discovery sources")
                 raise RuntimeError("No discovery source is enabled")
-            articles, errors, _ = ai_agent.collect_articles(topic, days, queries, selected, max_articles=50)
+            articles, errors, _ = ai_agent.collect_articles(request["objective"], days, queries, selected, max_articles=50)
             if errors:
                 logger.warning("Research source collection did not complete")
                 raise RuntimeError("Source collection did not complete")
