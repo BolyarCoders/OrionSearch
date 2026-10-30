@@ -9,6 +9,7 @@ public sealed record ResearchStatus(Guid Id, Guid ArchiveId, string Status, Date
     DateTime? StartedAt, DateTime? FinishedAt, RunStatistics Statistics, int Attempts,
     int MaxAttempts, DateTime? NextAttemptAt, bool Retrying, string? Error);
 public sealed record ResearchPayload(string Fingerprint, AgentRequest Request);
+public sealed record ResearchReport(Guid ResearchRunId, string Text);
 
 public interface IResearchStore
 {
@@ -45,6 +46,7 @@ public sealed class ResearchWorkerOptions
     public string? AgentBaseAddress { get; set; }
     public string? AgentApiKey { get; set; }
     public bool AllowProvisionalContract { get; set; }
+    public bool IncludeReport { get; set; }
 
     public bool HasAgentConfiguration() => AgentApiKey is { Length: > 0 and <= 4096 } key
         && key.All(character => character is >= '!' and <= '~')

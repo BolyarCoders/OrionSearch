@@ -10,5 +10,6 @@ public sealed class ResearchRun
     public DateTime? FinishedAt { get; set; }
     public string Stats { get; set; } = "{}";
     public string? ErrorMessage { get; set; }
+    public string? Report { get; set; }
     public DateTime CreatedAt { get; set; }
 }

@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 from api import main
 from api.contract import CONTRACT_ROOT, ContractError, canonical_url, validate_request, validate_result
 from api.discovery import build_result, execution_window
+from api import service
 
 client = TestClient(main.app)
 HEADERS = {"Authorization": "Bearer test-secret"}
@@ -179,6 +180,32 @@ def test_exclusions_apply_to_source_and_publisher_independently(request_body):
     ]
     result = build_result(request_body, ["query"], ["google_news"], articles)
     assert [source["canonicalUrl"] for source in result["sources"]] == ["https://allowed.example/kept"]
+
+
+def test_report_uses_only_selected_sources_and_is_opt_in(request_body, monkeypatch):
+    from google import genai
+
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    monkeypatch.delenv("ORION_CAPTURE_ENABLED", raising=False)
+    request_body["settings"].update(dateFrom=None, dateTo=None, languages=[], excludedDomains=["excluded.example"])
+    request_body["includeReport"] = True
+    articles = [
+        {"url": "https://excluded.example/private", "title": "Excluded", "summary": "not allowed"},
+        {"url": "https://example.com/kept", "title": "Excluded publisher", "publisher_name": "Excluded", "publisher_url": "https://excluded.example", "summary": "not allowed"},
+        {"url": "https://example.com/kept#fragment", "title": "Kept", "summary": "Allowed summary"},
+    ]
+    monkeypatch.setattr(genai, "Client", lambda **kwargs: type("Client", (), {"close": lambda self: None})())
+    monkeypatch.setattr(service.ai_agent, "plan_research", lambda *args: (["query"], ["google_news"]))
+    monkeypatch.setattr(service.ai_agent, "collect_articles", lambda *args, **kwargs: (articles, {}, 2))
+    seen = []
+    monkeypatch.setattr(service.ai_agent, "analyze_articles", lambda client, topic, days, selected: seen.extend(selected) or "Report [1]")
+    result = service.run_contract_research(request_body)
+    assert result["report"] == "Report [1]"
+    assert [item["url"] for item in seen] == ["https://example.com/kept"]
+    assert seen[0]["summary"] == "Allowed summary"
+    assert validate_result(result, request_body)
+    request_body.pop("includeReport")
+    assert "report" not in service.run_contract_research(request_body)
 
 
 def test_prototype_queue_is_disabled_in_integrated_mode(request_body, monkeypatch):

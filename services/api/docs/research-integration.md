@@ -1,5 +1,52 @@
 # Research integration: P2 architecture and execution plan
 
+## AI report integration
+
+The live worker at `https://orionsearch-409q.onrender.com` currently serves the
+versioned Bearer-authenticated `/research` contract. The earlier handoff's
+`X-API-Key` job endpoints describe the prototype, which is disabled by default
+and does not provide a durable queue. The .NET PostgreSQL queue remains the
+authoritative owner of jobs, retries and completion. The worker produces output
+but never writes application data. User tokens and database credentials do not
+cross this boundary.
+
+When `ResearchWorker__IncludeReport=true`, the .NET executor requests a report
+from a compatible worker. The worker filters and deduplicates sources first,
+then supplies those same ordered sources and feed summaries to the AI analyst.
+The report and the other accepted results are committed in the existing fenced
+transaction. Archive members can retrieve it with
+`GET /research-jobs/{runId}/report`; unavailable or unauthorized reports return
+404. The text is an unverified AI analysis of metadata and feed summaries, not
+captured full text, evidence, or independently verified facts. Clients should
+render it as text, not trusted HTML. Existing runs can have no report.
+
+This extends v1 with optional `includeReport` and `report` fields. A producer
+only sends a report on explicit request. Old producers reject the new request,
+and old consumers reject the new response: keep the option off until both
+upgrades are deployed. Provisional requests do not request reports. Existing
+requests, retries, idempotency and API status responses are unchanged.
+
+Rollout: back up the database and apply the additive report migration before
+deploying the new .NET consumer; deploy the compatible Python producer; configure
+the same service key as `ORION_WORKER_API_KEY` in Python and
+`ResearchWorker__AgentApiKey` in .NET, set `ResearchWorker__AgentBaseAddress` to
+the worker origin, and only after testing set `ResearchWorker__IncludeReport`
+and `ResearchWorker__Enabled` to `true`. Keys belong in server-side secrets.
+Never enable prototype routes for this integration. In case of rollback, turn
+report requests off before reverting the producer. The migration refuses a
+downgrade that would delete stored reports; retain the column or back up and
+plan an explicit data migration. The HTTP client has finite response and time
+limits, the PostgreSQL lease fences late results, and failures use sanitized
+categories and bounded retries. Provider output, including reports, is untrusted.
+No new paid service or shared database credential is required.
+
+The current Free Render web instance can sleep while idle. An in-process queue
+executor therefore cannot guarantee prompt execution while the API is asleep;
+a reliably running executor requires a separately assessed hosting option. A
+successful `/health` check only establishes that the worker process responds;
+it does not prove Gemini, feeds, credentials or report generation are working.
+An authenticated end-to-end run is required before enabling production traffic.
+
 Candidate implementation, 2026-10-28. This step joins the existing .NET consumer
 and Python producer; hosted/real-provider acceptance remains a separate gate.
 

@@ -32,6 +32,14 @@ supplies a result.
 
 ## Current producer behavior
 
+Optional extension: when `includeReport` is true, a compatible producer returns
+`report`, a bounded unverified text analysis of the filtered sources' feed
+metadata and summaries. The producer omits it unless requested. Deploy consumers
+before requesting reports, and deploy compatible producers before enabling the
+request flag; older strict implementations reject the new fields. Reports are
+not evidence or captured article text. See the research integration operations
+guide for storage, authorization and rollout.
+
 The integrated producer uses the existing Gemini planner and fixed feed/API
 adapters. It returns executed queries and discovered URLs/metadata. Optional
 server-configured capture execution adds actual HTML/text bytes, versioned raw

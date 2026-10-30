@@ -21,7 +21,8 @@ public sealed class HttpResearchAgentClient(HttpClient client, ResearchWorkerOpt
         {
             using var message = new HttpRequestMessage(HttpMethod.Post, new Uri(new Uri(options.AgentBaseAddress!.TrimEnd('/') + "/"), "research"));
             message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", options.AgentApiKey);
-            message.Content = JsonContent.Create(request, options: ResearchContract.Json);
+            var sentRequest = request with { IncludeReport = options.IncludeReport && request.ContractVersion == ResearchContract.Version };
+            message.Content = JsonContent.Create(sentRequest, options: ResearchContract.Json);
             using var response = await client.SendAsync(message, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
             if (!response.IsSuccessStatusCode)
                 throw new ResearchAgentException(response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden
@@ -42,6 +43,8 @@ public sealed class HttpResearchAgentClient(HttpClient client, ResearchWorkerOpt
             }
             bytes.Position = 0;
             var result = await JsonSerializer.DeserializeAsync<AgentResult>(bytes, ResearchContract.Json, timeout.Token);
+            if (result is not null && sentRequest.IncludeReport != (result.Report is not null))
+                throw new ResearchAgentException(ResearchFailure.Contract);
             return ResearchOutputValidator.Normalize(result, request.ResearchRunId, request.ContractVersion);
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested) { throw new ResearchAgentException(ResearchFailure.Timeout); }

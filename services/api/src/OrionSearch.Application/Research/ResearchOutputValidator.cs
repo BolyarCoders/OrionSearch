@@ -15,6 +15,7 @@ public static class ResearchOutputValidator
             Require(ResearchContract.IsSupported(expectedVersion, allowProvisional: true)
                 && result.ContractVersion == expectedVersion && result.ResearchRunId == runId);
             Require(result.Queries is { Length: <= 256 } && result.Sources is { Length: <= 256 } && result.Findings is { Length: <= 256 });
+            Require(result.Report is null || Text(result.Report, 100000));
             var queries = result.Queries!.Select(query =>
             {
                 Require(query is not null && Text(query.Query, 2000) && Text(query.Provider, 200));

@@ -9,6 +9,40 @@ namespace OrionSearch.Tests.Research;
 public sealed class ResearchAgentHttpTests
 {
     [Fact]
+    public async Task OptInRequestsAndValidatesAReport()
+    {
+        var request = Request();
+        var options = Options();
+        options.IncludeReport = true;
+        using var client = new HttpClient(new StubHandler(async (message, _) =>
+        {
+            var sent = await message.Content!.ReadFromJsonAsync<AgentRequest>(ResearchContract.Json);
+            Assert.True(sent!.IncludeReport);
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(ResearchTestData.Output(request.ResearchRunId) with { Report = "Analysis [1]" }, options: ResearchContract.Json) };
+        }));
+        Assert.Equal("Analysis [1]", (await new HttpResearchAgentClient(client, options).ExecuteAsync(request, default)).Report);
+    }
+
+    [Fact]
+    public async Task MissingRequestedReportIsAContractFailure()
+    {
+        var request = Request();
+        var options = Options();
+        options.IncludeReport = true;
+        using var client = new HttpClient(new StubHandler((_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        { Content = JsonContent.Create(ResearchTestData.Output(request.ResearchRunId), options: ResearchContract.Json) })));
+        Assert.Equal(ResearchFailure.Contract, (await Assert.ThrowsAsync<ResearchAgentException>(() => new HttpResearchAgentClient(client, options).ExecuteAsync(request, default))).Failure);
+    }
+
+    [Fact]
+    public async Task UnrequestedReportIsAContractFailure()
+    {
+        var request = Request();
+        using var client = new HttpClient(new StubHandler((_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        { Content = JsonContent.Create(ResearchTestData.Output(request.ResearchRunId) with { Report = "Unexpected" }, options: ResearchContract.Json) })));
+        Assert.Equal(ResearchFailure.Contract, (await Assert.ThrowsAsync<ResearchAgentException>(() => new HttpResearchAgentClient(client, Options()).ExecuteAsync(request, default))).Failure);
+    }
+    [Fact]
     public async Task HttpClientUsesOnlyConfiguredAddressAuthenticationAndVersionedBody()
     {
         var request = Request();
