@@ -49,15 +49,30 @@ An authenticated end-to-end run is required before enabling production traffic.
 
 On 2026-10-30, live diagnostics identified a Google News 503 from the Render
 worker and a Gemini `gemini-3.8-flash` 504. The worker was temporarily configured
-to use only `hacker_news`. A `gemini-2.5-flash-lite` fallback returned 404, so
-`gemini-3.5-flash-lite` was configured as fallback. An authenticated hosted
-request returned three Hacker News sources and a generated report after the
-primary model timed out; full API-to-database acceptance remains separate.
+to use only `hacker_news`. A `gemini-2.5-flash-lite` fallback returned 404.
+`gemini-3.5-flash-lite` generated a report as fallback and was then configured
+as the primary model, with `gemini-3.8-flash` as fallback. An authenticated
+hosted request after this change returned three Hacker News sources and a
+generated report.
 This reduces source coverage. Restore additional sources only after verifying
 their availability; the
 integrated route currently fails the run on any source error rather than
 silently publishing an incomplete report. Feed queries use the research
 objective; the title and description are context for report generation.
+
+After a verified encrypted local backup, the additive report migration was
+applied to the Render PostgreSQL database on 2026-10-30. A hosted end-to-end
+test using a synthetic account completed a queued run, stored a report with
+three sources, and retrieved the report through the .NET API. A separate
+unauthenticated report request returned 401. The test accounts, archives and
+jobs were removed; shared source metadata was retained. The database's external
+IP allowlist was restored to empty. An earlier attempt failed after three
+unavailable responses; the successful test ran after waking the worker, and
+the exact earlier network cause was not established. Retry timing was increased
+to allow more time for free-service startup. Full S3/restore acceptance remains
+unverified in this run because Docker was unavailable. Render's free database
+expiry and independent backup limitations remain as documented in
+[Render hosting](render-hosting.md).
 
 Candidate implementation, 2026-10-28. This step joins the existing .NET consumer
 and Python producer; hosted/real-provider acceptance remains a separate gate.
