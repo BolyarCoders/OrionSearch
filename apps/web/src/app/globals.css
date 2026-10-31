@@ -1,0 +1,48 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light dark;
+  --canvas: 244 245 247; --sidebar: 236 239 242; --surface: 255 255 255;
+  --raised: 243 245 247; --active: 230 232 238; --hover: 235 238 242;
+  --rule: 220 225 231; --control: 129 139 152;
+  --ink: 28 36 51; --secondary: 86 97 116; --muted: 98 109 125;
+  --accent: 87 70 175; --accent-hover: 71 55 151; --accent-soft: 239 236 249; --on-accent: 255 255 255;
+  --success: 30 111 81; --warning: 133 88 13; --failure: 174 49 65; --info: 47 92 157;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --canvas: 21 23 25; --sidebar: 25 28 31; --surface: 28 31 34;
+    --raised: 35 39 44; --active: 45 49 56; --hover: 40 44 50;
+    --rule: 53 59 67; --control: 114 126 141;
+    --ink: 232 235 239; --secondary: 172 180 192; --muted: 154 164 178;
+    --accent: 182 165 245; --accent-hover: 199 184 255; --accent-soft: 43 38 61; --on-accent: 30 24 47;
+    --success: 114 207 165; --warning: 224 186 111; --failure: 246 147 158; --info: 145 183 242;
+  }
+}
+body { background: rgb(var(--canvas)); color: rgb(var(--ink)); font-family: system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; -webkit-font-smoothing: antialiased; }
+::selection { background: rgb(var(--accent) / .22); }
+:focus-visible { outline: 2px solid rgb(var(--accent)); outline-offset: 3px; }
+button { min-width: 36px; }
+button, input:not([type=checkbox]):not([type=radio]), select { min-height: 36px; }
+input:not([type=checkbox]):not([type=radio]):not([aria-invalid=true]):not(:focus), textarea:not([aria-invalid=true]):not(:focus), select:not(:focus) { border-color: rgb(var(--control)); }
+input[type=checkbox], input[type=radio] { accent-color: rgb(var(--accent)); }
+.dossier { position: relative; margin-top: 12px; border: 1px solid rgb(var(--rule)); border-radius: 0 8px 8px 8px; background: rgb(var(--surface)); }
+.dossier::before { content: ""; position: absolute; top: -12px; left: -1px; width: 76px; height: 12px; background: rgb(var(--surface)); border: 1px solid rgb(var(--rule)); border-bottom: 0; border-radius: 6px 12px 0 0; }
+.dossier:hover { border-color: rgb(var(--control)); }
+.dossier:hover::before { border-color: rgb(var(--control)); }
+.dossier-title { letter-spacing: -.025em; overflow-wrap: anywhere; }
+.library-title { font-size: clamp(1.75rem, 2.5vw, 2.125rem); line-height: 1.2; letter-spacing: -.04em; font-weight: 650; }
+@media (max-width: 639px), (pointer: coarse) {
+  .workspace-shell button { min-width: 44px; min-height: 44px; }
+  button, input:not([type=checkbox]):not([type=radio]), select, nav a { min-height: 44px; }
+  input, textarea, select { font-size: max(1rem, 16px) !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}
+@media (prefers-reduced-transparency: reduce) { * { backdrop-filter: none !important; } }
+@media (prefers-contrast: more) { :root { --rule: var(--control); } }
+
+.archive-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr)); gap: 24px; }
