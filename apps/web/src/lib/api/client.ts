@@ -37,6 +37,9 @@ export class ApiError extends Error {
 
 export const DEFAULT_API_URL = process.env.NEXT_PUBLIC_API_URL || "https://orionsearch-api.onrender.com";
 
+/** Same-origin path that next.config.mjs rewrites to the API (avoids browser CORS). */
+const PROXY_PATH = "/backend";
+
 export class ApiAuthError extends ApiError {
   constructor(message = "Authentication is required. Sign in to continue.", problem?: ProblemDetails) {
     super(401, message, problem);
@@ -100,7 +103,7 @@ export interface IApiClient {
 export class LiveApiClient implements IApiClient {
   private baseUrl: string;
 
-  constructor(baseUrl = DEFAULT_API_URL) {
+  constructor(baseUrl = PROXY_PATH) {
     this.baseUrl = baseUrl.replace(/\/+$/, "");
   }
 
