@@ -11,6 +11,7 @@ var app = builder.Build();
 app.UseForwardedHeaders();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
+app.UseCors();
 app.Use(async (context, next) =>
 {
     if (context.Request.Path.StartsWithSegments("/auth") || context.Request.Path == "/me")
@@ -34,7 +35,6 @@ app.Use(async (context, next) =>
     }
     await next();
 });
-app.UseCors();
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();

@@ -28,6 +28,23 @@ public sealed class ConfigurationTests
     }
 
     [Fact]
+    public async Task OversizedAuthRequestReturnsCorsHeadersForAllowedOrigin()
+    {
+        const string origin = "https://web.example";
+        using var factory = new ApiFactory();
+        using var configuredFactory = factory.WithSettings(new() { ["Cors:AllowedOrigins:0"] = origin });
+        using var client = configuredFactory.CreateClient();
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/auth/register");
+        request.Headers.Add("Origin", origin);
+        request.Content = new StringContent(new string('x', 32769));
+
+        using var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.RequestEntityTooLarge, response.StatusCode);
+        Assert.Equal(origin, Assert.Single(response.Headers.GetValues("Access-Control-Allow-Origin")));
+    }
+
+    [Fact]
     public async Task ConfiguredOriginCanMakePreflightRequests()
     {
         const string origin = "https://web.example";
