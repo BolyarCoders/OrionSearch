@@ -55,7 +55,7 @@ export default function ArchiveDetailPage({ params, searchParams }: ArchiveDetai
       ? resolvedSearchParams.tab
       : "overview";
 
-  const { client, mode } = useAppMode();
+  const { client } = useAppMode();
   const archiveRequest = useRef(0);
   const sourceRequest = useRef(0);
   const runRequest = useRef(0);
@@ -129,7 +129,7 @@ export default function ArchiveDetailPage({ params, searchParams }: ArchiveDetai
     try {
       const invalidDate = validateDateWindow(sourceFilters.publishedFrom, sourceFilters.publishedTo);
       if (invalidDate) throw new ApiError(400, invalidDate);
-      if (sourceFilters.language && !LANGUAGE_CODES.has(sourceFilters.language.trim().toLowerCase())) throw new ApiError(400, "Use a recognized two-letter language code.");
+      if (sourceFilters.language && !LANGUAGE_CODES.has(sourceFilters.language.trim().toLowerCase())) throw new ApiError(400, "Използвайте разпознат двубуквен езиков код.");
       const domain = sourceFilters.publisherDomain ? normalizeDomain(sourceFilters.publisherDomain) : null;
       if (domain?.error) throw new ApiError(400, domain.error);
       const res = await client.listSources(id, {
@@ -179,26 +179,26 @@ export default function ArchiveDetailPage({ params, searchParams }: ArchiveDetai
 
   const rememberRun = (job: ResearchRunStatus) => {
     setActiveJob(job); setRunId(job.id);
-    try { sessionStorage.setItem(`orion-run:${mode}:${id}`, job.id); } catch { /* optional browser storage */ }
+    try { sessionStorage.setItem(`orion-run:${id}`, job.id); } catch { /* optional browser storage */ }
   };
   const openRun = async (knownId: string) => {
     const current = ++runRequest.current;
     setRunError(null);
     try {
-      if (!/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(knownId)) throw new Error("Enter a valid research run UUID.");
+      if (!/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(knownId)) throw new Error("Въведете валиден UUID на проучване.");
       const job = await client.getResearchJob(knownId);
       if (current !== runRequest.current) return;
-      if (job.archiveId !== id) throw new Error("This run does not belong to this archive.");
+      if (job.archiveId !== id) throw new Error("Това проучване не принадлежи на този архив.");
       rememberRun(job);
     } catch (error) { if (current === runRequest.current) setRunError(error); }
   };
   useEffect(() => {
     setActiveJob(null); setRunId("");
-    try { const saved = sessionStorage.getItem(`orion-run:${mode}:${id}`); if (saved) { setRunId(saved); void openRun(saved); } } catch { /* optional browser storage */ }
+    try { const saved = sessionStorage.getItem(`orion-run:${id}`); if (saved) { setRunId(saved); void openRun(saved); } } catch { /* optional browser storage */ }
     // The API has no run-history endpoint; restore only an explicitly remembered run.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     return () => { runRequest.current++; };
-  }, [client, mode, id]);
+  }, [client, id]);
 
   if (errorMsg) return <ApiProblem error={errorMsg} onRetry={fetchArchive} />;
   if (authError) {
@@ -215,14 +215,14 @@ export default function ArchiveDetailPage({ params, searchParams }: ArchiveDetai
         <div className="w-12 h-12 rounded-full bg-surface-raised border border-border flex items-center justify-center mx-auto text-content-muted mb-4">
           <FolderArchive className="w-6 h-6 text-status-warning" />
         </div>
-        <h2 className="text-xl font-bold text-content-primary">Archive Not Found</h2>
+        <h2 className="text-xl font-bold text-content-primary">Архивът не е намерен</h2>
         <p className="text-xs text-content-muted mt-2 leading-relaxed">
-          The requested archive could not be found or you do not have permission to view it.
+          Архивът не е намерен или нямате право да го разглеждате.
         </p>
         <div className="mt-6">
           <Link href="/archives">
             <Button variant="secondary" size="sm">
-              Back to Archives
+              Към архивите
             </Button>
           </Link>
         </div>
@@ -247,11 +247,11 @@ export default function ArchiveDetailPage({ params, searchParams }: ArchiveDetai
   const { archive, settings } = details;
 
   const tabs = [
-    { id: "overview", label: "Overview" },
-    { id: "sources", label: "Sources", count: archive.sourceCount },
-    { id: "research", label: "Research", count: activeJob ? 1 : undefined },
-    { id: "findings", label: "Findings" },
-    { id: "settings", label: "Settings" },
+    { id: "overview", label: "Преглед" },
+    { id: "sources", label: "Източници", count: archive.sourceCount },
+    { id: "research", label: "Проучване", count: activeJob ? 1 : undefined },
+    { id: "findings", label: "Находки" },
+    { id: "settings", label: "Настройки" },
   ];
 
   return (
@@ -272,10 +272,10 @@ export default function ArchiveDetailPage({ params, searchParams }: ArchiveDetai
       {activeTab === "overview" && (
         <div className="space-y-6">
           <dl className="grid grid-cols-2 sm:grid-cols-4 gap-6 border-b border-border pb-6">
-            <div><dt className="text-xs text-content-muted mb-2">Total sources</dt><dd className="text-2xl font-medium tabular-nums">{archive.sourceCount.toLocaleString()}</dd></div>
-            <div><dt className="text-xs text-content-muted mb-2">Findings in tracked run</dt><dd className="text-2xl font-medium tabular-nums">{activeJob ? activeJob.statistics.findings : "—"}</dd></div>
-            <div><dt className="text-xs text-content-muted mb-2">Tracked run</dt><dd className="text-sm font-medium">{activeJob ? activeJob.status : "No tracked run"}</dd></div>
-            <div><dt className="text-xs text-content-muted mb-2">Archive updated</dt><dd className="text-sm font-medium">{formatRelativeTime(archive.updatedAt)}</dd></div>
+            <div><dt className="text-xs text-content-muted mb-2">Общо източници</dt><dd className="text-2xl font-medium tabular-nums">{archive.sourceCount.toLocaleString()}</dd></div>
+            <div><dt className="text-xs text-content-muted mb-2">Находки в следеното проучване</dt><dd className="text-2xl font-medium tabular-nums">{activeJob ? activeJob.statistics.findings : "—"}</dd></div>
+            <div><dt className="text-xs text-content-muted mb-2">Следено проучване</dt><dd className="text-sm font-medium">{activeJob ? activeJob.status : "Няма следено проучване"}</dd></div>
+            <div><dt className="text-xs text-content-muted mb-2">Архивът е обновен</dt><dd className="text-sm font-medium">{formatRelativeTime(archive.updatedAt)}</dd></div>
           </dl>
 
           {/* 2-Column Overview Layout */}
@@ -297,14 +297,14 @@ export default function ArchiveDetailPage({ params, searchParams }: ArchiveDetai
                     <div className="flex items-center gap-2">
                       <Search className="w-4 h-4 text-accent" />
                       <h3 className="text-sm font-semibold text-content-primary">
-                        Research on demand
+                        Проучване при поискване
                       </h3>
                     </div>
                   </div>
 
                   <div className="py-6 text-center max-w-md mx-auto">
                     <p className="text-xs text-content-secondary leading-relaxed">
-                      Start a research run to collect and preserve sources using this archive’s preferences. Queued work requires an available research worker; scheduling is not active.
+                      Стартирайте проучване, за да съберете и запазите източници според предпочитанията на архива. Задачите на опашка изискват свободен работник; планиране няма.
                     </p>
                     <div className="mt-5">
                       <Button
@@ -314,7 +314,7 @@ export default function ArchiveDetailPage({ params, searchParams }: ArchiveDetai
                         onClick={() => setIsStartModalOpen(true)}
                         disabled={archive.status !== "active" || archive.role === "viewer"}
                       >
-                        Queue New Research Run
+                        Ново проучване
                       </Button>
                     </div>
                   </div>
@@ -325,13 +325,13 @@ export default function ArchiveDetailPage({ params, searchParams }: ArchiveDetai
               <div className="bg-surface border border-border rounded-panel p-5 space-y-3">
                 <div className="flex items-center justify-between pb-3 border-b border-border/80">
                   <h4 className="text-xs font-semibold uppercase tracking-wider text-content-primary">
-                    Sources in current view
+                    Източници в текущия изглед
                   </h4>
                   <button
                     onClick={() => setActiveTab("sources")}
                     className="text-xs text-accent hover:underline flex items-center gap-1"
                   >
-                    View all {archive.sourceCount} <ArrowRight className="w-3.5 h-3.5" />
+                    Всички {archive.sourceCount} <ArrowRight className="w-3.5 h-3.5" />
                   </button>
                 </div>
 
@@ -347,7 +347,7 @@ export default function ArchiveDetailPage({ params, searchParams }: ArchiveDetai
                         >
                           {s.title || s.canonicalUrl}
                         </a>
-                        <span className="text-xs text-content-muted">{s.publisherDomain || "Unknown publisher"}</span>
+                        <span className="text-xs text-content-muted">{s.publisherDomain || "Неизвестен издател"}</span>
                       </div>
                       <span className="text-xs font-mono text-accent bg-accent/10 px-2 py-0.5 rounded-full border border-accent/20 shrink-0">
                         {s.relevanceScore !== null ? s.relevanceScore.toFixed(2) : "—"}
@@ -358,49 +358,49 @@ export default function ArchiveDetailPage({ params, searchParams }: ArchiveDetai
               </div>
             </div>
 
-            {/* Right: "About this archive" Panel */}
+            {/* Right: "За този архив" Panel */}
             <div className="lg:col-span-5 bg-surface border border-border rounded-panel p-5 space-y-5">
               <div className="flex items-center justify-between pb-3 border-b border-border/80">
-                <h3 className="text-sm font-semibold text-content-primary">About this archive</h3>
+                <h3 className="text-sm font-semibold text-content-primary">За този архив</h3>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => setActiveTab("settings")}
                   leftIcon={<Edit className="w-3 h-3" />}
                 >
-                  Edit
+                  Редакция
                 </Button>
               </div>
 
               <div className="space-y-4 text-xs">
                 <div>
-                  <div className="text-content-muted font-medium mb-1">Description</div>
+                  <div className="text-content-muted font-medium mb-1">Описание</div>
                   <p className="text-content-secondary leading-relaxed">
-                    {archive.description || "No topic description provided."}
+                    {archive.description || "Няма описание на темата."}
                   </p>
                 </div>
 
                 <div className="pt-3 border-t border-border/60">
-                  <div className="text-content-muted font-medium mb-1">Date Window</div>
+                  <div className="text-content-muted font-medium mb-1">Период</div>
                   <div className="flex items-center gap-1.5 text-content-secondary">
                     <Calendar className="w-3.5 h-3.5 text-content-muted" />
                     <span>
                       {settings.dateFrom || settings.dateTo
-                        ? `${settings.dateFrom || "Any"} to ${settings.dateTo || "Present"}`
-                        : "Unrestricted date window"}
+                        ? `${settings.dateFrom || "—"} до ${settings.dateTo || "днес"}`
+                        : "Без ограничение на периода"}
                     </span>
                   </div>
                 </div>
 
                 <div className="pt-3 border-t border-border/60">
-                  <div className="text-content-muted font-medium mb-1">Languages</div>
+                  <div className="text-content-muted font-medium mb-1">Езици</div>
                   <div className="text-content-secondary">
                     {settings.languages.join(", ").toUpperCase()}
                   </div>
                 </div>
 
                 <div className="pt-3 border-t border-border/60">
-                  <div className="text-content-muted font-medium mb-1">Preferred Domains</div>
+                  <div className="text-content-muted font-medium mb-1">Предпочитани домейни</div>
                   <div className="flex flex-wrap gap-1 mt-1">
                     {settings.preferredDomains.length > 0 ? (
                       settings.preferredDomains.map((d) => (
@@ -412,13 +412,13 @@ export default function ArchiveDetailPage({ params, searchParams }: ArchiveDetai
                         </span>
                       ))
                     ) : (
-                      <span className="text-content-muted">None specified</span>
+                      <span className="text-content-muted">Няма зададени</span>
                     )}
                   </div>
                 </div>
 
                 <div className="pt-3 border-t border-border/60">
-                  <div className="text-content-muted font-medium mb-1">Excluded Domains</div>
+                  <div className="text-content-muted font-medium mb-1">Изключени домейни</div>
                   <div className="flex flex-wrap gap-1 mt-1">
                     {settings.excludedDomains.length > 0 ? (
                       settings.excludedDomains.map((d) => (
@@ -430,16 +430,16 @@ export default function ArchiveDetailPage({ params, searchParams }: ArchiveDetai
                         </span>
                       ))
                     ) : (
-                      <span className="text-content-muted">None specified</span>
+                      <span className="text-content-muted">Няма зададени</span>
                     )}
                   </div>
                 </div>
 
                 <div className="pt-3 border-t border-border/60">
-                  <div className="text-content-muted font-medium mb-1">Update Cadence</div>
+                  <div className="text-content-muted font-medium mb-1">Честота на обновяване</div>
                   <div className="text-content-secondary capitalize">
-                    {String(settings.config?.updateFrequency || "Weekly")}{" "}
-                    <span className="text-content-muted text-xs">(manual for now)</span>
+                    {({ daily: "Ежедневно", weekly: "Седмично", monthly: "Месечно" } as Record<string, string>)[String(settings.config?.updateFrequency || "weekly")] || String(settings.config?.updateFrequency)}{" "}
+                    <span className="text-content-muted text-xs">(засега ръчно)</span>
                   </div>
                 </div>
               </div>
@@ -472,16 +472,16 @@ export default function ArchiveDetailPage({ params, searchParams }: ArchiveDetai
       {activeTab === "research" && (
         <div className="space-y-6">
           <form onSubmit={e => { e.preventDefault(); void openRun(runId.trim()); }} className="bg-surface border border-border rounded-panel p-5 space-y-3">
-            <Input label="Track a research run by ID" value={runId} onChange={e => setRunId(e.target.value)} placeholder="Research run UUID" hint="Only the run ID you supply or submit here is tracked. Global history is not available." />
-            <Button type="submit" variant="secondary" size="sm">Load run</Button><ApiProblem error={runError} />
+            <Input label="Следене на проучване по ID" value={runId} onChange={e => setRunId(e.target.value)} placeholder="UUID на проучване" hint="Следи се само проучването, което подадете тук или изберете от историята." />
+            <Button type="submit" variant="secondary" size="sm">Зареди</Button><ApiProblem error={runError} />
           </form>
           <div className="flex flex-wrap gap-3 items-center justify-between bg-surface border border-border rounded-panel p-5">
             <div>
               <h3 className="text-base font-semibold text-content-primary">
-                Research Pipeline & Execution
+                Изпълнение на проучвания
               </h3>
               <p className="text-xs text-content-muted mt-0.5">
-                Monitor background research jobs, status transitions, and committed findings.
+                Следете фоновите проучвания, промените в статуса и записаните находки.
               </p>
             </div>
             <Button
@@ -491,7 +491,7 @@ export default function ArchiveDetailPage({ params, searchParams }: ArchiveDetai
               onClick={() => setIsStartModalOpen(true)}
               disabled={archive.status !== "active" || archive.role === "viewer"}
             >
-              Start Research Run
+              Стартирай проучване
             </Button>
           </div>
 
@@ -512,9 +512,9 @@ export default function ArchiveDetailPage({ params, searchParams }: ArchiveDetai
               <div className="w-10 h-10 rounded-full bg-surface-raised flex items-center justify-center mx-auto text-content-muted mb-3">
                 <Search className="w-5 h-5 text-accent" />
               </div>
-              <h4 className="text-sm font-semibold text-content-primary">No Active Research Run</h4>
+              <h4 className="text-sm font-semibold text-content-primary">Няма следено проучване</h4>
               <p className="text-xs text-content-muted mt-1 leading-relaxed">
-                Click &ldquo;Start Research Run&rdquo; to dispatch an asynchronous background job for this archive.
+                Click &ldquo;Стартирай проучване&rdquo; to dispatch an asynchronous background job for this archive.
               </p>
               <div className="mt-4">
                 <Button
@@ -523,7 +523,7 @@ export default function ArchiveDetailPage({ params, searchParams }: ArchiveDetai
                   onClick={() => setIsStartModalOpen(true)}
                   disabled={archive.status !== "active" || archive.role === "viewer"}
                 >
-                  Start Research
+                  Стартирай
                 </Button>
               </div>
             </div>

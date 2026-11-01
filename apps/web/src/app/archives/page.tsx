@@ -103,10 +103,10 @@ function ArchivesContent() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-5 pb-3">
         <div>
-          <h1 className="library-title">Archives</h1>
-          <p className="text-base text-content-secondary mt-3 max-w-xl">Your topics, sources and ongoing research. All in one place.</p>
+          <h1 className="library-title">Архиви</h1>
+          <p className="text-base text-content-secondary mt-3 max-w-xl">Вашите теми, източници и текущи проучвания. На едно място.</p>
         </div>
-        <Link href="/archives/new" className="self-start shrink-0"><Button leftIcon={<Plus className="w-4 h-4" />}>New archive</Button></Link>
+        <Link href="/archives/new" className="self-start shrink-0"><Button leftIcon={<Plus className="w-4 h-4" />}>Нов архив</Button></Link>
       </div>
 
       {/* 401 Auth Notice in Live Mode */}
@@ -132,8 +132,8 @@ function ArchivesContent() {
       )}
 
       {!authError && <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-content-muted">
-        <label className="flex gap-2 items-center"><input type="checkbox" checked={includeArchived} onChange={e => { setIncludeArchived(e.target.checked); setPage(1); }} />Include archived in All</label>
-        <span>Sorting applies to the archives on this page.</span>
+        <label className="flex gap-2 items-center"><input type="checkbox" checked={includeArchived} onChange={e => { setIncludeArchived(e.target.checked); setPage(1); }} />Показвай архивираните във „Всички“</label>
+        <span>Подреждането важи за архивите на тази страница.</span>
       </div>}
       {/* Archives Content (Grid or List) */}
       {!authError && (
@@ -159,11 +159,11 @@ function ArchivesContent() {
               <div className="w-12 h-12 rounded-full bg-surface-raised border border-border flex items-center justify-center mx-auto text-content-muted mb-4">
                 <FolderArchive className="w-6 h-6 text-accent" />
               </div>
-              <h3 className="text-base font-semibold text-content-primary">No archives found</h3>
+              <h3 className="text-base font-semibold text-content-primary">Няма намерени архиви</h3>
               <p className="text-xs text-content-muted mt-1 leading-relaxed">
                 {searchTopic || statusFilter !== "all"
-                  ? "No research archives match your current filter criteria. Try resetting filters."
-                  : "You haven't created any research archives yet. Get started by creating your first archive."}
+                  ? "Няма архиви, които отговарят на филтрите. Опитайте да ги нулирате."
+                  : "Все още нямате архиви. Започнете със създаването на първия."}
               </p>
               <div className="mt-5 flex items-center justify-center gap-3">
                 {searchTopic || statusFilter !== "all" ? (
@@ -175,12 +175,12 @@ function ArchivesContent() {
                       setStatusFilter("all");
                     }}
                   >
-                    Clear filters
+                    Изчисти филтрите
                   </Button>
                 ) : (
                   <Link href="/archives/new">
                     <Button variant="primary" size="sm" leftIcon={<Plus className="w-4 h-4" />}>
-                      Create archive
+                      Създай архив
                     </Button>
                   </Link>
                 )}
@@ -211,18 +211,18 @@ function ArchivesContent() {
                       {arch.title}
                     </Link>
                     <p className="text-xs text-content-secondary line-clamp-1 max-w-xl">
-                      {arch.description || "No topic description provided."}
+                      {arch.description || "Няма описание на темата."}
                     </p>
                   </div>
                   <div className="flex items-center gap-4 text-xs text-content-muted shrink-0">
-                    <span>{arch.sourceCount.toLocaleString()} sources</span>
+                    <span>{arch.sourceCount.toLocaleString()} източника</span>
                     <Button
                       variant="secondary"
                       size="sm"
                       disabled={arch.role !== "owner"}
                       onClick={() => handleStatusChange(arch.id, arch.status === "active" ? "paused" : "active")}
                     >
-                      {arch.status === "active" ? "Pause" : "Activate"}
+                      {arch.status === "active" ? "Пауза" : "Активирай"}
                     </Button>
                   </div>
                 </div>
@@ -231,9 +231,9 @@ function ArchivesContent() {
           )}
 
           <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-content-muted border-t border-border pt-4">
-            <label>Per page <select aria-label="Archives per page" value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(1); }} className="bg-surface-raised border border-border rounded p-2 ml-2">{[6, 20, 50, 100].map(n => <option key={n}>{n}</option>)}</select></label>
-            <span>{totalCount} matching archives · Page {page} of {Math.max(1, Math.ceil(totalCount / pageSize))}</span>
-            <div className="flex gap-2"><Button variant="secondary" size="sm" disabled={page === 1 || isLoading} onClick={() => setPage(page - 1)}>Previous</Button><Button variant="secondary" size="sm" disabled={page * pageSize >= totalCount || isLoading} onClick={() => setPage(page + 1)}>Next</Button></div>
+            <label>На страница <select aria-label="Архиви на страница" value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(1); }} className="bg-surface-raised border border-border rounded p-2 ml-2">{[6, 20, 50, 100].map(n => <option key={n}>{n}</option>)}</select></label>
+            <span>{totalCount} архива · Стр. {page} от {Math.max(1, Math.ceil(totalCount / pageSize))}</span>
+            <div className="flex gap-2"><Button variant="secondary" size="sm" disabled={page === 1 || isLoading} onClick={() => setPage(page - 1)}>Назад</Button><Button variant="secondary" size="sm" disabled={page * pageSize >= totalCount || isLoading} onClick={() => setPage(page + 1)}>Напред</Button></div>
           </div>
           {/* Recent Research Activity Section */}
           <RecentActivity />

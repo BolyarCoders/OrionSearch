@@ -3,14 +3,15 @@ import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from "@t
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api/client";
 import { ResearchRunStatus } from "@/types/api";
-import { INITIAL_ARCHIVES } from "@/lib/api/mock-data";
+import { ArchiveDetails } from "@/types/api";
 import { useResearchRun } from "@/lib/hooks/use-research-run";
 import { StartResearchModal } from "@/components/archive-detail/start-research-modal";
 import { SettingsPanel } from "@/components/archive-detail/settings-panel";
 import { ArchiveHeader } from "@/components/archive-detail/archive-header";
 const mocks = vi.hoisted(() => ({ getResearchJob: vi.fn(), submitResearchJob: vi.fn(), patchArchive: vi.fn() }));
-vi.mock("@/lib/context/app-mode-context", () => ({ useAppMode: () => ({ client: mocks, mode: "demo" }) }));
-const job: ResearchRunStatus = { id: "22222222-2222-4222-8222-222222222222", archiveId: INITIAL_ARCHIVES[0].archive.id, status: "queued", createdAt: "2026-10-27T00:00:00Z", startedAt: null, finishedAt: null, statistics: { queries: 0, sources: 0, versions: 0, findings: 0 }, attempts: 0, maxAttempts: 3, nextAttemptAt: null, retrying: false, error: null };
+vi.mock("@/lib/context/app-mode-context", () => ({ useAppMode: () => ({ client: mocks, }) }));
+const ARCHIVE: ArchiveDetails = { archive: { id: "11111111-1111-4111-8111-111111111111", title: "Test", description: "d", status: "active", role: "owner", createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z", sourceCount: 0 }, settings: { dateFrom: null, dateTo: null, languages: ["en"], preferredDomains: [], excludedDomains: [], config: {}, updatedAt: "2026-01-01T00:00:00Z" } };
+const job: ResearchRunStatus = { id: "22222222-2222-4222-8222-222222222222", archiveId: ARCHIVE.archive.id, status: "queued", createdAt: "2026-10-27T00:00:00Z", startedAt: null, finishedAt: null, statistics: { queries: 0, sources: 0, versions: 0, findings: 0 }, attempts: 0, maxAttempts: 3, nextAttemptAt: null, retrying: false, error: null };
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.clearAllMocks(); sessionStorage.clear(); });
 describe("Research polling", () => {
   it("allows one in-flight request and stops after completion", async () => {
@@ -49,27 +50,27 @@ describe("Documented form behavior", () => {
   it("reuses the key and objective after an uncertain research submission", async () => {
     mocks.submitResearchJob.mockRejectedValueOnce(new ApiError(503, "Network unavailable")).mockResolvedValueOnce(job);
     const started = vi.fn(); render(<StartResearchModal isOpen onClose={vi.fn()} archiveId={job.archiveId} archiveTitle="AI" onJobStarted={started} />);
-    fireEvent.change(screen.getByLabelText("Research objective (optional)"), { target: { value: "Test objective" } });
-    fireEvent.click(screen.getByRole("button", { name: "Queue research" }));
+    fireEvent.change(screen.getByLabelText("Цел на проучването (по избор)"), { target: { value: "Test objective" } });
+    fireEvent.click(screen.getByRole("button", { name: "Постави на опашка" }));
     await screen.findByRole("alert");
-    fireEvent.click(screen.getByRole("button", { name: "Try same request again" }));
+    fireEvent.click(screen.getByRole("button", { name: "Опитай същата заявка отново" }));
     await waitFor(() => expect(started).toHaveBeenCalled());
     expect(mocks.submitResearchJob.mock.calls[0]).toEqual(mocks.submitResearchJob.mock.calls[1]);
     expect(mocks.submitResearchJob.mock.calls[0][1]).toEqual({ objective: "Test objective" });
   });
   it("sends a title-only sparse patch without status or stale settings", async () => {
-    const details = structuredClone(INITIAL_ARCHIVES[0]); mocks.patchArchive.mockResolvedValue(details);
+    const details = structuredClone(ARCHIVE); mocks.patchArchive.mockResolvedValue(details);
     render(<SettingsPanel details={details} onUpdate={vi.fn()} />);
-    fireEvent.change(screen.getByLabelText(/Archive title/), { target: { value: "Renamed" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save settings" }));
+    fireEvent.change(screen.getByLabelText(/Заглавие на архива/), { target: { value: "Renamed" } });
+    fireEvent.click(screen.getByRole("button", { name: "Запази настройките" }));
     await waitFor(() => expect(mocks.patchArchive).toHaveBeenCalledWith(details.archive.id, { title: "Renamed" }));
   });
   it("provides read-only settings and disables research/lifecycle actions for viewers", () => {
-    const details = structuredClone(INITIAL_ARCHIVES[0]); details.archive.role = "viewer";
+    const details = structuredClone(ARCHIVE); details.archive.role = "viewer";
     render(<><SettingsPanel details={details} onUpdate={vi.fn()} /><ArchiveHeader details={details} onStartResearch={vi.fn()} onStatusChange={vi.fn()} /></>);
-    expect(screen.getByLabelText(/Archive title/)).toBeDisabled();
-    expect(screen.queryByRole("button", { name: "Save settings" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Start research" })).toBeDisabled();
-    expect(screen.queryByRole("button", { name: "More archive options" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/Заглавие на архива/)).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Запази настройките" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Стартирай проучване" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Още опции за архива" })).not.toBeInTheDocument();
   });
 });

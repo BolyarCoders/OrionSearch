@@ -32,7 +32,7 @@ export function ArchiveHeader({ details, onStartResearch, onStatusChange }: Arch
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-xs text-content-muted">
         <Link href="/archives" className="hover:text-content-primary transition-colors">
-          Archives
+          Архиви
         </Link>
         <ChevronRight className="w-3.5 h-3.5" />
         <span className="text-content-primary font-medium truncate max-w-xs">{archive.title}</span>
@@ -53,7 +53,7 @@ export function ArchiveHeader({ details, onStartResearch, onStatusChange }: Arch
               </span>
             </div>
             <p className="text-xs sm:text-sm text-content-secondary max-w-2xl leading-relaxed">
-              {archive.description || "No topic description provided for this archive."}
+              {archive.description || "Няма описание на темата за този архив."}
             </p>
           </div>
 
@@ -67,11 +67,11 @@ export function ArchiveHeader({ details, onStartResearch, onStatusChange }: Arch
               disabled={archive.status !== "active" || archive.role === "viewer"}
               title={
                 archive.status !== "active"
-                  ? "Research can only be initiated on active archives"
-                  : "Start research run"
+                  ? "Проучване може да се стартира само в активен архив"
+                  : "Стартирай проучване"
               }
             >
-              Start research
+              Стартирай проучване
             </Button>
 
             {/* Owner Lifecycle Actions */}
@@ -79,7 +79,7 @@ export function ArchiveHeader({ details, onStartResearch, onStatusChange }: Arch
               <button
                 onClick={() => setMenuOpen(!menuOpen)}
                 className="p-2 rounded-control bg-surface-raised border border-border text-content-secondary hover:text-content-primary hover:border-border-light transition-colors"
-                aria-label="More archive options"
+                aria-label="Още опции за архива"
               >
                 <MoreVertical className="w-4 h-4" />
               </button>
@@ -97,7 +97,7 @@ export function ArchiveHeader({ details, onStartResearch, onStatusChange }: Arch
                         className="w-full flex items-center gap-2 px-3 py-2 text-content-primary hover:bg-surface transition-colors text-left"
                       >
                         <PauseCircle className="w-3.5 h-3.5 text-status-warning" />
-                        <span>Pause Archive</span>
+                        <span>Постави на пауза</span>
                       </button>
                     ) : (
                       <button
@@ -108,7 +108,7 @@ export function ArchiveHeader({ details, onStartResearch, onStatusChange }: Arch
                         className="w-full flex items-center gap-2 px-3 py-2 text-content-primary hover:bg-surface transition-colors text-left"
                       >
                         <PlayCircle className="w-3.5 h-3.5 text-status-success" />
-                        <span>Activate Archive</span>
+                        <span>Активирай архива</span>
                       </button>
                     )}
 
@@ -121,7 +121,7 @@ export function ArchiveHeader({ details, onStartResearch, onStatusChange }: Arch
                         className="w-full flex items-center gap-2 px-3 py-2 text-status-failure hover:bg-surface transition-colors text-left border-t border-border/80"
                       >
                         <ArchiveIcon className="w-3.5 h-3.5" />
-                        <span>Archive (Soft Delete)</span>
+                        <span>Архивирай</span>
                       </button>
                     )}
                   </div>

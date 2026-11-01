@@ -23,9 +23,9 @@ export function RunHistory({ archiveId, selectedId, refreshKey, onSelect }: { ar
   useEffect(() => { void load(); }, [load, refreshKey]);
   return (
     <div className="bg-surface border border-border rounded-panel p-5 space-y-3">
-      <h3 className="text-sm font-semibold text-content-primary">Run history</h3>
+      <h3 className="text-sm font-semibold text-content-primary">История на проучванията</h3>
       <ApiProblem error={error} onRetry={load} />
-      {!error && runs.length === 0 && <p className="text-xs text-content-muted">No research runs yet.</p>}
+      {!error && runs.length === 0 && <p className="text-xs text-content-muted">Все още няма проучвания.</p>}
       <ul className="divide-y divide-border/40">
         {runs.map(run => (
           <li key={run.id}>
@@ -37,9 +37,9 @@ export function RunHistory({ archiveId, selectedId, refreshKey, onSelect }: { ar
         ))}
       </ul>
       {total > pageSize && <div className="flex items-center justify-between text-xs text-content-muted">
-        <Button variant="secondary" size="sm" disabled={page === 1} onClick={() => setPage(page - 1)}>Previous</Button>
-        <span>Page {page} of {Math.ceil(total / pageSize)}</span>
-        <Button variant="secondary" size="sm" disabled={page * pageSize >= total} onClick={() => setPage(page + 1)}>Next</Button>
+        <Button variant="secondary" size="sm" disabled={page === 1} onClick={() => setPage(page - 1)}>Назад</Button>
+        <span>Стр. {page} от {Math.ceil(total / pageSize)}</span>
+        <Button variant="secondary" size="sm" disabled={page * pageSize >= total} onClick={() => setPage(page + 1)}>Напред</Button>
       </div>}
     </div>
   );

@@ -4,7 +4,7 @@ import { ApiError } from "@/lib/api/client";
 import { useAppMode } from "@/lib/context/app-mode-context";
 import { ApiProblem } from "../ui/api-problem";
 
-/** AI report for a completed run. Rendered strictly as text, never HTML. */
+/** AI доклад for a completed run. Rendered strictly as text, never HTML. */
 export function ReportPanel({ runId }: { runId: string }) {
   const { client } = useAppMode();
   const [text, setText] = useState<string | null>(null);
@@ -20,12 +20,12 @@ export function ReportPanel({ runId }: { runId: string }) {
   }, [client, runId]);
   return (
     <div className="pt-4 border-t border-border/80 space-y-2">
-      <h4 className="text-xs font-semibold uppercase tracking-wider text-content-muted">AI report</h4>
+      <h4 className="text-xs font-semibold uppercase tracking-wider text-content-muted">AI доклад</h4>
       <ApiProblem error={error} />
       {text !== null && <p className="text-sm text-content-secondary whitespace-pre-wrap leading-relaxed">{text}</p>}
-      {text !== null && <p className="text-xs text-content-muted">Generated from source metadata and feed summaries. It is not fact-checked and may contain errors.</p>}
-      {missing && <p className="text-xs text-content-muted">No report was produced for this run.</p>}
-      {text === null && !missing && !error && <p className="text-xs text-content-muted" role="status">Loading report…</p>}
+      {text !== null && <p className="text-xs text-content-muted">Генериран от метаданни и кратки описания на източниците. Не е проверен за фактите и може да съдържа грешки.</p>}
+      {missing && <p className="text-xs text-content-muted">За това проучване няма доклад.</p>}
+      {text === null && !missing && !error && <p className="text-xs text-content-muted" role="status">Зареждане на доклада…</p>}
     </div>
   );
 }

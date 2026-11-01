@@ -31,9 +31,9 @@ export function TemplateSelector({ onSelect, selectedKey }: TemplateSelectorProp
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <label className="text-xs font-medium text-content-secondary">
-          Topic template (optional)
+          Шаблон за тема (по избор)
         </label>
-        <span className="text-xs text-content-muted">Use a template to get started quickly</span>
+        <span className="text-xs text-content-muted">Използвайте шаблон за бърз старт</span>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-2">

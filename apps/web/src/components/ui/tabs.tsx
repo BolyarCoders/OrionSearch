@@ -16,7 +16,7 @@ export interface TabsProps {
 
 export function Tabs({ tabs, activeTab, onChange, className = "" }: TabsProps) {
   return (
-    <div role="tablist" aria-label="Archive sections" className={`flex items-center gap-1 border-b border-border max-w-full min-w-0 overflow-x-auto ${className}`}>
+    <div role="tablist" aria-label="Раздели на архива" className={`flex items-center gap-1 border-b border-border max-w-full min-w-0 overflow-x-auto ${className}`}>
       {tabs.map((tab) => {
         const isActive = tab.id === activeTab;
         return (

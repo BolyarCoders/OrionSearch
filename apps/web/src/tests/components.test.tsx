@@ -11,22 +11,22 @@ import { ArchiveSummary } from "@/types/api";
 describe("StatusPill Component", () => {
   it("renders active status with label", () => {
     render(<StatusPill status="active" />);
-    expect(screen.getByText("Active")).toBeInTheDocument();
+    expect(screen.getByText("Активен")).toBeInTheDocument();
   });
 
   it("renders running status with label", () => {
     render(<StatusPill status="running" />);
-    expect(screen.getByText("Running")).toBeInTheDocument();
+    expect(screen.getByText("Изпълнява се")).toBeInTheDocument();
   });
 
   it("renders completed status with label", () => {
     render(<StatusPill status="completed" />);
-    expect(screen.getByText("Completed")).toBeInTheDocument();
+    expect(screen.getByText("Завършено")).toBeInTheDocument();
   });
 
   it("renders failed status with label", () => {
     render(<StatusPill status="failed" />);
-    expect(screen.getByText("Failed")).toBeInTheDocument();
+    expect(screen.getByText("Неуспешно")).toBeInTheDocument();
   });
 });
 
@@ -77,7 +77,7 @@ describe("StatSummary Component", () => {
     expect(screen.getByText("2")).toBeInTheDocument(); // Active count
     expect(screen.getByText("1")).toBeInTheDocument(); // Paused count
     expect(screen.getByText("300")).toBeInTheDocument(); // 150 + 50 + 100 sources
-    expect(screen.getByText("Indexed sources (visible)")).toBeInTheDocument();
+    expect(screen.getByText("Източници (видими)")).toBeInTheDocument();
   });
 });
 
@@ -97,8 +97,8 @@ describe("ArchiveCard Component", () => {
     render(<ArchiveCard archive={sampleArchive} />);
     expect(screen.getByText("Autonomous Space Exploration")).toBeInTheDocument();
     expect(screen.getByText("Deep probe navigation and mission autonomy")).toBeInTheDocument();
-    expect(screen.getByText("240 sources")).toBeInTheDocument();
-    expect(screen.getByText("Active")).toBeInTheDocument();
+    expect(screen.getByText("240 източника")).toBeInTheDocument();
+    expect(screen.getByText("Активен")).toBeInTheDocument();
   });
 });
 
@@ -120,9 +120,9 @@ describe("FilterBar Component", () => {
       />
     );
 
-    expect(screen.getByPlaceholderText(/search archives/i)).toBeInTheDocument();
-    expect(screen.getByText("All")).toBeInTheDocument();
-    expect(screen.getByText("Active")).toBeInTheDocument();
-    expect(screen.getByText("Paused")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/търсене на архиви/i)).toBeInTheDocument();
+    expect(screen.getByText("Всички")).toBeInTheDocument();
+    expect(screen.getByText("Активни")).toBeInTheDocument();
+    expect(screen.getByText("На пауза")).toBeInTheDocument();
   });
 });

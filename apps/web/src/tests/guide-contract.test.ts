@@ -1,36 +1,15 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { DemoApiClient } from "@/lib/api/demo-client";
 import { LiveApiClient, ApiAuthError } from "@/lib/api/client";
 import { normalizeDomain, validateDateWindow } from "@/lib/normalization";
 import { parseConfig, sparseSettingsPatch } from "@/lib/archive-validation";
 const id = "11111111-1111-4111-8111-111111111111";
-afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
-describe("Documented archive and research semantics", () => {
-  it("defaults omitted languages to [] and supports a title-only patch", async () => {
-    const client = new DemoApiClient(); const created = await client.createArchive({ title: "New" });
-    expect(created.settings.languages).toEqual([]);
-    expect((await client.patchArchive(created.archive.id, { title: "Renamed" })).archive.title).toBe("Renamed");
-  });
-  it("keeps timestamps on empty patch and repeated soft archive", async () => {
-    vi.useFakeTimers(); const client = new DemoApiClient(); const before = await client.getArchive(id);
-    vi.advanceTimersByTime(1000); expect((await client.patchArchive(id, {})).archive.updatedAt).toBe(before.archive.updatedAt);
-    await client.deleteArchive(id); const first = await client.getArchive(id);
-    vi.advanceTimersByTime(1000); await client.deleteArchive(id);
-    expect((await client.getArchive(id)).archive.updatedAt).toBe(first.archive.updatedAt);
-  });
-  it("replays a research key after pause and rejects incompatible reuse", async () => {
-    const client = new DemoApiClient(); const first = await client.submitResearchJob(id, {}, "same-action");
-    await client.patchArchive(id, { status: "paused" });
-    expect((await client.submitResearchJob(id, {}, "same-action")).id).toBe(first.id);
-    await expect(client.submitResearchJob(id, { objective: "different" }, "same-action")).rejects.toMatchObject({ status: 409 });
-  });
-  it("rejects normalized duplicates without partial settings writes", async () => {
-    const client = new DemoApiClient(); const before = await client.getArchive(id);
-    await expect(client.patchArchive(id, { settings: { preferredDomains: ["Example.com", "example.com."] } })).rejects.toMatchObject({ status: 400 });
-    expect(await client.getArchive(id)).toEqual(before);
-  });
-  it("sends only changed fields and preserves explicit clears", async () => {
-    const details = await new DemoApiClient().getArchive(id);
+afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); localStorage.clear(); });
+const details = {
+  archive: { id, title: "Test", description: "d", status: "active" as const, role: "owner" as const, createdAt: "", updatedAt: "", sourceCount: 0 },
+  settings: { dateFrom: "2026-01-01", dateTo: null, languages: ["en"], preferredDomains: [], excludedDomains: [], config: {}, updatedAt: "" },
+};
+describe("Documented archive semantics", () => {
+  it("sends only changed fields and preserves explicit clears", () => {
     const patch = sparseSettingsPatch({ ...details.archive, settings: details.settings }, { title: details.archive.title, description: null, settings: { ...details.settings, dateFrom: null } });
     expect(patch).toEqual({ description: null, settings: { dateFrom: null } });
   });

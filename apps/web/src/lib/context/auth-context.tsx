@@ -19,7 +19,7 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export const PUBLIC_PATHS = ["/login"];
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const { client, isLive } = useAppMode();
+  const { client } = useAppMode();
   const router = useRouter();
   const pathname = usePathname();
   const [user, setUser] = useState<UserProfile | null>(null);
@@ -36,7 +36,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Tokens cleared elsewhere (failed refresh, password change) end the session here too.
   useEffect(() => tokenStore.subscribe(() => { if (!tokenStore.read()) setUser(null); }), []);
 
-  const needsSignIn = isLive && ready && !user && !PUBLIC_PATHS.includes(pathname);
+  const needsSignIn = ready && !user && !PUBLIC_PATHS.includes(pathname);
   useEffect(() => { if (needsSignIn) router.replace("/login"); }, [needsSignIn, router]);
 
   const login = useCallback(async (email: string, password: string) => {
@@ -53,7 +53,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try { await client.logout(); } finally { setUser(null); router.replace("/login"); }
   }, [client, router]);
 
-  const blocked = isLive && (!ready || needsSignIn);
+  const blocked = !ready || needsSignIn;
   return (
     <AuthContext.Provider value={{ user, ready, login, register, logout }}>
       {blocked ? <div className="p-10 text-sm text-content-muted" role="status">Checking your session…</div> : children}

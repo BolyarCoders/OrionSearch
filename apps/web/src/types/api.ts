@@ -149,7 +149,6 @@ export interface ListSourcesParams {
   sort?: SourceSortOption;
 }
 
-export type AppMode = "demo" | "live";
 
 export interface UserProfile {
   id: string;

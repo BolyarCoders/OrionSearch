@@ -11,8 +11,8 @@ import { Search } from "lucide-react";
 interface Props { isOpen: boolean; onClose: () => void; archiveId: string; archiveTitle: string; canSubmit?: boolean; onJobStarted: (job: ResearchRunStatus) => void; }
 interface Pending { key: string; request: SubmitResearchJobRequest; }
 export function StartResearchModal({ isOpen, onClose, archiveId, archiveTitle, canSubmit = true, onJobStarted }: Props) {
-  const { client, mode } = useAppMode();
-  const storageKey = `orion-pending:${mode}:${archiveId}`;
+  const { client } = useAppMode();
+  const storageKey = `orion-pending:${archiveId}`;
   const [objective, setObjective] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [locked, setLocked] = useState(false);
@@ -32,7 +32,7 @@ export function StartResearchModal({ isOpen, onClose, archiveId, archiveTitle, c
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (busy.current || !canSubmit) return;
-    if (objective.length > 2000) { setError(new ApiError(400, "Objective cannot exceed 2000 characters.")); return; }
+    if (objective.length > 2000) { setError(new ApiError(400, "Целта не може да надвишава 2000 символа.")); return; }
     busy.current = true; setIsSubmitting(true); setError(null);
     if (!pending.current) {
       pending.current = { key: `web-${crypto.randomUUID()}`, request: objective.trim() ? { objective: objective.trim() } : {} };
@@ -47,13 +47,13 @@ export function StartResearchModal({ isOpen, onClose, archiveId, archiveTitle, c
     } catch (failure) { setError(failure); }
     finally { busy.current = false; setIsSubmitting(false); }
   }
-  return <Modal isOpen={isOpen} onClose={() => { if (!busy.current) onClose(); }} title="Start research run" description={`Research for “${archiveTitle}”`}>
+  return <Modal isOpen={isOpen} onClose={() => { if (!busy.current) onClose(); }} title="Стартиране на проучване" description={`Проучване за „${archiveTitle}“`}>
     <form onSubmit={submit} className="space-y-4">
       <ApiProblem error={error} />
-      <Textarea label="Research objective (optional)" placeholder={`Default: ${archiveTitle}`} value={objective} maxChars={2000} disabled={locked || !canSubmit} onChange={e => setObjective(e.target.value)} hint="Leave empty to use the archive title. Archive preferences are captured when the run is accepted." />
-      <p className="text-xs text-content-muted leading-relaxed">An accepted request is queued; it may wait until a research worker is available. You can follow its status in the Research tab.</p>
-      {locked && <div className="text-xs text-content-muted space-y-2"><p>A previous submission may already have been accepted. Try again to retrieve that same run with the same request key.</p><Button type="button" variant="ghost" disabled={isSubmitting} onClick={() => { pending.current = null; setLocked(false); setError(null); try { sessionStorage.removeItem(storageKey); } catch { /* optional */ } }}>Create a separate request instead</Button></div>}
-      <div className="flex justify-end gap-2 border-t border-border pt-4"><Button type="button" variant="ghost" disabled={isSubmitting} onClick={onClose}>Close</Button><Button type="submit" disabled={!canSubmit} isLoading={isSubmitting} leftIcon={<Search className="w-4 h-4" />}>{locked ? "Try same request again" : "Queue research"}</Button></div>
+      <Textarea label="Цел на проучването (по избор)" placeholder={`По подразбиране: ${archiveTitle}`} value={objective} maxChars={2000} disabled={locked || !canSubmit} onChange={e => setObjective(e.target.value)} hint="Оставете празно, за да се използва заглавието на архива. Предпочитанията на архива се запазват при приемане на заявката." />
+      <p className="text-xs text-content-muted leading-relaxed">Приетата заявка влиза на опашка и може да изчака свободен работник. Следете статуса в раздела „Проучване“.</p>
+      {locked && <div className="text-xs text-content-muted space-y-2"><p>Предишно изпращане може вече да е прието. Опитайте пак, за да получите същото проучване със същия ключ.</p><Button type="button" variant="ghost" disabled={isSubmitting} onClick={() => { pending.current = null; setLocked(false); setError(null); try { sessionStorage.removeItem(storageKey); } catch { /* optional */ } }}>Създай отделна заявка</Button></div>}
+      <div className="flex justify-end gap-2 border-t border-border pt-4"><Button type="button" variant="ghost" disabled={isSubmitting} onClick={onClose}>Затвори</Button><Button type="submit" disabled={!canSubmit} isLoading={isSubmitting} leftIcon={<Search className="w-4 h-4" />}>{locked ? "Опитай същата заявка отново" : "Постави на опашка"}</Button></div>
     </form>
   </Modal>;
 }

@@ -5,10 +5,10 @@ export const LANGUAGE_CODES = new Set("aa ab ae af ak am an ar as av ay az ba be
 export const splitValues = (text: string) => text.split(/[,\n]/).map(s => s.trim()).filter(Boolean);
 export function parseConfig(text: string): Record<string, unknown> {
   const value: unknown = JSON.parse(text);
-  if (!value || Array.isArray(value) || typeof value !== "object") throw new Error("Config must be a JSON object.");
-  if (new TextEncoder().encode(JSON.stringify(value)).length > 16384) throw new Error("Config must be at most 16 KiB in UTF-8.");
+  if (!value || Array.isArray(value) || typeof value !== "object") throw new Error("Конфигурацията трябва да е JSON обект.");
+  if (new TextEncoder().encode(JSON.stringify(value)).length > 16384) throw new Error("Конфигурацията трябва да е до 16 KiB в UTF-8.");
   function depth(x: unknown, level: number) {
-    if (level > 63) throw new Error("Config exceeds the JSON depth limit.");
+    if (level > 63) throw new Error("Конфигурацията надвишава позволеното ниво на влагане.");
     if (x && typeof x === "object") Object.values(x).forEach(v => depth(v, level + 1));
   }
   depth(value, 0);
@@ -18,21 +18,21 @@ export function validateArchiveInput(request: CreateArchiveRequest): Record<stri
   const errors: Record<string, string[]> = {};
   const titleError = validateTitle(request.title);
   if (titleError) errors.title = [titleError];
-  if ((request.description?.length || 0) > 10000) errors.description = ["Description cannot exceed 10000 characters."];
+  if ((request.description?.length || 0) > 10000) errors.description = ["Описанието не може да надвишава 10000 символа."];
   const s = request.settings;
   if (!s) return errors;
   const dateError = validateDateWindow(s.dateFrom, s.dateTo);
   if (dateError) errors["settings.dateFrom"] = [dateError];
   const languages = (s.languages || []).map(v => v.trim().toLowerCase());
-  if (languages.length > 100 || languages.some(v => !LANGUAGE_CODES.has(v)) || new Set(languages).size !== languages.length) errors["settings.languages"] = ["Use up to 100 unique ISO 639-1 language codes."];
+  if (languages.length > 100 || languages.some(v => !LANGUAGE_CODES.has(v)) || new Set(languages).size !== languages.length) errors["settings.languages"] = ["Използвайте до 100 уникални езикови кода по ISO 639-1."];
   const domains: Record<string, string[]> = {};
   for (const field of ["preferredDomains", "excludedDomains"] as const) {
     const values = s[field] || [];
     const normalized = values.map(v => normalizeDomain(v));
     domains[field] = normalized.flatMap(v => v.domain ? [v.domain] : []);
-    if (values.length > 100 || normalized.some(v => v.error) || new Set(domains[field]).size !== values.length) errors[`settings.${field}`] = ["Use up to 100 unique DNS domains, without URLs, paths or ports."];
+    if (values.length > 100 || normalized.some(v => v.error) || new Set(domains[field]).size !== values.length) errors[`settings.${field}`] = ["Използвайте до 100 уникални DNS домейна, без URL, пътища или портове."];
   }
-  if (domains.preferredDomains.some(v => domains.excludedDomains.includes(v))) errors["settings.excludedDomains"] = ["Preferred and excluded domains cannot overlap."];
+  if (domains.preferredDomains.some(v => domains.excludedDomains.includes(v))) errors["settings.excludedDomains"] = ["Предпочитаните и изключените домейни не могат да се припокриват."];
   try { parseConfig(JSON.stringify(s.config || {})); } catch (error) { errors["settings.config"] = [(error as Error).message]; }
   return errors;
 }

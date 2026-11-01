@@ -38,25 +38,25 @@ export function SourceVersionsModal({ archiveId, source, onClose }: { archiveId:
     } catch (e) { setError(e); }
   }
   return (
-    <Modal isOpen={!!source} onClose={onClose} title="Saved versions" description={source?.title || source?.canonicalUrl}>
+    <Modal isOpen={!!source} onClose={onClose} title="Запазени версии" description={source?.title || source?.canonicalUrl}>
       <div className="space-y-3 text-xs">
         <ApiProblem error={error} />
-        {loading && <p role="status" className="text-content-muted">Loading versions…</p>}
-        {!loading && versions.length === 0 && !error && <p className="text-content-muted">No saved version for this source. A discovered link is not always captured.</p>}
+        {loading && <p role="status" className="text-content-muted">Зареждане на версиите…</p>}
+        {!loading && versions.length === 0 && !error && <p className="text-content-muted">Няма запазена версия за този източник. Намерената връзка не винаги се запазва.</p>}
         <ul className="divide-y divide-border/40">
           {versions.map(v => (
             <li key={v.id} className="py-2 flex items-center justify-between gap-2">
               <span className="text-content-secondary">{new Date(v.fetchedAt).toLocaleString()}</span>
               <span className="flex gap-2">
-                {v.hasText && <Button size="sm" variant="secondary" onClick={() => void open(v.id)}>Text</Button>}
-                {v.hasRaw && <Button size="sm" variant="secondary" onClick={() => void download(v.id)}>Download raw</Button>}
+                {v.hasText && <Button size="sm" variant="secondary" onClick={() => void open(v.id)}>Текст</Button>}
+                {v.hasRaw && <Button size="sm" variant="secondary" onClick={() => void download(v.id)}>Изтегли оригинала</Button>}
               </span>
             </li>
           ))}
         </ul>
         {detail && <div className="border border-border rounded-control p-3 space-y-2">
           <p className="font-mono text-content-muted break-all">SHA-256 {detail.contentHash}</p>
-          <pre className="whitespace-pre-wrap text-content-secondary max-h-72 overflow-auto">{detail.extractedText ?? "No extracted text."}</pre>
+          <pre className="whitespace-pre-wrap text-content-secondary max-h-72 overflow-auto">{detail.extractedText ?? "Няма извлечен текст."}</pre>
         </div>}
       </div>
     </Modal>

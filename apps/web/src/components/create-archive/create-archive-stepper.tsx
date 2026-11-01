@@ -62,11 +62,11 @@ export function CreateArchiveStepper() {
   const [frequency, setFrequency] = useState<string>("weekly");
 
   const steps = [
-    { num: 1, title: "Basic information", desc: "Topic and description" },
-    { num: 2, title: "Time period", desc: "Date range boundaries" },
-    { num: 3, title: "Sources", desc: "Preferred and excluded domains" },
-    { num: 4, title: "Settings", desc: "Languages and cadence" },
-    { num: 5, title: "Review", desc: "Confirm and create" },
+    { num: 1, title: "Основна информация", desc: "Тема и описание" },
+    { num: 2, title: "Период", desc: "Граници на датите" },
+    { num: 3, title: "Източници", desc: "Предпочитани и изключени домейни" },
+    { num: 4, title: "Настройки", desc: "Езици и честота" },
+    { num: 5, title: "Преглед", desc: "Потвърждение и създаване" },
   ];
 
   // Domain addition helper
@@ -74,18 +74,18 @@ export function CreateArchiveStepper() {
     if (!domainInput.trim()) return;
     const { domain, error } = normalizeDomain(domainInput);
     if (error || !domain) {
-      setDomainInputError(error || "Invalid domain");
+      setDomainInputError(error || "Невалиден домейн");
       return;
     }
     if (preferredDomains.includes(domain)) {
-      setDomainInputError("Domain already added");
+      setDomainInputError("Домейнът вече е добавен");
       return;
     }
     if (excludedDomains.includes(domain)) {
-      setDomainInputError("Domain cannot be both preferred and excluded");
+      setDomainInputError("Домейнът не може да е едновременно предпочитан и изключен");
       return;
     }
-    if (preferredDomains.length >= 100) { setDomainInputError("At most 100 domains are allowed."); return; }
+    if (preferredDomains.length >= 100) { setDomainInputError("Позволени са най-много 100 домейна."); return; }
     setPreferredDomains([...preferredDomains, domain]);
     setDomainInput("");
     setDomainInputError(null);
@@ -95,18 +95,18 @@ export function CreateArchiveStepper() {
     if (!excludedDomainInput.trim()) return;
     const { domain, error } = normalizeDomain(excludedDomainInput);
     if (error || !domain) {
-      setExcludedDomainError(error || "Invalid domain");
+      setExcludedDomainError(error || "Невалиден домейн");
       return;
     }
     if (excludedDomains.includes(domain)) {
-      setExcludedDomainError("Domain already in excluded list");
+      setExcludedDomainError("Домейнът вече е в списъка с изключени");
       return;
     }
     if (preferredDomains.includes(domain)) {
-      setExcludedDomainError("Domain cannot be both preferred and excluded");
+      setExcludedDomainError("Домейнът не може да е едновременно предпочитан и изключен");
       return;
     }
-    if (excludedDomains.length >= 100) { setExcludedDomainError("At most 100 domains are allowed."); return; }
+    if (excludedDomains.length >= 100) { setExcludedDomainError("Позволени са най-много 100 домейна."); return; }
     setExcludedDomains([...excludedDomains, domain]);
     setExcludedDomainInput("");
     setExcludedDomainError(null);
@@ -135,7 +135,7 @@ export function CreateArchiveStepper() {
       return true;
     }
 
-    if (currentStep === 3 && (domainInput.trim() || excludedDomainInput.trim())) { setFormError(new Error("Add the typed domain to its list, or clear it before continuing.")); return false; }
+    if (currentStep === 3 && (domainInput.trim() || excludedDomainInput.trim())) { setFormError(new Error("Добавете въведения домейн към списъка или го изчистете, преди да продължите.")); return false; }
     return true;
   };
 
@@ -174,7 +174,7 @@ export function CreateArchiveStepper() {
     try {
       payload.settings!.config = { ...parseConfig(extraConfig), ...payload.settings!.config };
       const errors = validateArchiveInput(payload);
-      if (Object.keys(errors).length) throw new ApiError(400, "Check your archive configuration.", { errors });
+      if (Object.keys(errors).length) throw new ApiError(400, "Проверете конфигурацията на архива.", { errors });
       setIsSubmitting(true);
       const result = await client.createArchive(payload);
       router.push(`/archives/${result.archive.id}`);
@@ -187,7 +187,7 @@ export function CreateArchiveStepper() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
       <div className="lg:hidden space-y-3" aria-live="polite">
-        <div className="flex items-center justify-between gap-3 text-sm"><span className="font-medium">{steps[step - 1].title}</span><span className="text-content-muted">Step {step} of {steps.length}</span></div>
+        <div className="flex items-center justify-between gap-3 text-sm"><span className="font-medium">{steps[step - 1].title}</span><span className="text-content-muted">Стъпка {step} от {steps.length}</span></div>
         <div className="flex gap-1.5" aria-hidden="true">{steps.map(s => <span key={s.num} className={`h-1 flex-1 rounded-full ${s.num <= step ? "bg-accent" : "bg-border"}`} />)}</div>
       </div>
       {/* Left Stepper Indicator (desktop) */}
@@ -240,17 +240,17 @@ export function CreateArchiveStepper() {
           {step === 1 && (
             <div className="space-y-5">
               <div>
-                <h3 className="text-base font-semibold text-content-primary">Basic information</h3>
+                <h3 className="text-base font-semibold text-content-primary">Основна информация</h3>
                 <p className="text-xs text-content-muted mt-0.5">
-                  Define the research topic title and general focus.
+                  Задайте заглавие и общ фокус на темата за проучване.
                 </p>
               </div>
 
               <Input
-                label="Archive title"
+                label="Заглавие на архива"
                 required
                 maxLength={200}
-                placeholder="e.g. Artificial Intelligence"
+                placeholder="напр. Изкуствен интелект"
                 value={title}
                 error={titleError || undefined}
                 onChange={(e) => {
@@ -260,8 +260,8 @@ export function CreateArchiveStepper() {
               />
 
               <Textarea
-                label="Description"
-                placeholder="Describe what you want to research, specific questions or industry scope..."
+                label="Описание"
+                placeholder="Опишете какво искате да проучите, конкретни въпроси или обхват…"
                 value={description}
                 maxChars={10000}
                 onChange={(e) => setDescription(e.target.value)}
@@ -288,15 +288,15 @@ export function CreateArchiveStepper() {
           {step === 2 && (
             <div className="space-y-5">
               <div>
-                <h3 className="text-base font-semibold text-content-primary">Time period</h3>
+                <h3 className="text-base font-semibold text-content-primary">Период</h3>
                 <p className="text-xs text-content-muted mt-0.5">
-                  Set optional UTC publication date boundaries for discoveries.
+                  Задайте по избор граници на датата на публикуване (UTC).
                 </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Input
-                  label="From date"
+                  label="От дата"
                   type="date"
                   value={dateFrom}
                   onChange={(e) => {
@@ -306,7 +306,7 @@ export function CreateArchiveStepper() {
                   leftIcon={<Calendar className="w-4 h-4" />}
                 />
                 <Input
-                  label="To date"
+                  label="До дата"
                   type="date"
                   value={dateTo}
                   onChange={(e) => {
@@ -329,12 +329,12 @@ export function CreateArchiveStepper() {
                   }}
                   className="text-xs text-accent hover:underline flex items-center gap-1"
                 >
-                  <X className="w-3.5 h-3.5" /> Clear date window
+                  <X className="w-3.5 h-3.5" /> Изчисти периода
                 </button>
               )}
 
               <div className="p-3.5 rounded-control bg-surface-raised border border-border text-xs text-content-muted leading-relaxed">
-                Leaving dates empty keeps discovery open to all publication periods. Missing publication dates on discovered sources will remain tagged as <span className="text-content-primary font-mono text-xs">Unknown</span>.
+                Празни дати означават търсене във всички периоди. Източници без дата на публикуване ще бъдат отбелязани като <span className="text-content-primary font-mono text-xs">Неизвестна</span>.
               </div>
             </div>
           )}
@@ -343,20 +343,20 @@ export function CreateArchiveStepper() {
           {step === 3 && (
             <div className="space-y-6">
               <div>
-                <h3 className="text-base font-semibold text-content-primary">Sources & Domains</h3>
+                <h3 className="text-base font-semibold text-content-primary">Източници и домейни</h3>
                 <p className="text-xs text-content-muted mt-0.5">
-                  Specify trusted authority domains and domains to avoid.
+                  Посочете доверени домейни и домейни, които да се избягват.
                 </p>
               </div>
 
               {/* Preferred Domains */}
               <div className="space-y-2">
                 <label className="block text-xs font-medium text-content-secondary">
-                  Preferred domains (prioritized)
+                  Предпочитани домейни (с приоритет)
                 </label>
                 <div className="flex gap-2">
                   <Input
-                    placeholder="e.g. arxiv.org, nature.com"
+                    placeholder="напр. arxiv.org, nature.com"
                     value={domainInput}
                     error={domainInputError || undefined}
                     onChange={(e) => {
@@ -377,13 +377,13 @@ export function CreateArchiveStepper() {
                     size="sm"
                     onClick={handleAddPreferredDomain}
                   >
-                    <Plus className="w-4 h-4" /> Add
+                    <Plus className="w-4 h-4" /> Добави
                   </Button>
                 </div>
 
                 <div className="flex flex-wrap gap-1.5 pt-1">
                   {preferredDomains.length === 0 ? (
-                    <span className="text-xs text-content-muted">No preferred domains set.</span>
+                    <span className="text-xs text-content-muted">Няма предпочитани домейни.</span>
                   ) : (
                     preferredDomains.map((d) => (
                       <span
@@ -407,11 +407,11 @@ export function CreateArchiveStepper() {
               {/* Excluded Domains */}
               <div className="space-y-2 pt-2 border-t border-border/80">
                 <label className="block text-xs font-medium text-content-secondary">
-                  Excluded domains (ignored)
+                  Изключени домейни (игнорират се)
                 </label>
                 <div className="flex gap-2">
                   <Input
-                    placeholder="e.g. spam-aggregator.com"
+                    placeholder="напр. spam-aggregator.com"
                     value={excludedDomainInput}
                     error={excludedDomainError || undefined}
                     onChange={(e) => {
@@ -431,13 +431,13 @@ export function CreateArchiveStepper() {
                     size="sm"
                     onClick={handleAddExcludedDomain}
                   >
-                    <Plus className="w-4 h-4" /> Add
+                    <Plus className="w-4 h-4" /> Добави
                   </Button>
                 </div>
 
                 <div className="flex flex-wrap gap-1.5 pt-1">
                   {excludedDomains.length === 0 ? (
-                    <span className="text-xs text-content-muted">No excluded domains set.</span>
+                    <span className="text-xs text-content-muted">Няма изключени домейни.</span>
                   ) : (
                     excludedDomains.map((d) => (
                       <span
@@ -464,30 +464,30 @@ export function CreateArchiveStepper() {
           {step === 4 && (
             <div className="space-y-5">
               <div>
-                <h3 className="text-base font-semibold text-content-primary">Settings & Preferences</h3>
+                <h3 className="text-base font-semibold text-content-primary">Настройки и предпочитания</h3>
                 <p className="text-xs text-content-muted mt-0.5">
-                  Configure language scope and preferred update frequency.
+                  Задайте езиков обхват и предпочитана честота на обновяване.
                 </p>
               </div>
 
-              <Input label="Languages (ISO 639-1)" value={languageText} onChange={e => { setLanguageText(e.target.value); setLanguages(splitValues(e.target.value).map(s => s.toLowerCase())); }} hint="Comma-separated codes such as en, bg, es. Leave empty for no language preference." />
-              <Textarea label="Additional preferences (JSON object)" value={extraConfig} onChange={e => setExtraConfig(e.target.value)} hint="Optional research preferences, up to 16 KiB. The selected template and cadence are stored alongside these values." className="font-mono text-xs" />
+              <Input label="Езици (ISO 639-1)" value={languageText} onChange={e => { setLanguageText(e.target.value); setLanguages(splitValues(e.target.value).map(s => s.toLowerCase())); }} hint="Кодове, разделени със запетая, напр. en, bg, es. Оставете празно за без предпочитание." />
+              <Textarea label="Допълнителни предпочитания (JSON обект)" value={extraConfig} onChange={e => setExtraConfig(e.target.value)} hint="Допълнителни предпочитания, до 16 KiB. Избраният шаблон и честота се записват заедно с тях." className="font-mono text-xs" />
               {/* Cadence preference */}
               <div className="pt-2 border-t border-border/80">
                 <label className="block text-xs font-medium text-content-secondary mb-1">
-                  Preferred research cadence
+                  Предпочитана честота на проучване
                 </label>
                 <select
                   value={frequency}
                   onChange={(e) => setFrequency(e.target.value)}
                   className="w-full bg-surface-raised border border-border text-content-primary text-xs rounded-control p-2.5 focus:border-accent focus:outline-none"
                 >
-                  <option value="daily">Daily</option>
-                  <option value="weekly">Weekly</option>
-                  <option value="monthly">Monthly</option>
+                  <option value="daily">Ежедневно</option>
+                  <option value="weekly">Седмично</option>
+                  <option value="monthly">Месечно</option>
                 </select>
                 <p className="text-xs text-content-muted mt-1.5 leading-relaxed">
-                  Stored as application preference in <code className="text-accent text-xs">settings.config</code>. Notice: backend research scheduling is not currently active; research is initiated manually.
+                  Записва се като предпочитание в <code className="text-accent text-xs">settings.config</code>. Забележка: автоматично планиране на проучвания засега не е активно; проучването се стартира ръчно.
                 </p>
               </div>
             </div>
@@ -497,34 +497,34 @@ export function CreateArchiveStepper() {
           {step === 5 && (
             <div className="space-y-4">
               <div>
-                <h3 className="text-base font-semibold text-content-primary">Review archive configuration</h3>
+                <h3 className="text-base font-semibold text-content-primary">Преглед на конфигурацията</h3>
                 <p className="text-xs text-content-muted mt-0.5">
-                  Confirm your parameters before creating the research archive.
+                  Потвърдете параметрите, преди да създадете архива.
                 </p>
               </div>
 
               <div className="bg-surface-raised border border-border rounded-control p-4 space-y-3 text-xs">
                 <div>
-                  <div className="text-content-muted text-xs">Topic Title</div>
+                  <div className="text-content-muted text-xs">Заглавие на темата</div>
                   <div className="font-semibold text-content-primary mt-0.5">{title}</div>
                 </div>
 
                 {description && (
                   <div>
-                    <div className="text-content-muted text-xs">Description</div>
+                    <div className="text-content-muted text-xs">Описание</div>
                     <div className="text-content-secondary mt-0.5">{description}</div>
                   </div>
                 )}
 
                 <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/60">
                   <div>
-                    <div className="text-content-muted text-xs">Date Window</div>
+                    <div className="text-content-muted text-xs">Период</div>
                     <div className="text-content-secondary mt-0.5">
-                      {dateFrom || dateTo ? `${dateFrom || "Any"} to ${dateTo || "Present"}` : "Unrestricted"}
+                      {dateFrom || dateTo ? `${dateFrom || "—"} до ${dateTo || "днес"}` : "Без ограничение"}
                     </div>
                   </div>
                   <div>
-                    <div className="text-content-muted text-xs">Languages</div>
+                    <div className="text-content-muted text-xs">Езици</div>
                     <div className="text-content-secondary mt-0.5">
                       {languages.join(", ").toUpperCase()}
                     </div>
@@ -532,16 +532,16 @@ export function CreateArchiveStepper() {
                 </div>
 
                 <div className="pt-2 border-t border-border/60">
-                  <div className="text-content-muted text-xs">Preferred Domains</div>
+                  <div className="text-content-muted text-xs">Предпочитани домейни</div>
                   <div className="text-content-secondary mt-0.5">
-                    {preferredDomains.length > 0 ? preferredDomains.join(", ") : "None specified"}
+                    {preferredDomains.length > 0 ? preferredDomains.join(", ") : "Няма зададени"}
                   </div>
                 </div>
 
                 <div className="pt-2 border-t border-border/60">
-                  <div className="text-content-muted text-xs">Update Cadence</div>
+                  <div className="text-content-muted text-xs">Честота на обновяване</div>
                   <div className="text-content-secondary mt-0.5 capitalize">
-                    {frequency} (manual execution for now)
+                    {({ daily: "ежедневно", weekly: "седмично", monthly: "месечно" } as Record<string, string>)[frequency] || frequency} (засега ръчно изпълнение)
                   </div>
                 </div>
               </div>
@@ -559,7 +559,7 @@ export function CreateArchiveStepper() {
               leftIcon={<ArrowLeft className="w-3.5 h-3.5" />}
               onClick={handleBack}
             >
-              Back
+              Назад
             </Button>
           ) : (
             <Button
@@ -568,7 +568,7 @@ export function CreateArchiveStepper() {
               size="sm"
               onClick={() => router.push("/archives")}
             >
-              Cancel
+              Отказ
             </Button>
           )}
 
@@ -580,7 +580,7 @@ export function CreateArchiveStepper() {
               rightIcon={<ChevronRight className="w-3.5 h-3.5" />}
               onClick={handleNext}
             >
-              Continue
+              Продължи
             </Button>
           ) : (
             <Button
@@ -591,7 +591,7 @@ export function CreateArchiveStepper() {
               leftIcon={<FileCheck className="w-4 h-4" />}
               onClick={handleSubmit}
             >
-              Create Archive
+              Създай архив
             </Button>
           )}
         </div>

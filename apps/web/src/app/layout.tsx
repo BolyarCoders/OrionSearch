@@ -5,8 +5,8 @@ import { AuthProvider } from "@/lib/context/auth-context";
 import { AppShell } from "@/components/layout/shell";
 
 export const metadata: Metadata = {
-  title: "OrionSearch — Autonomous Research Archives",
-  description: "Autonomous research and knowledge archiving workspace.",
+  title: "OrionSearch — Архиви за автономни проучвания",
+  description: "Работно пространство за автономни проучвания и архивиране на знания.",
 };
 
 export default function RootLayout({
@@ -15,7 +15,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="bg">
       <body className="bg-workspace text-content-primary antialiased">
         <AppModeProvider>
           <AuthProvider><AppShell>{children}</AppShell></AuthProvider>

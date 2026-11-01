@@ -10,17 +10,17 @@ export default function NewArchivePage() {
       <div className="space-y-2">
         <nav className="flex items-center gap-2 text-xs text-content-muted">
           <Link href="/archives" className="hover:text-content-primary transition-colors">
-            Archives
+            Архиви
           </Link>
           <ChevronRight className="w-3.5 h-3.5" />
-          <span className="text-content-primary font-medium">Create archive</span>
+          <span className="text-content-primary font-medium">Създаване на архив</span>
         </nav>
 
         <h1 className="library-title">
-          Create a new archive
+          Създаване на нов архив
         </h1>
         <p className="text-xs sm:text-sm text-content-secondary max-w-2xl leading-relaxed">
-          Define the topic, sources and update preferences. You can always change these later.
+          Задайте темата, източниците и предпочитанията за обновяване. Можете да ги промените по-късно.
         </p>
       </div>
 

@@ -20,7 +20,7 @@ export function ArchiveCard({ archive, onStatusChange }: ArchiveCardProps) {
   return (
     <div className="dossier group flex flex-col min-h-[252px]">
       <div className="relative h-12 flex items-center px-5">
-        <span className="text-xs text-content-muted">Research archive</span>
+        <span className="text-xs text-content-muted">Архив за проучване</span>
         {/* Card Options Menu Button */}
         <div className="absolute top-2.5 right-2.5 z-10">
           <button
@@ -30,7 +30,7 @@ export function ArchiveCard({ archive, onStatusChange }: ArchiveCardProps) {
               setMenuOpen(!menuOpen);
             }}
             className="p-2 rounded-control text-content-secondary hover:bg-surface-raised"
-            aria-label="Archive options" aria-expanded={menuOpen} onKeyDown={e => { if (e.key === "Escape") setMenuOpen(false); }}
+            aria-label="Опции за архива" aria-expanded={menuOpen} onKeyDown={e => { if (e.key === "Escape") setMenuOpen(false); }}
           >
             <MoreVertical className="w-4 h-4" />
           </button>
@@ -51,7 +51,7 @@ export function ArchiveCard({ archive, onStatusChange }: ArchiveCardProps) {
                   onClick={() => setMenuOpen(false)}
                 >
                   <Eye className="w-3.5 h-3.5 text-content-muted" />
-                  <span>View Details</span>
+                  <span>Преглед</span>
                 </Link>
 
                 {onStatusChange && archive.role === "owner" && archive.status !== "archived" && (
@@ -65,7 +65,7 @@ export function ArchiveCard({ archive, onStatusChange }: ArchiveCardProps) {
                         className="w-full flex items-center gap-2 px-3 py-2 text-content-primary hover:bg-surface transition-colors duration-150 text-left"
                       >
                         <PauseCircle className="w-3.5 h-3.5 text-status-warning" />
-                        <span>Pause Archive</span>
+                        <span>Постави на пауза</span>
                       </button>
                     ) : (
                       <button
@@ -76,7 +76,7 @@ export function ArchiveCard({ archive, onStatusChange }: ArchiveCardProps) {
                         className="w-full flex items-center gap-2 px-3 py-2 text-content-primary hover:bg-surface transition-colors duration-150 text-left"
                       >
                         <PlayCircle className="w-3.5 h-3.5 text-status-success" />
-                        <span>Activate Archive</span>
+                        <span>Активирай архива</span>
                       </button>
                     )}
 
@@ -88,7 +88,7 @@ export function ArchiveCard({ archive, onStatusChange }: ArchiveCardProps) {
                       className="w-full flex items-center gap-2 px-3 py-2 text-status-failure hover:bg-surface transition-colors duration-150 text-left border-t border-border/80"
                     >
                       <ArchiveIcon className="w-3.5 h-3.5" />
-                      <span>Archive (Soft Delete)</span>
+                      <span>Архивирай</span>
                     </button>
                   </>
                 )}
@@ -107,7 +107,7 @@ export function ArchiveCard({ archive, onStatusChange }: ArchiveCardProps) {
             </h3>
           </Link>
           <p className="text-sm text-content-secondary mt-2 line-clamp-2 leading-relaxed">
-            {archive.description || "No topic description provided."}
+            {archive.description || "Няма описание на темата."}
           </p>
         </div>
 
@@ -115,7 +115,7 @@ export function ArchiveCard({ archive, onStatusChange }: ArchiveCardProps) {
         <div className="mt-5 pt-4 border-t border-border/70 flex flex-wrap gap-3 items-center justify-between text-xs text-content-muted">
           <div className="flex items-center gap-1.5 font-medium text-content-secondary">
             <FileText className="w-3.5 h-3.5 text-content-muted" />
-            <span>{archive.sourceCount.toLocaleString()} sources</span>
+            <span>{archive.sourceCount.toLocaleString()} източника</span>
           </div>
 
           <div className="flex items-center gap-2.5">
@@ -123,7 +123,7 @@ export function ArchiveCard({ archive, onStatusChange }: ArchiveCardProps) {
 
           </div>
         </div>
-        <p className="text-xs text-content-muted mt-3" title={archive.updatedAt}>Updated {formatRelativeTime(archive.updatedAt)}</p>
+        <p className="text-xs text-content-muted mt-3" title={archive.updatedAt}>Обновен {formatRelativeTime(archive.updatedAt)}</p>
       </div>
     </div>
   );

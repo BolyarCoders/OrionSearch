@@ -36,15 +36,15 @@ export function ResearchRunCard({ initialJob, onJobCompleted, onJobUpdated }: Re
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-5 border-b border-border/80">
         <div>
           <div className="flex items-center gap-2.5">
-            <h3 className="text-base font-semibold text-content-primary">Tracked research run</h3>
+            <h3 className="text-base font-semibold text-content-primary">Следено проучване</h3>
             <StatusPill status={job.status} />
           </div>
-          <div className="text-xs text-content-muted mt-1 font-mono break-all">Run ID: {job.id}</div>
+          <div className="text-xs text-content-muted mt-1 font-mono break-all">ID на проучването: {job.id}</div>
         </div>
 
         <div className="flex items-center gap-2 text-xs text-content-muted">
           <Clock className="w-3.5 h-3.5" />
-          <span>Created {formatRelativeTime(job.createdAt)}</span>
+          <span>Създадено {formatRelativeTime(job.createdAt)}</span>
         </div>
       </div>
 
@@ -56,27 +56,27 @@ export function ResearchRunCard({ initialJob, onJobCompleted, onJobUpdated }: Re
             <div className="font-semibold text-content-primary">
               {job.status === "queued"
                 ? job.retrying
-                  ? "Queued for retry with exponential backoff..."
-                  : "Queued in background processing pipeline..."
-                : "Research agent execution in progress..."}
+                  ? "На опашка за повторен опит със закъснение…"
+                  : "На опашка за фонова обработка…"
+                : "Проучването се изпълнява…"}
             </div>
             <p className="text-content-secondary mt-0.5">
-              Status refreshes while this view is open. Queued work may wait for an available worker.
+              Статусът се обновява, докато този изглед е отворен. Задачите на опашка може да изчакат свободен работник.
             </p>
           </div>
         </div>
       )}
 
-      {job.retrying && <p className="text-xs text-content-muted">{job.error} {job.nextAttemptAt && `Eligible after ${new Date(job.nextAttemptAt).toLocaleString()}.`} This is an eligibility time, not a guaranteed start time.</p>}
-      {job.status === "cancelled" && <p role="status" className="text-sm text-status-warning">This research run was cancelled. Its status will no longer be polled.</p>}
+      {job.retrying && <p className="text-xs text-content-muted">{job.error} {job.nextAttemptAt && `Следващ опит след ${new Date(job.nextAttemptAt).toLocaleString("bg-BG")}.`} Това е най-ранното време, не гарантиран старт.</p>}
+      {job.status === "cancelled" && <p role="status" className="text-sm text-status-warning">Проучването е отменено. Статусът му вече няма да се проверява.</p>}
       {/* Failure Banner */}
       {job.status === "failed" && (
         <div className="p-4 rounded-control bg-status-failure/10 border border-status-failure/30 flex items-start gap-3">
           <AlertCircle className="w-5 h-5 text-status-failure shrink-0 mt-0.5" />
           <div className="text-xs">
-            <div className="font-semibold text-status-failure">Research Run Failed</div>
+            <div className="font-semibold text-status-failure">Проучването е неуспешно</div>
             <p className="text-content-secondary mt-0.5">
-              {job.error || "The background research worker encountered a terminal failure."}
+              {job.error || "Фоновият работник срещна непоправима грешка."}
             </p>
           </div>
         </div>
@@ -87,9 +87,9 @@ export function ResearchRunCard({ initialJob, onJobCompleted, onJobUpdated }: Re
         <div className="p-4 rounded-control bg-status-success/10 border border-status-success/30 flex items-center gap-3">
           <CheckCircle2 className="w-5 h-5 text-status-success shrink-0" />
           <div className="text-xs">
-            <div className="font-semibold text-status-success">Research Session Completed</div>
+            <div className="font-semibold text-status-success">Проучването е завършено</div>
             <p className="text-content-secondary mt-0.5">
-              Discovered sources and findings have been committed to this archive.
+              Намерените източници и находки са записани в архива.
             </p>
           </div>
         </div>
@@ -98,7 +98,7 @@ export function ResearchRunCard({ initialJob, onJobCompleted, onJobUpdated }: Re
       {/* Statistics Matrix */}
       <div>
         <h4 className="text-xs font-semibold uppercase tracking-wider text-content-muted mb-3">
-          Committed Output Statistics
+          Статистика на резултата
         </h4>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="bg-surface-raised border border-border rounded-control p-3 flex items-center gap-3">
@@ -107,7 +107,7 @@ export function ResearchRunCard({ initialJob, onJobCompleted, onJobUpdated }: Re
             </div>
             <div>
               <div className="text-lg font-bold text-content-primary">{job.statistics.queries}</div>
-              <div className="text-xs text-content-muted">Queries issued</div>
+              <div className="text-xs text-content-muted">Заявки</div>
             </div>
           </div>
 
@@ -117,7 +117,7 @@ export function ResearchRunCard({ initialJob, onJobCompleted, onJobUpdated }: Re
             </div>
             <div>
               <div className="text-lg font-bold text-content-primary">{job.statistics.sources}</div>
-              <div className="text-xs text-content-muted">Sources found</div>
+              <div className="text-xs text-content-muted">Намерени източници</div>
             </div>
           </div>
 
@@ -127,7 +127,7 @@ export function ResearchRunCard({ initialJob, onJobCompleted, onJobUpdated }: Re
             </div>
             <div>
               <div className="text-lg font-bold text-content-primary">{job.statistics.versions}</div>
-              <div className="text-xs text-content-muted">Captures stored</div>
+              <div className="text-xs text-content-muted">Запазени копия</div>
             </div>
           </div>
 
@@ -137,7 +137,7 @@ export function ResearchRunCard({ initialJob, onJobCompleted, onJobUpdated }: Re
             </div>
             <div>
               <div className="text-lg font-bold text-content-primary">{job.statistics.findings}</div>
-              <div className="text-xs text-content-muted">Findings drafted</div>
+              <div className="text-xs text-content-muted">Находки</div>
             </div>
           </div>
         </div>
@@ -148,20 +148,20 @@ export function ResearchRunCard({ initialJob, onJobCompleted, onJobUpdated }: Re
       {/* Metadata & Attempt Tracking */}
       <div className="pt-4 border-t border-border/80 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-content-muted">
         <div>
-          <span className="text-content-secondary font-medium">Attempts: </span>
+          <span className="text-content-secondary font-medium">Опити: </span>
           <span>
             {job.attempts} / {job.maxAttempts}
           </span>
         </div>
         {job.startedAt && (
           <div>
-            <span className="text-content-secondary font-medium">Started: </span>
+            <span className="text-content-secondary font-medium">Започнато: </span>
             <span>{formatRelativeTime(job.startedAt)}</span>
           </div>
         )}
         {job.finishedAt && (
           <div>
-            <span className="text-content-secondary font-medium">Finished: </span>
+            <span className="text-content-secondary font-medium">Приключено: </span>
             <span>{formatRelativeTime(job.finishedAt)}</span>
           </div>
         )}

@@ -41,7 +41,7 @@ export const DEFAULT_API_URL = process.env.NEXT_PUBLIC_API_URL || "https://orion
 const PROXY_PATH = "/backend";
 
 export class ApiAuthError extends ApiError {
-  constructor(message = "Authentication is required. Sign in to continue.", problem?: ProblemDetails) {
+  constructor(message = "Необходимо е удостоверяване. Влезте, за да продължите.", problem?: ProblemDetails) {
     super(401, message, problem);
     this.name = "ApiAuthError";
   }
@@ -148,7 +148,7 @@ export class LiveApiClient implements IApiClient {
     } catch (err: unknown) {
       throw new ApiError(
         503,
-        `Failed to connect to backend at ${this.baseUrl}: ${err instanceof Error ? err.message : String(err)}`
+        `Неуспешна връзка със сървъра (${this.baseUrl}): ${err instanceof Error ? err.message : String(err)}`
       );
     }
     if (response.status === 401 && auth && tokens && !retried && (await this.refresh())) {
@@ -169,7 +169,7 @@ export class LiveApiClient implements IApiClient {
 
     if (!response.ok) {
       let problem: ProblemDetails | undefined;
-      let errorMsg = `HTTP Error ${response.status}: ${response.statusText}`;
+      let errorMsg = `HTTP грешка ${response.status}: ${response.statusText}`;
 
       if (isJson) {
         try {
@@ -190,10 +190,10 @@ export class LiveApiClient implements IApiClient {
     }
 
     if (isJson) {
-      try { return (await response.json()) as T; } catch { throw new ApiError(502, "The API returned invalid JSON."); }
+      try { return (await response.json()) as T; } catch { throw new ApiError(502, "API върна невалиден JSON."); }
     }
 
-    if (!plainText) throw new ApiError(502, "The API returned an unexpected response format.");
+    if (!plainText) throw new ApiError(502, "API върна неочакван формат на отговор.");
     return (await response.text()) as unknown as T;
   }
 
@@ -260,7 +260,7 @@ export class LiveApiClient implements IApiClient {
     const response = await this.send(`/archives/${archiveId}/sources/${documentId}/versions/${versionId}/raw`, {}, true);
     if (!response.ok) {
       if (response.status === 401) throw new ApiAuthError();
-      throw new ApiError(response.status, response.status === 503 ? "Stored capture is unavailable or failed its integrity check." : `HTTP Error ${response.status}`);
+      throw new ApiError(response.status, response.status === 503 ? "Запазеното копие не е достъпно или не премина проверка за цялост." : `HTTP грешка ${response.status}`);
     }
     return response.blob();
   }

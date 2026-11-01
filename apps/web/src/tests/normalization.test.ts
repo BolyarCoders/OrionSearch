@@ -23,7 +23,7 @@ describe("Domain Normalization & Validation", () => {
   it("rejects schemes like https://", () => {
     const res = normalizeDomain("https://nature.com");
     expect(res.domain).toBeNull();
-    expect(res.error).toContain("Enter a DNS domain");
+    expect(res.error).toContain("Въведете DNS домейн");
   });
 
   it("rejects paths and ports", () => {
@@ -37,7 +37,7 @@ describe("Domain Normalization & Validation", () => {
   it("rejects empty or whitespace domain", () => {
     const res = normalizeDomain("   ");
     expect(res.domain).toBeNull();
-    expect(res.error).toContain("cannot be blank");
+    expect(res.error).toContain("не може да е празен");
   });
 });
 
@@ -48,18 +48,18 @@ describe("Title Validation", () => {
   });
 
   it("rejects empty or whitespace-only titles", () => {
-    expect(validateTitle("")).toBe("Archive title is required.");
-    expect(validateTitle("   ")).toBe("Archive title is required.");
+    expect(validateTitle("")).toBe("Заглавието на архива е задължително.");
+    expect(validateTitle("   ")).toBe("Заглавието на архива е задължително.");
   });
 
   it("rejects titles longer than 200 characters", () => {
     const longTitle = "A".repeat(201);
-    expect(validateTitle(longTitle)).toBe("Title cannot exceed 200 characters.");
+    expect(validateTitle(longTitle)).toBe("Заглавието не може да надвишава 200 символа.");
   });
 
   it("rejects control characters", () => {
     const badTitle = "AI\x00Research";
-    expect(validateTitle(badTitle)).toBe("Title cannot contain control characters.");
+    expect(validateTitle(badTitle)).toBe("Заглавието не може да съдържа управляващи символи.");
   });
 });
 
@@ -77,17 +77,17 @@ describe("Date Window Validation", () => {
 
   it("rejects dateFrom > dateTo", () => {
     expect(validateDateWindow("2026-10-20", "2026-01-01")).toBe(
-      "Start date must be before or equal to end date."
+      "Началната дата трябва да е преди или равна на крайната."
     );
   });
 });
 
 describe("Cover Image Resolution", () => {
   it("matches preset titles deterministically", () => {
-    expect(getArchiveCoverUrl("Artificial Intelligence")).toBe(
+    expect(getArchiveCoverUrl("Изкуствен интелект")).toBe(
       "/images/archives/artificial-intelligence.webp"
     );
-    expect(getArchiveCoverUrl("climate policy")).toBe(
+    expect(getArchiveCoverUrl("климатична политика")).toBe(
       "/images/archives/climate-policy.webp"
     );
   });
@@ -106,9 +106,9 @@ describe("Cover Image Resolution", () => {
 describe("Relative Time Formatting", () => {
   it("formats recent dates accurately", () => {
     const now = new Date();
-    expect(formatRelativeTime(now.toISOString())).toBe("Just now");
+    expect(formatRelativeTime(now.toISOString())).toBe("Току-що");
 
     const twoHoursAgo = new Date(now.getTime() - 2 * 3600000).toISOString();
-    expect(formatRelativeTime(twoHoursAgo)).toBe("2 hours ago");
+    expect(formatRelativeTime(twoHoursAgo)).toBe("преди 2 ч.");
   });
 });

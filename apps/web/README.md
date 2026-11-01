@@ -114,6 +114,6 @@ Live mode is now the default and is wired to the full backend guide (2026-10-31)
 - **Research:** run history (`GET /archives/{id}/research-jobs`), AI report (`GET /research-jobs/{id}/report`, rendered as plain text), polling as before.
 - **Findings tab** with status/type filters and evidence.
 - **Sources:** per-source saved versions, extracted text and raw download (`Versions` action).
-- Demo mode is unchanged and still selectable from the mode badge or the login page.
+- The interface is in Bulgarian and Demo mode has been removed; the app always uses the hosted API (proxied through `/backend`).
 
 The API's `Cors__AllowedOrigins__N` must include the frontend origin (for example `http://localhost:3000`), otherwise browsers block calls even though curl works.

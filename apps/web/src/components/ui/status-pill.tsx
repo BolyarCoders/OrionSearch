@@ -13,50 +13,50 @@ export function StatusPill({ status, className = "", showIcon = true }: StatusPi
     { label: string; dotClass: string; bgClass: string; textClass: string; pulse?: boolean }
   > = {
     active: {
-      label: "Active",
+      label: "Активен",
       dotClass: "bg-status-success",
       bgClass: "bg-status-success/10 border-status-success/20",
       textClass: "text-status-success",
     },
     paused: {
-      label: "Paused",
+      label: "На пауза",
       dotClass: "bg-status-warning",
       bgClass: "bg-status-warning/10 border-status-warning/20",
       textClass: "text-status-warning",
     },
     archived: {
-      label: "Archived",
+      label: "Архивиран",
       dotClass: "bg-content-muted",
       bgClass: "bg-surface-raised border-border",
       textClass: "text-content-muted",
     },
     queued: {
-      label: "Queued",
+      label: "На опашка",
       dotClass: "bg-status-info",
       bgClass: "bg-status-info/10 border-status-info/20",
       textClass: "text-status-info",
     },
     running: {
-      label: "Running",
+      label: "Изпълнява се",
       dotClass: "bg-accent",
       bgClass: "bg-accent/15 border-accent/30",
       textClass: "text-accent",
       pulse: true,
     },
     completed: {
-      label: "Completed",
+      label: "Завършено",
       dotClass: "bg-status-success",
       bgClass: "bg-status-success/10 border-status-success/20",
       textClass: "text-status-success",
     },
     failed: {
-      label: "Failed",
+      label: "Неуспешно",
       dotClass: "bg-status-failure",
       bgClass: "bg-status-failure/10 border-status-failure/20",
       textClass: "text-status-failure",
     },
     cancelled: {
-      label: "Cancelled",
+      label: "Отменено",
       dotClass: "bg-content-muted",
       bgClass: "bg-surface-raised border-border",
       textClass: "text-content-muted",
