@@ -1,5 +1,15 @@
 import {
   ArchiveDetails,
+  CapturedVersion,
+  CapturedVersionSummary,
+  FindingDetails,
+  FindingSummary,
+  ListFindingsParams,
+  ListRunsParams,
+  PageParams,
+  ResearchReport,
+  SourceDetails,
+  UserProfile,
   ArchiveSummary,
   CreateArchiveRequest,
   ListArchivesParams,
@@ -28,6 +38,37 @@ export class DemoApiClient implements IApiClient {
     this.sources = JSON.parse(JSON.stringify(INITIAL_SOURCES));
     this.jobs = new Map();
   }
+
+  private demoUser: UserProfile = { id: "00000000-0000-4000-8000-000000000000", email: "demo@example.com", displayName: "demo" };
+  async register(): Promise<UserProfile> { return this.demoUser; }
+  async login(): Promise<void> { /* demo needs no sign-in */ }
+  async logout(): Promise<void> { /* nothing to revoke */ }
+  async changePassword(): Promise<void> { throw new ApiError(400, "Accounts are not available in Demo mode."); }
+  async me(): Promise<UserProfile> { return this.demoUser; }
+  isAuthenticated() { return true; }
+
+  private emptyPage<T>(params: PageParams = {}): PagedResult<T> {
+    return { items: [], pageNumber: params.page || 1, pageSize: params.pageSize || 20, totalCount: 0 };
+  }
+  async listResearchJobs(archiveId: string, params: ListRunsParams = {}): Promise<PagedResult<ResearchRunStatus>> {
+    const items = [...this.jobs.values()]
+      .filter(j => j.archiveId === archiveId && (!params.status || j.status === params.status))
+      .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+    return { items: JSON.parse(JSON.stringify(items)), pageNumber: params.page || 1, pageSize: params.pageSize || 20, totalCount: items.length };
+  }
+  async getResearchReport(runId: string): Promise<ResearchReport> {
+    throw new ApiError(404, `No report is available for run ${runId} in Demo mode.`);
+  }
+  async listFindings(_archiveId: string, params: ListFindingsParams = {}): Promise<PagedResult<FindingSummary>> { return this.emptyPage(params); }
+  async getFinding(): Promise<FindingDetails> { throw new ApiError(404, "Finding not found."); }
+  async getSource(archiveId: string, documentId: string): Promise<SourceDetails> {
+    const source = (this.sources[archiveId] || []).find(s => s.documentId === documentId);
+    if (!source) throw new ApiError(404, "Source not found.");
+    return { source: { ...source }, versionCount: 0 };
+  }
+  async listVersions(_archiveId: string, _documentId: string, params: PageParams = {}): Promise<PagedResult<CapturedVersionSummary>> { return this.emptyPage(params); }
+  async getVersion(): Promise<CapturedVersion> { throw new ApiError(404, "Version not found."); }
+  async downloadRaw(): Promise<Blob> { throw new ApiError(404, "No raw capture is available in Demo mode."); }
 
   async listArchives(params: ListArchivesParams = {}): Promise<PagedResult<ArchiveSummary>> {
     let list = this.archives.map((a) => ({ ...a.archive }));

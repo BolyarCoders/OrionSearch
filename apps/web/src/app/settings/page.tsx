@@ -1,9 +1,40 @@
 "use client";
-import { useState } from "react";
+import React, { useState } from "react";
 import { DEFAULT_API_URL } from "@/lib/api/client";
 import { useAppMode } from "@/lib/context/app-mode-context";
 import { Button } from "@/components/ui/button";
 import { ApiProblem } from "@/components/ui/api-problem";
+import { Input } from "@/components/ui/input";
+import { useAuth } from "@/lib/context/auth-context";
+
+function AccountSection() {
+  const { client, isDemo } = useAppMode();
+  const { user, logout } = useAuth();
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  if (isDemo) return null;
+  async function change(event: React.FormEvent) {
+    event.preventDefault();
+    setBusy(true); setError(null);
+    try {
+      await client.changePassword(current, next);
+      await logout();
+    } catch (failure) { setError(failure); setBusy(false); }
+  }
+  return <section className="bg-surface border border-border rounded-panel p-6 space-y-4">
+    <h2 className="font-semibold">Account</h2>
+    {user && <p className="text-sm text-content-secondary">Signed in as <strong>{user.email}</strong></p>}
+    <form onSubmit={change} className="space-y-3 max-w-sm">
+      <ApiProblem error={error} />
+      <Input label="Current password" type="password" autoComplete="current-password" required value={current} onChange={e => setCurrent(e.target.value)} />
+      <Input label="New password" type="password" autoComplete="new-password" required minLength={12} maxLength={128} value={next} onChange={e => setNext(e.target.value)} hint="Changing your password signs you out on every device." />
+      <Button type="submit" isLoading={busy}>Change password</Button>
+    </form>
+    <Button variant="secondary" size="sm" onClick={() => void logout()}>Sign out</Button>
+  </section>;
+}
 export default function ConnectionSettings() {
   const { client, isDemo, setMode } = useAppMode();
   const [health, setHealth] = useState("");
@@ -26,6 +57,6 @@ export default function ConnectionSettings() {
       {ready && <p role="status" className="text-sm">Database connection: <span className="text-status-success">{ready}</span></p>}
       <p className="text-xs text-content-muted">A healthy connection does not establish authentication, database schema compatibility or availability of the research worker. Live requests may wait while the hosted API wakes up.</p>
     </section>
-    <section className="bg-surface border border-border rounded-panel p-6 space-y-3"><h2 className="font-semibold">Live access</h2><p className="text-sm text-content-secondary">The documented API currently rejects protected requests until its authentication provider is configured. There is no sign-in endpoint in this API version. Demo mode is an explicit alternative, never an automatic fallback.</p><p className="text-xs text-content-muted">The API origin is configured at build time with NEXT_PUBLIC_API_URL. Cross-origin browser access also requires the API to allow this frontend's origin.</p><div className="flex flex-wrap gap-4 text-sm"><a className="text-accent" href={`${DEFAULT_API_URL}/health`} target="_blank" rel="noreferrer">API health</a><a className="text-accent" href={`${DEFAULT_API_URL}/health/ready`} target="_blank" rel="noreferrer">Database readiness</a><a className="text-accent" href={`${DEFAULT_API_URL}/openapi/v1.json`} target="_blank" rel="noreferrer">Development OpenAPI</a></div><p className="text-xs text-content-muted">OpenAPI is available at /openapi/v1.json only in a Development API environment; a 404 in Production is expected.</p></section>
+    <AccountSection />
   </div>;
 }

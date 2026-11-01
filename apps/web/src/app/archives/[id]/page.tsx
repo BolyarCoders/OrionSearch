@@ -14,6 +14,9 @@ import { ArchiveHeader } from "@/components/archive-detail/archive-header";
 import { SourcesTable, SourceFilters } from "@/components/archive-detail/sources-table";
 import { ResearchRunCard } from "@/components/archive-detail/research-run-card";
 import { SettingsPanel } from "@/components/archive-detail/settings-panel";
+import { RunHistory } from "@/components/archive-detail/run-history";
+import { FindingsPanel } from "@/components/archive-detail/findings-panel";
+import { SourceVersionsModal } from "@/components/archive-detail/source-versions-modal";
 import { StartResearchModal } from "@/components/archive-detail/start-research-modal";
 import { Tabs } from "@/components/ui/tabs";
 import { AuthNotice } from "@/components/ui/auth-notice";
@@ -48,7 +51,7 @@ export default function ArchiveDetailPage({ params, searchParams }: ArchiveDetai
   const resolvedSearchParams = searchParams ? use(searchParams) : undefined;
   const initialTab =
     resolvedSearchParams?.tab &&
-    ["overview", "sources", "research", "settings"].includes(resolvedSearchParams.tab)
+    ["overview", "sources", "research", "findings", "settings"].includes(resolvedSearchParams.tab)
       ? resolvedSearchParams.tab
       : "overview";
 
@@ -73,7 +76,7 @@ export default function ArchiveDetailPage({ params, searchParams }: ArchiveDetai
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       const tabParam = params.get("tab");
-      if (tabParam && ["overview", "sources", "research", "settings"].includes(tabParam)) {
+      if (tabParam && ["overview", "sources", "research", "findings", "settings"].includes(tabParam)) {
         setActiveTab(tabParam);
       }
     }
@@ -91,6 +94,7 @@ export default function ArchiveDetailPage({ params, searchParams }: ArchiveDetai
   // Active / Latest Research Job
   const [activeJob, setActiveJob] = useState<ResearchRunStatus | null>(null);
   const [isStartModalOpen, setIsStartModalOpen] = useState(false);
+  const [versionSource, setVersionSource] = useState<SourceSummary | null>(null);
 
   const fetchArchive = async () => {
     const current = ++archiveRequest.current;
@@ -246,6 +250,7 @@ export default function ArchiveDetailPage({ params, searchParams }: ArchiveDetai
     { id: "overview", label: "Overview" },
     { id: "sources", label: "Sources", count: archive.sourceCount },
     { id: "research", label: "Research", count: activeJob ? 1 : undefined },
+    { id: "findings", label: "Findings" },
     { id: "settings", label: "Settings" },
   ];
 
@@ -459,6 +464,7 @@ export default function ArchiveDetailPage({ params, searchParams }: ArchiveDetai
           filters={sourceFilters}
           onFiltersChange={value => { setSourceFilters(value); setSourcesPage(1); }}
           isLoading={isSourcesLoading}
+          onOpenVersions={setVersionSource}
         />
       )}
 
@@ -489,8 +495,11 @@ export default function ArchiveDetailPage({ params, searchParams }: ArchiveDetai
             </Button>
           </div>
 
+          <RunHistory archiveId={archive.id} selectedId={activeJob?.id} refreshKey={activeJob?.status} onSelect={rememberRun} />
+
           {activeJob ? (
             <ResearchRunCard
+              key={activeJob.id}
               initialJob={activeJob}
               onJobUpdated={setActiveJob}
               onJobCompleted={() => {
@@ -522,6 +531,8 @@ export default function ArchiveDetailPage({ params, searchParams }: ArchiveDetai
         </div>
       )}
 
+      {activeTab === "findings" && <FindingsPanel archiveId={archive.id} />}
+
       {/* SETTINGS TAB */}
       {activeTab === "settings" && (
         <SettingsPanel key={archive.id}
@@ -529,6 +540,8 @@ export default function ArchiveDetailPage({ params, searchParams }: ArchiveDetai
           onUpdate={(updated) => setDetails(updated)}
         />
       )}
+
+      <SourceVersionsModal archiveId={archive.id} source={versionSource} onClose={() => setVersionSource(null)} />
 
       {/* Start Research Modal */}
       <StartResearchModal

@@ -82,14 +82,14 @@ export function ModeBadge() {
                   {mode === "live" && <Check className="w-3.5 h-3.5 text-accent" />}
                 </div>
                 <p className="text-xs text-content-muted mt-0.5">
-                  Connects to {DEFAULT_API_URL}. Protected routes require authentication.
+                  Connects to {DEFAULT_API_URL}. Sign in with your account.
                 </p>
               </div>
             </button>
 
             <div className="mt-2 pt-2 border-t border-border/80 px-2 pb-1 text-xs text-content-muted flex items-start gap-1.5">
               <ShieldAlert className="w-3.5 h-3.5 text-status-warning shrink-0 mt-0.5" />
-              <span>Backend authentication is currently unconfigured; protected live routes will reject requests with 401.</span>
+              <span>Live data requires a signed-in account.</span>
             </div>
           </div>
         </>

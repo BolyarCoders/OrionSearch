@@ -150,3 +150,91 @@ export interface ListSourcesParams {
 }
 
 export type AppMode = "demo" | "live";
+
+export interface UserProfile {
+  id: string;
+  email: string;
+  displayName: string;
+}
+
+export interface TokenResponse {
+  tokenType: string;
+  accessToken: string;
+  expiresIn: number;
+  refreshToken: string;
+}
+
+export interface ResearchReport {
+  researchRunId: string;
+  text: string;
+}
+
+export type FindingStatus = "unverified" | "supported" | "disputed" | "superseded";
+export type FindingType = "claim" | "observation" | "estimate";
+
+export interface FindingSummary {
+  id: string;
+  researchRunId: string;
+  statement: string;
+  statementTruncated: boolean;
+  type: FindingType;
+  status: FindingStatus;
+  confidence: number | null;
+  firstObservedAt: string;
+  evidenceCount: number;
+}
+
+export interface EvidenceReference {
+  id: string;
+  documentId: string;
+  versionId: string;
+  chunkId: string | null;
+  chunkIndex: number | null;
+  stance: string;
+  quote: string | null;
+  quoteTruncated: boolean;
+  canonicalUrl: string;
+  sourceTitle: string | null;
+}
+
+export interface FindingDetails {
+  finding: FindingSummary;
+  evidence: PagedResult<EvidenceReference>;
+}
+
+export interface SourceDetails {
+  source: SourceSummary;
+  versionCount: number;
+}
+
+export interface CapturedVersionSummary {
+  id: string;
+  fetchedAt: string;
+  hasText: boolean;
+  hasRaw: boolean;
+}
+
+export interface CapturedVersion {
+  id: string;
+  documentId: string;
+  fetchedAt: string;
+  contentHash: string;
+  extractedText: string | null;
+  hasRaw: boolean;
+  chunks: { index: number; text: string; startOffset: number | null; endOffset: number | null }[];
+}
+
+export interface PageParams {
+  page?: number;
+  pageSize?: number;
+}
+
+export interface ListFindingsParams extends PageParams {
+  status?: FindingStatus;
+  type?: FindingType;
+  runId?: string;
+}
+
+export interface ListRunsParams extends PageParams {
+  status?: ResearchRunState;
+}

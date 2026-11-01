@@ -4,6 +4,7 @@ import React from "react";
 import { ResearchRunStatus } from "@/types/api";
 import { useResearchRun } from "@/lib/hooks/use-research-run";
 import { ApiProblem } from "../ui/api-problem";
+import { ReportPanel } from "./report-panel";
 import { StatusPill } from "../ui/status-pill";
 import { useAppMode } from "@/lib/context/app-mode-context";
 import { formatRelativeTime } from "@/lib/normalization";
@@ -141,6 +142,8 @@ export function ResearchRunCard({ initialJob, onJobCompleted, onJobUpdated }: Re
           </div>
         </div>
       </div>
+
+      {job.status === "completed" && <ReportPanel runId={job.id} />}
 
       {/* Metadata & Attempt Tracking */}
       <div className="pt-4 border-t border-border/80 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-content-muted">

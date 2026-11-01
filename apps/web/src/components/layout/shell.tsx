@@ -3,9 +3,12 @@
 import React, { useState } from "react";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
+import { usePathname } from "next/navigation";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const pathname = usePathname();
+  if (pathname === "/login") return <>{children}</>;
 
   return (
     <div className="workspace-shell min-h-screen bg-workspace text-content-primary flex flex-col">

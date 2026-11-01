@@ -34,7 +34,7 @@ function getLiveClient(): LiveApiClient {
 }
 
 export function AppModeProvider({ children }: { children: React.ReactNode }) {
-  const [mode, setModeState] = useState<AppMode>("demo");
+  const [mode, setModeState] = useState<AppMode>("live");
 
   useEffect(() => {
     try {

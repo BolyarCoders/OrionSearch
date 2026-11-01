@@ -105,3 +105,15 @@ Preview: `npm run start -- --port 3000` after `npm run build`.
 Current screenshots: [light](qa/design-final-light.png), [dark](qa/design-final-dark.png),
 [mobile](qa/design-final-mobile.png), [archive](qa/design-detail.png),
 [creation](qa/design-create-layout.png).
+
+## Backend integration — 2026-11-01
+
+Live mode is now the default and is wired to the full backend guide (2026-10-31):
+
+- **Auth:** `/login` page (register + sign in), opaque bearer tokens kept in `localStorage`, single-flight `/auth/refresh` on 401 then retry, sign-out, password change (Settings). Unauthenticated live users are redirected to `/login`.
+- **Research:** run history (`GET /archives/{id}/research-jobs`), AI report (`GET /research-jobs/{id}/report`, rendered as plain text), polling as before.
+- **Findings tab** with status/type filters and evidence.
+- **Sources:** per-source saved versions, extracted text and raw download (`Versions` action).
+- Demo mode is unchanged and still selectable from the mode badge or the login page.
+
+The API's `Cors__AllowedOrigins__N` must include the frontend origin (for example `http://localhost:3000`), otherwise browsers block calls even though curl works.

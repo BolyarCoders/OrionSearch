@@ -2,11 +2,15 @@
 
 import React, { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Menu } from "lucide-react";
+import { Search, Menu, LogOut } from "lucide-react";
+import { useAuth } from "@/lib/context/auth-context";
+import { useAppMode } from "@/lib/context/app-mode-context";
 import { ModeBadge } from "../ui/mode-badge";
 
 export function Topbar({ onOpenSidebar }: { onOpenSidebar: () => void }) {
   const router = useRouter();
+  const { user, logout } = useAuth();
+  const { isLive } = useAppMode();
   const findArchive = () => {
     const input = document.querySelector<HTMLInputElement>('input[aria-label="Search archives"]');
     if (input) { input.focus(); input.select(); }
@@ -31,6 +35,7 @@ export function Topbar({ onOpenSidebar }: { onOpenSidebar: () => void }) {
       <div className="flex items-center gap-3 sm:gap-6">
         <button onClick={findArchive} className="hidden sm:flex items-center gap-2 text-xs text-content-secondary hover:text-content-primary px-2 rounded-control" aria-label="Find archive"><Search className="w-4 h-4" /><span>Find archive</span><kbd className="ml-2 text-content-muted border border-border rounded px-1.5">⌘ / Ctrl K</kbd></button>
         <ModeBadge />
+        {isLive && user && <button onClick={() => void logout()} className="flex items-center gap-2 text-xs text-content-secondary hover:text-content-primary" aria-label="Sign out" title={user.email}><LogOut className="w-4 h-4" /><span className="hidden md:inline">Sign out</span></button>}
       </div>
     </header>
   );

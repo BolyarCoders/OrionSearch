@@ -29,6 +29,7 @@ interface SourcesTableProps {
   sortOption: SourceSortOption;
   onSortChange: (sort: SourceSortOption) => void;
   isLoading?: boolean;
+  onOpenVersions?: (source: SourceSummary) => void;
 }
 
 export function SourcesTable({
@@ -42,7 +43,7 @@ export function SourcesTable({
   sortOption,
   onSortChange,
   isLoading = false,
-  filters, onFiltersChange,
+  filters, onFiltersChange, onOpenVersions,
 }: SourcesTableProps) {
   const [draft, setDraft] = useState<SourceFilters>(filters || { publishedFrom: "", publishedTo: "", language: "", publisherDomain: "" });
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
@@ -101,18 +102,19 @@ export function SourcesTable({
               <th className="py-3 px-4 font-medium">Published Date</th>
               <th className="py-3 px-4 font-medium">Added</th>
               <th className="py-3 px-4 font-medium text-right">Relevance</th>
+              {onOpenVersions && <th className="py-3 px-4 font-medium"><span className="sr-only">Versions</span></th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-border/40">
             {isLoading ? (
               <tr>
-                <td colSpan={5} className="py-12 text-center text-content-muted">
+                <td colSpan={6} className="py-12 text-center text-content-muted">
                   Loading sources...
                 </td>
               </tr>
             ) : sources.length === 0 ? (
               <tr>
-                <td colSpan={5} className="py-12 text-center text-content-muted">
+                <td colSpan={6} className="py-12 text-center text-content-muted">
                   <div className="w-8 h-8 rounded-full bg-surface-raised flex items-center justify-center mx-auto mb-2 text-content-muted">
                     <FileText className="w-4 h-4" />
                   </div>
@@ -184,6 +186,7 @@ export function SourcesTable({
                         <span className="text-content-muted font-mono text-xs">—</span>
                       )}
                     </td>
+                    {onOpenVersions && <td className="py-3.5 px-4 text-right"><button type="button" className="text-accent hover:underline" onClick={() => onOpenVersions(src)}>Versions</button></td>}
                   </tr>
                 );
               })

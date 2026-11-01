@@ -3,6 +3,7 @@
 import { DEFAULT_API_URL } from "@/lib/api/client";
 import { ApiProblem } from "./api-problem";
 import React from "react";
+import Link from "next/link";
 import { ShieldAlert, ArrowRight, Search } from "lucide-react";
 import { Button } from "./button";
 import { useAppMode } from "@/lib/context/app-mode-context";
@@ -23,17 +24,17 @@ export function AuthNotice({ error, onRetry }: AuthNoticeProps) {
         </div>
         <div className="flex-1 min-w-0">
           <h3 className="text-base font-semibold text-content-primary">
-            Live access is unavailable
+            Please sign in
           </h3>
           <p className="text-sm text-content-secondary mt-1.5 leading-relaxed">
-            The service requires authentication, and sign-in is not available yet.
-            You can retry the request or explore the demo workspace.
+            Your session is missing or has expired. Sign in again to continue, or explore the demo workspace.
           </p>
           <ApiProblem error={error} />
 
           <div className="mt-5 flex flex-wrap items-center gap-3">
+            <Link href="/login"><Button variant="primary" size="sm">Sign in</Button></Link>
             <Button
-              variant="primary"
+              variant="secondary"
               size="sm"
               leftIcon={<Search className="w-4 h-4" />}
               onClick={() => setMode("demo")}
@@ -41,7 +42,7 @@ export function AuthNotice({ error, onRetry }: AuthNoticeProps) {
               Switch to Demo Mode
             </Button>
             {onRetry && (
-              <Button variant="secondary" size="sm" onClick={onRetry}>
+              <Button variant="ghost" size="sm" onClick={onRetry}>
                 Retry Live Request
               </Button>
             )}
