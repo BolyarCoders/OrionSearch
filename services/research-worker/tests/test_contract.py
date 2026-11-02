@@ -188,6 +188,24 @@ def test_ai_language_detection_rejects_malformed_or_incomplete_results(monkeypat
         ai_agent.select_english_articles(object(), [{"title": "First"}, {"title": "Second"}])
 
 
+def test_research_translates_non_english_objective_into_search_query(monkeypatch):
+    from agent import ai_agent
+
+    monkeypatch.setattr(ai_agent, "ask_ai", lambda client, prompt: '"artificial intelligence"')
+    assert ai_agent.translate_search_query(object(), "Изкуствен интелект") == "artificial intelligence"
+    monkeypatch.setattr(ai_agent, "ask_ai", lambda client, prompt: '```json\n{"query":"artificial intelligence"}\n```')
+    assert ai_agent.translate_search_query(object(), "Изкуствен интелект") == "artificial intelligence"
+
+
+@pytest.mark.parametrize("answer", ['[]', '""', '"one\\ntwo"'])
+def test_research_rejects_invalid_translated_search_query(monkeypatch, answer):
+    from agent import ai_agent
+
+    monkeypatch.setattr(ai_agent, "ask_ai", lambda client, prompt: answer)
+    with pytest.raises(ValueError):
+        ai_agent.translate_search_query(object(), "Изкуствен интелект")
+
+
 def test_integrated_research_classifies_sources_before_saving_or_reporting(request_body, monkeypatch):
     from google import genai
 
@@ -195,7 +213,11 @@ def test_integrated_research_classifies_sources_before_saving_or_reporting(reque
     monkeypatch.delenv("ORION_CAPTURE_ENABLED", raising=False)
     request_body["includeReport"] = True
     monkeypatch.setattr(genai, "Client", lambda **kwargs: type("Client", (), {"close": lambda self: None})())
-    monkeypatch.setattr(service.ai_agent, "plan_research", lambda *args: (["query"], ["hacker_news"]))
+    monkeypatch.setattr(service.ai_agent, "translate_search_query", lambda client, objective: "translated English")
+    def plan(client, objective, days):
+        assert objective == "translated English"
+        return [objective], ["hacker_news"]
+    monkeypatch.setattr(service.ai_agent, "plan_research", plan)
     articles = [{"url": "https://example.com/en", "title": "English text"},
                 {"url": "https://example.com/bg", "title": "Български текст"}]
     monkeypatch.setattr(service.ai_agent, "collect_articles", lambda *args, **kwargs: (articles, {}, 2))
@@ -251,6 +273,7 @@ def test_report_uses_only_selected_sources_and_is_opt_in(request_body, monkeypat
         {"url": "https://example.com/kept#fragment", "title": "Kept", "summary": "Allowed summary"},
     ]
     monkeypatch.setattr(genai, "Client", lambda **kwargs: type("Client", (), {"close": lambda self: None})())
+    monkeypatch.setattr(service.ai_agent, "translate_search_query", lambda client, objective: objective)
     topics = []
     monkeypatch.setattr(service.ai_agent, "plan_research", lambda client, topic, days: (topics.append(topic) or ["query"], ["google_news"]))
     monkeypatch.setattr(service.ai_agent, "collect_articles", lambda *args, **kwargs: (articles, {}, 2))

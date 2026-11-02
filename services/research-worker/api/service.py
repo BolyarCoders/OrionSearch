@@ -52,7 +52,8 @@ def run_contract_research(request):
         client = genai.Client(api_key=os.environ["GEMINI_API_KEY"], http_options=types.HttpOptions(
             timeout=60000, retry_options=types.HttpRetryOptions(attempts=1)))
         try:
-            queries, selected = ai_agent.plan_research(client, request["objective"], days)
+            search_query = ai_agent.translate_search_query(client, request["objective"])
+            queries, selected = ai_agent.plan_research(client, search_query, days)
             if not queries or len(queries) > 5 or any(not isinstance(query, str) or not query.strip() or len(query) > 1000 for query in queries):
                 from api.contract import ContractError
                 raise ContractError("Invalid research plan")

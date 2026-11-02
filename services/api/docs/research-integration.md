@@ -66,8 +66,9 @@ generated report.
 This reduces source coverage. Restore additional sources only after verifying
 their availability; the
 integrated route currently fails the run on any source error rather than
-silently publishing an incomplete report. Feed queries use the research
-objective; the title and description are context for report generation.
+silently publishing an incomplete report. The worker translates the research
+objective into an English search query; the original title and description
+remain context for report generation.
 
 After a verified encrypted local backup, the additive report migration was
 applied to the Render PostgreSQL database on 2026-10-30. A hosted end-to-end

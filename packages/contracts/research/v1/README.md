@@ -36,6 +36,10 @@ supplies a result.
 
 ## Current producer behavior
 
+The integrated producer translates the original objective into an English search
+query using AI. The original objective remains unchanged in the stored request.
+Translation failure fails the attempt; the application does not invent a query.
+
 Optional extension: when `includeReport` is true, a compatible producer returns
 `report`, a bounded unverified text analysis of the filtered sources' feed
 metadata and summaries. The producer omits it unless requested. Deploy consumers
