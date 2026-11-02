@@ -208,8 +208,10 @@ def test_research_rejects_invalid_translated_search_query(monkeypatch, answer):
 
 def test_integrated_research_classifies_sources_before_saving_or_reporting(request_body, monkeypatch):
     from google import genai
+    from api import source_metadata
 
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    monkeypatch.setattr(source_metadata, "enrich_sources", lambda sources, excluded: None)
     monkeypatch.delenv("ORION_CAPTURE_ENABLED", raising=False)
     request_body["includeReport"] = True
     monkeypatch.setattr(genai, "Client", lambda **kwargs: type("Client", (), {"close": lambda self: None})())
@@ -262,8 +264,10 @@ def test_exclusions_apply_to_source_and_publisher_independently(request_body):
 
 def test_report_uses_only_selected_sources_and_is_opt_in(request_body, monkeypatch):
     from google import genai
+    from api import source_metadata
 
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    monkeypatch.setattr(source_metadata, "enrich_sources", lambda sources, excluded: None)
     monkeypatch.delenv("ORION_CAPTURE_ENABLED", raising=False)
     request_body["settings"].update(dateFrom=None, dateTo=None, languages=[], excludedDomains=["excluded.example"])
     request_body["includeReport"] = True

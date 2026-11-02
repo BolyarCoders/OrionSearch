@@ -66,6 +66,13 @@ Settings snapshot semantics:
 - Unknown publication dates and languages remain absent. AI classification of
   metadata is not proof of full-article language and does not populate language.
   The producer does not infer publication time from discovery time.
+- For up to 20 accepted sources, the producer makes a bounded, best-effort
+  public-page request and uses explicitly declared publication metadata,
+  an explicit English HTML language and site name when available. Redirects, addresses, response
+  sizes, and time are restricted by the same safe public-fetch boundary as
+  captures. An HTML date without a time is represented as midnight UTC; it
+  describes the calendar date, not a verified publication time. Fetch failure,
+  missing or ambiguous metadata leaves values unknown and does not fail a run.
 - Excluded domains are removed; preferred domains rank first. Feed-declared
   publisher metadata is used when present, otherwise the URL host. Google News
   wrappers with unknown publishers are omitted when domain filters are requested.

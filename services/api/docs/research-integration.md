@@ -3,7 +3,9 @@
 **November 2026 behavior change:** Research discovery ignores saved language
 and date preferences and uses the adapters' 90-day rolling window. The worker
 uses AI to select English titles and available summaries; uncertain language is
-excluded and full article language is not verified. These legacy
+excluded and full article language is not verified. Accepted source pages are
+fetched on a bounded best-effort basis to extract explicit publication dates,
+HTML language and site name; missing data remains unknown. These legacy
 fields remain accepted and stored for compatibility. The dated P2 material
 below describes its original filtering behavior and is historical where it
 conflicts with this change. Sources can still be empty when a provider returns
@@ -103,7 +105,7 @@ automatically enabled by the P2 wire integration.
 | Test seams | Shared valid/invalid fixtures, replaceable source collection/planning in Python tests, HTTP transport seam and real PostgreSQL queue tests in .NET. |
 | Compatibility | New submissions use orion.research.v1. Existing provisional payloads require explicit AllowProvisionalContract and exact request/result version matching. No silent payload rewrite. Prototype routes move under /prototype and require explicit opt-in. |
 | Observability | Log run IDs and finite failure categories, never research body/provider exception bodies or keys. Document discovery counts separately from verified captures/findings. |
-| Security | Constant-time service-key comparison, optional prior key for rotation, no arbitrary article fetching or model-selected tools, no DB access from Python, schema/semantic rejection before work/ingestion. |
+| Security | Constant-time service-key comparison, optional prior key for rotation, bounded public-page metadata retrieval with validated destinations, no model-selected tools or DB access from Python, schema/semantic rejection before work/ingestion. |
 
 Implementation order: shared schemas/fixtures; Python input validation and Bearer
 authentication; discovery adapter over the current planner/collector; .NET v1

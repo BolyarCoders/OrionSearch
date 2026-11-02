@@ -68,6 +68,8 @@ def run_contract_research(request):
             articles = ai_agent.select_english_articles(client, articles)
             selected_articles = []
             result = build_result(request, queries, selected, articles, selected_articles=selected_articles)
+            from api.source_metadata import enrich_sources
+            enrich_sources(result["sources"], request["settings"]["excludedDomains"])
             if request.get("includeReport", False):
                 # Use exactly the filtered, deduplicated and ordered sources for
                 # the report so its numbered citations refer to accepted sources.
@@ -76,7 +78,7 @@ def run_contract_research(request):
                     report_articles.append({
                         "title": source.get("title") or "Untitled",
                         "url": source["canonicalUrl"],
-                        "source": str(article.get("source") or "Unknown")[:200],
+                        "source": str(source.get("publisher", {}).get("name") or article.get("source") or "Unknown")[:200],
                         "published_at": source.get("publishedAt") or "Unknown",
                         "summary": str(article.get("summary") or "")[:350],
                     })

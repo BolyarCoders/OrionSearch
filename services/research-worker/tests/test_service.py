@@ -13,7 +13,8 @@ from api.contract import CONTRACT_ROOT
 @pytest.mark.parametrize("capture_enabled", [False, True])
 def test_integrated_service_uses_existing_planner_without_reports_or_second_job_store(monkeypatch, collection_fails, capture_enabled):
     calls = []
-    from api import captures
+    from api import captures, source_metadata
+    monkeypatch.setattr(source_metadata, "enrich_sources", lambda sources, excluded: None)
     monkeypatch.setenv("ORION_CAPTURE_ENABLED", "true" if capture_enabled else "false")
     monkeypatch.setattr(captures, "CaptureUploader", lambda: SimpleNamespace(close=lambda: calls.append("storage-closed")))
     def enrich(result, payload, uploader):
