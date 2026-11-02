@@ -33,7 +33,7 @@ def test_integrated_service_uses_existing_planner_without_reports_or_second_job_
 
     def plan(client, topic, days):
         assert topic == request["objective"]
-        assert days == 7
+        assert days == 90
         return ["research methods"], ["google_news"]
 
     def collect(topic, days, queries, selected, *, max_articles):

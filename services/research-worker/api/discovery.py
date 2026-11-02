@@ -1,5 +1,5 @@
 import hashlib
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urlsplit
 
 from api.contract import ContractError, canonical_url
@@ -8,12 +8,11 @@ from api.contract import ContractError, canonical_url
 def execution_window(request, today=None):
     today = today or datetime.now(timezone.utc).date()
     settings = request["settings"]
-    end = date.fromisoformat(settings["dateTo"]) if settings["dateTo"] else today
-    end = min(end, today)
-    start = date.fromisoformat(settings["dateFrom"]) if settings["dateFrom"] else end - timedelta(days=6)
-    days = (today - start).days + 1
-    if start > end or not 1 <= days <= 90:
-        raise ContractError("The discovery adapters support date windows within the last 90 days")
+    # The providers support up to 90 days. Stored archive date settings are
+    # retained for compatibility but no longer narrow research discovery.
+    days = 90
+    end = today
+    start = today - timedelta(days=days - 1)
     maximum = settings["config"].get("maxArticles", 20)
     if type(maximum) is not int or not 1 <= maximum <= 50:
         raise ContractError("maxArticles must be an integer from 1 to 50")
@@ -25,7 +24,7 @@ def matches_domain(host, domains):
 
 
 def build_result(request, queries, providers, articles, today=None, selected_articles=None):
-    _, start, end, maximum = execution_window(request, today)
+    _, _, _, maximum = execution_window(request, today)
     settings = request["settings"]
     sources = {}
     accepted_articles = {}
@@ -50,8 +49,6 @@ def build_result(request, queries, providers, articles, today=None, selected_art
             continue
         language = article.get("language")
         language = language.lower() if isinstance(language, str) and len(language) == 2 and language.isascii() and language.isalpha() else None
-        if settings["languages"] and language not in [value.lower() for value in settings["languages"]]:
-            continue
         published = None
         value = article.get("published_at") if article.get("publication_date_kind") not in ("updated", "discovery") else None
         if value:
@@ -61,10 +58,6 @@ def build_result(request, queries, providers, articles, today=None, selected_art
                     published = parsed.astimezone(timezone.utc)
             except (ValueError, AttributeError, TypeError):
                 pass
-        if published is not None and not start <= published.date() <= end:
-            continue
-        if published is None and (settings["dateFrom"] or settings["dateTo"]):
-            continue
         if url in sources:
             continue
         source = {"key": "source_" + hashlib.sha256(url.encode("utf-8")).hexdigest(), "canonicalUrl": url}

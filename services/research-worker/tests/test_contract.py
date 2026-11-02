@@ -140,7 +140,7 @@ def test_wrong_run_and_oversized_output_are_not_successes(request_body, monkeypa
     assert client.post("/research", headers=HEADERS, json=request_body).status_code == 422
 
 
-def test_filters_preserve_unknown_dates_and_apply_explicit_constraints(request_body):
+def test_domain_preferences_and_exclusions_preserve_unknown_dates(request_body):
     settings = request_body["settings"]
     settings.update(languages=[], preferredDomains=["preferred.example"], excludedDomains=["excluded.example"], config={"maxArticles": 1})
     articles = [{"url": "https://other.example/a"}, {"url": "https://preferred.example/a"}, {"url": "https://sub.excluded.example/a"}]
@@ -148,12 +148,29 @@ def test_filters_preserve_unknown_dates_and_apply_explicit_constraints(request_b
     assert [source["canonicalUrl"] for source in result["sources"]] == ["https://preferred.example/a"]
     assert "publishedAt" not in result["sources"][0]
     settings.update(dateFrom="2026-10-01", dateTo="2026-10-28")
-    assert not build_result(request_body, ["query"], ["google_news"], articles, today=date(2026, 10, 28))["sources"]
+    assert len(build_result(request_body, ["query"], ["google_news"], articles, today=date(2026, 10, 28))["sources"]) == 1
 
 
-def test_unsupported_window_and_invalid_execution_config_are_not_silently_changed(request_body):
+def test_research_ignores_saved_language_and_date_filters(request_body):
+    request_body["settings"].update(dateFrom="2026-10-27", dateTo="2026-12-06", languages=["en"])
+    articles = [
+        {"url": "https://example.com/article", "title": "Article",
+         "published_at": "2026-10-30T10:00:00Z", "publication_date_kind": "discovery"},
+        {"url": "https://example.com/older", "title": "Other language",
+         "language": "fr", "published_at": "2026-10-01T10:00:00Z"},
+    ]
+    result = build_result(request_body, ["Artificial Intelligence"], ["hacker_news"], articles, today=date(2026, 11, 2))
+    assert len(result["sources"]) == 2
+    assert "publishedAt" not in result["sources"][0]
+    assert "language" not in result["sources"][0]
+    assert result["sources"][1]["language"] == "fr"
+    assert result["sources"][1]["publishedAt"] == "2026-10-01T10:00:00Z"
+    assert execution_window(request_body, today=date(2026, 11, 2))[0] == 90
+
+
+def test_legacy_window_is_ignored_but_invalid_execution_config_is_rejected(request_body):
     request_body["settings"]["dateFrom"] = "2025-01-01"
-    with pytest.raises(ContractError): execution_window(request_body, today=date(2026, 10, 28))
+    assert execution_window(request_body, today=date(2026, 10, 28))[0] == 90
     request_body["settings"]["dateFrom"] = None
     request_body["settings"]["config"] = {"maxArticles": True}
     with pytest.raises(ContractError): execution_window(request_body)
@@ -223,4 +240,4 @@ def test_update_and_discovery_times_do_not_become_article_publication_dates(requ
     result = build_result(request_body, ["query"], ["google_news"], articles, today=date(2026, 10, 28))
     assert "publishedAt" not in result["sources"][0]
     request_body["settings"].update(dateFrom="2026-10-28", dateTo="2026-10-28")
-    assert not build_result(request_body, ["query"], ["google_news"], articles, today=date(2026, 10, 28))["sources"]
+    assert len(build_result(request_body, ["query"], ["google_news"], articles, today=date(2026, 10, 28))["sources"]) == 1

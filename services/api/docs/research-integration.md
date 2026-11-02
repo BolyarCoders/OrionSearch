@@ -1,5 +1,12 @@
 # Research integration: P2 architecture and execution plan
 
+**November 2026 behavior change:** Research discovery ignores saved language
+and date preferences and uses the adapters' 90-day rolling window. These legacy
+fields remain accepted and stored for compatibility. The dated P2 material
+below describes its original filtering behavior and is historical where it
+conflicts with this change. Sources can still be empty when a provider returns
+no matches, a domain exclusion applies, or other collection limits apply.
+
 ## AI report integration
 
 The live worker at `https://orionsearch-409q.onrender.com` currently serves the
