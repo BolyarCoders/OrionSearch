@@ -46,6 +46,7 @@ def test_integrated_service_uses_existing_planner_without_reports_or_second_job_
     engine.SOURCES = {"google_news": object()}
     engine.plan_research = plan
     engine.collect_articles = collect
+    engine.select_english_articles = lambda client, articles: articles
     collector = ModuleType("collector")
     collector.SOURCES = ("google_news",)
     google = ModuleType("google")

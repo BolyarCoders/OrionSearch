@@ -64,6 +64,7 @@ def run_contract_research(request):
             if errors:
                 logger.warning("Research source collection did not complete")
                 raise RuntimeError("Source collection did not complete")
+            articles = ai_agent.select_english_articles(client, articles)
             selected_articles = []
             result = build_result(request, queries, selected, articles, selected_articles=selected_articles)
             if request.get("includeReport", False):

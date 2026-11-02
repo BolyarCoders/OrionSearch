@@ -1,7 +1,9 @@
 # Research integration: P2 architecture and execution plan
 
 **November 2026 behavior change:** Research discovery ignores saved language
-and date preferences and uses the adapters' 90-day rolling window. These legacy
+and date preferences and uses the adapters' 90-day rolling window. The worker
+uses AI to select English titles and available summaries; uncertain language is
+excluded and full article language is not verified. These legacy
 fields remain accepted and stored for compatibility. The dated P2 material
 below describes its original filtering behavior and is historical where it
 conflicts with this change. Sources can still be empty when a provider returns

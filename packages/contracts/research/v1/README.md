@@ -3,7 +3,9 @@
 Status: implementation candidate for team review. No external approval or live
 provider acceptance is implied. As of the November 2026 discovery change,
 saved language and date preferences are retained for wire compatibility but
-are not applied to research discovery. The current .NET consumer and Python producer
+are not applied to research discovery. The producer uses AI to select English
+titles and available summaries; uncertainty is excluded. Full article language
+is not verified. The current .NET consumer and Python producer
 use `orion.research.v1` on `POST /research` relative to the configured agent origin.
 
 ## Ownership and transport
@@ -54,10 +56,12 @@ failure is a valid result; collection failure is not converted to empty success.
 Settings snapshot semantics:
 
 - Discovery uses the adapters' maximum rolling window of 90 days regardless of
-  stored date settings. It does not filter returned sources by saved language or
-  publication-date preferences. Provider window and result limits still apply.
-- Unknown publication dates and languages remain absent. The producer does not
-  infer article publication time from discovery time or language from the feed.
+  stored date settings. Saved language and publication-date preferences do not
+  control discovery; AI selects English using titles and available summaries.
+  Provider window and result limits still apply.
+- Unknown publication dates and languages remain absent. AI classification of
+  metadata is not proof of full-article language and does not populate language.
+  The producer does not infer publication time from discovery time.
 - Excluded domains are removed; preferred domains rank first. Feed-declared
   publisher metadata is used when present, otherwise the URL host. Google News
   wrappers with unknown publishers are omitted when domain filters are requested.

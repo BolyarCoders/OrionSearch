@@ -168,6 +168,45 @@ def test_research_ignores_saved_language_and_date_filters(request_body):
     assert execution_window(request_body, today=date(2026, 11, 2))[0] == 90
 
 
+def test_ai_language_detection_selects_only_english_titles(monkeypatch):
+    from agent import ai_agent
+
+    articles = [
+        {"title": "New research on artificial intelligence", "summary": "A research overview"},
+        {"title": "Нови изследвания на изкуствения интелект", "summary": ""},
+        {"title": "AI", "summary": ""},
+    ]
+    monkeypatch.setattr(ai_agent, "ask_ai", lambda client, prompt: '[true, false, false]')
+    assert ai_agent.select_english_articles(object(), articles) == [articles[0]]
+
+
+def test_ai_language_detection_rejects_malformed_or_incomplete_results(monkeypatch):
+    from agent import ai_agent
+
+    monkeypatch.setattr(ai_agent, "ask_ai", lambda client, prompt: '[true]')
+    with pytest.raises(ValueError):
+        ai_agent.select_english_articles(object(), [{"title": "First"}, {"title": "Second"}])
+
+
+def test_integrated_research_classifies_sources_before_saving_or_reporting(request_body, monkeypatch):
+    from google import genai
+
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    monkeypatch.delenv("ORION_CAPTURE_ENABLED", raising=False)
+    request_body["includeReport"] = True
+    monkeypatch.setattr(genai, "Client", lambda **kwargs: type("Client", (), {"close": lambda self: None})())
+    monkeypatch.setattr(service.ai_agent, "plan_research", lambda *args: (["query"], ["hacker_news"]))
+    articles = [{"url": "https://example.com/en", "title": "English text"},
+                {"url": "https://example.com/bg", "title": "Български текст"}]
+    monkeypatch.setattr(service.ai_agent, "collect_articles", lambda *args, **kwargs: (articles, {}, 2))
+    monkeypatch.setattr(service.ai_agent, "select_english_articles", lambda client, values: values[:1])
+    seen = []
+    monkeypatch.setattr(service.ai_agent, "analyze_articles", lambda client, topic, days, selected: seen.extend(selected) or "Report")
+    result = service.run_contract_research(request_body)
+    assert [source["canonicalUrl"] for source in result["sources"]] == ["https://example.com/en"]
+    assert [article["url"] for article in seen] == ["https://example.com/en"]
+
+
 def test_legacy_window_is_ignored_but_invalid_execution_config_is_rejected(request_body):
     request_body["settings"]["dateFrom"] = "2025-01-01"
     assert execution_window(request_body, today=date(2026, 10, 28))[0] == 90
@@ -215,6 +254,7 @@ def test_report_uses_only_selected_sources_and_is_opt_in(request_body, monkeypat
     topics = []
     monkeypatch.setattr(service.ai_agent, "plan_research", lambda client, topic, days: (topics.append(topic) or ["query"], ["google_news"]))
     monkeypatch.setattr(service.ai_agent, "collect_articles", lambda *args, **kwargs: (articles, {}, 2))
+    monkeypatch.setattr(service.ai_agent, "select_english_articles", lambda client, items: items)
     seen = []
     monkeypatch.setattr(service.ai_agent, "analyze_articles", lambda client, topic, days, selected: seen.extend(selected) or "Report [1]")
     result = service.run_contract_research(request_body)
