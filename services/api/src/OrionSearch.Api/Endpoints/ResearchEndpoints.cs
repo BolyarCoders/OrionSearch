@@ -31,6 +31,15 @@ public static class ResearchEndpoints
             .WithSummary("Get an authorized research run's status and safe statistics")
             .WithDescription("An active authenticated application user is required. Owner/editor/viewer membership required; nonmembers and unknown runs receive 404. Status: queued, running, completed, failed, cancelled. A queued run with retrying=true is awaiting another attempt; paused archives retain pending work. Archived work cancels before dispatch or result commit. Public responses exclude queue payloads, worker identities, private model settings and exception details.")
             .Produces<ResearchStatus>().ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
+        endpoints.MapGet("/research-jobs/{id:guid}/report", async (Guid id, ResearchService service, HttpContext context, CancellationToken ct) =>
+        {
+            var report = await service.GetReportAsync(id, ct);
+            context.Response.Headers.CacheControl = "no-store";
+            return Results.Ok(report);
+        }).RequireAuthorization().WithTags("Research").WithName("GetResearchReport")
+            .WithSummary("Get the generated report for an authorized completed research run")
+            .WithDescription("The report is generated from feed metadata and summaries and is not verified evidence. Returns 404 when unavailable or inaccessible.")
+            .Produces<ResearchReport>().ProducesProblem(401).ProducesProblem(404);
         return endpoints;
     }
 }

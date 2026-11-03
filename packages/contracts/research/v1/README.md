@@ -1,7 +1,11 @@
 # Research HTTP contract v1
 
 Status: implementation candidate for team review. No external approval or live
-provider acceptance is implied. The current .NET consumer and Python producer
+provider acceptance is implied. As of the November 2026 discovery change,
+saved language and date preferences are retained for wire compatibility but
+are not applied to research discovery. The producer uses AI to select English
+titles and available summaries; uncertainty is excluded. Full article language
+is not verified. The current .NET consumer and Python producer
 use `orion.research.v1` on `POST /research` relative to the configured agent origin.
 
 ## Ownership and transport
@@ -32,6 +36,18 @@ supplies a result.
 
 ## Current producer behavior
 
+The integrated producer translates the original objective into an English search
+query using AI. The original objective remains unchanged in the stored request.
+Translation failure fails the attempt; the application does not invent a query.
+
+Optional extension: when `includeReport` is true, a compatible producer returns
+`report`, a bounded unverified text analysis of the filtered sources' feed
+metadata and summaries. The producer omits it unless requested. Deploy consumers
+before requesting reports, and deploy compatible producers before enabling the
+request flag; older strict implementations reject the new fields. Reports are
+not evidence or captured article text. See the research integration operations
+guide for storage, authorization and rollout.
+
 The integrated producer uses the existing Gemini planner and fixed feed/API
 adapters. It returns executed queries and discovered URLs/metadata. Optional
 server-configured capture execution adds actual HTML/text bytes, versioned raw
@@ -43,13 +59,20 @@ failure is a valid result; collection failure is not converted to empty success.
 
 Settings snapshot semantics:
 
-- The rolling discovery window is at most 90 days; no explicit window is silently
-  expanded/truncated to fit that capability. Without dates, search the last seven
-  calendar days. An unsupported window fails with 422.
-- Explicit date filters exclude unknown publication dates. Unknown dates remain
-  absent, never inferred from fetch time.
-- Explicit languages exclude unknown language metadata. The producer does not
-  infer article language from an English interface or source name.
+- Discovery uses the adapters' maximum rolling window of 90 days regardless of
+  stored date settings. Saved language and publication-date preferences do not
+  control discovery; AI selects English using titles and available summaries.
+  Provider window and result limits still apply.
+- Unknown publication dates and languages remain absent. AI classification of
+  metadata is not proof of full-article language and does not populate language.
+  The producer does not infer publication time from discovery time.
+- For up to 20 accepted sources, the producer makes a bounded, best-effort
+  public-page request and uses explicitly declared publication metadata,
+  an explicit English HTML language and site name when available. Redirects, addresses, response
+  sizes, and time are restricted by the same safe public-fetch boundary as
+  captures. An HTML date without a time is represented as midnight UTC; it
+  describes the calendar date, not a verified publication time. Fetch failure,
+  missing or ambiguous metadata leaves values unknown and does not fail a run.
 - Excluded domains are removed; preferred domains rank first. Feed-declared
   publisher metadata is used when present, otherwise the URL host. Google News
   wrappers with unknown publishers are omitted when domain filters are requested.

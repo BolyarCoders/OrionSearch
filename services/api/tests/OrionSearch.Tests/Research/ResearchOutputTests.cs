@@ -33,6 +33,8 @@ public sealed class ResearchOutputTests
     [InlineData("finding-type")]
     [InlineData("confidence")]
     [InlineData("duplicate-query")]
+    [InlineData("blank-report")]
+    [InlineData("oversized-report")]
     public void InvalidOutputIsRejectedBeforePersistence(string problem)
     {
         var runId = Guid.NewGuid();
@@ -60,6 +62,8 @@ public sealed class ResearchOutputTests
             "finding-type" => output with { Findings = [finding with { Type = "verified-truth" }] },
             "confidence" => output with { Findings = [finding with { Confidence = 1.5m }] },
             "duplicate-query" => output with { Queries = [output.Queries[0], output.Queries[0]] },
+            "blank-report" => output with { Report = " \t\n" },
+            "oversized-report" => output with { Report = new string('x', 100001) },
             _ => throw new InvalidOperationException()
         };
         Assert.Equal(ResearchFailure.Contract, Assert.Throws<ResearchAgentException>(() => ResearchOutputValidator.Normalize(output, runId)).Failure);

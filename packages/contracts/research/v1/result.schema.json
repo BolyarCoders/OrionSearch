@@ -26,6 +26,11 @@
       },
       "maxItems": 256
     },
+    "report": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100000
+    },
     "findings": {
       "type": "array",
       "items": {

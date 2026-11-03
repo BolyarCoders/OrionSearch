@@ -37,6 +37,9 @@
       "minLength": 1,
       "maxLength": 2000
     },
+    "includeReport": {
+      "type": "boolean"
+    },
     "settings": {
       "type": "object",
       "additionalProperties": false,

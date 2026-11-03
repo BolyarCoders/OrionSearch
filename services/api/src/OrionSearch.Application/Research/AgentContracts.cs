@@ -21,9 +21,11 @@ public static class ResearchContract
 }
 
 public sealed record AgentRequest(string ContractVersion, Guid ResearchRunId, Guid ArchiveId,
-    string Title, string? Description, string Objective, ArchiveSettingsData Settings);
+    string Title, string? Description, string Objective, ArchiveSettingsData Settings,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] bool IncludeReport = false);
 public sealed record AgentResult(string ContractVersion, Guid ResearchRunId,
-    QueryOutput[] Queries, SourceOutput[] Sources, FindingOutput[] Findings);
+    QueryOutput[] Queries, SourceOutput[] Sources, FindingOutput[] Findings,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Report = null);
 public sealed record QueryOutput(string Query, string Provider);
 public sealed record PublisherOutput(string Name, string Domain);
 public sealed record SourceOutput(string Key, string CanonicalUrl, string? Title = null, string? Language = null,

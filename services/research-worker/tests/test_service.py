@@ -13,7 +13,8 @@ from api.contract import CONTRACT_ROOT
 @pytest.mark.parametrize("capture_enabled", [False, True])
 def test_integrated_service_uses_existing_planner_without_reports_or_second_job_store(monkeypatch, collection_fails, capture_enabled):
     calls = []
-    from api import captures
+    from api import captures, source_metadata
+    monkeypatch.setattr(source_metadata, "enrich_sources", lambda sources, excluded: None)
     monkeypatch.setenv("ORION_CAPTURE_ENABLED", "true" if capture_enabled else "false")
     monkeypatch.setattr(captures, "CaptureUploader", lambda: SimpleNamespace(close=lambda: calls.append("storage-closed")))
     def enrich(result, payload, uploader):
@@ -32,11 +33,12 @@ def test_integrated_service_uses_existing_planner_without_reports_or_second_job_
         def close(self): calls.append("closed")
 
     def plan(client, topic, days):
-        assert request["title"] in topic and request["objective"] in topic
-        assert days == 7
+        assert topic == request["objective"]
+        assert days == 90
         return ["research methods"], ["google_news"]
 
     def collect(topic, days, queries, selected, *, max_articles):
+        assert topic == request["objective"]
         assert max_articles == 50
         return ([{"url": "https://example.com/source", "language": "en", "title": "Discovered"}],
                 {"google_news": "private upstream body"} if collection_fails else {}, 1)
@@ -44,7 +46,9 @@ def test_integrated_service_uses_existing_planner_without_reports_or_second_job_
     engine = ModuleType("ai_agent")
     engine.SOURCES = {"google_news": object()}
     engine.plan_research = plan
+    engine.translate_search_query = lambda client, objective: objective
     engine.collect_articles = collect
+    engine.select_english_articles = lambda client, articles: articles
     collector = ModuleType("collector")
     collector.SOURCES = ("google_news",)
     google = ModuleType("google")

@@ -485,7 +485,7 @@ def collect(
 
                 logger.info(
                     "%s: %d articles",
-                    task_name,
+                    task_name.partition(":")[0],
                     len(results),
                 )
 
@@ -494,9 +494,8 @@ def collect(
                 errors[task_name] = str(exc)
 
                 logger.warning(
-                    "%s failed: %s",
-                    task_name,
-                    exc,
+                    "%s collection failed",
+                    task_name.partition(":")[0],
                 )
 
     # Process all collected articles before applying the limit.
