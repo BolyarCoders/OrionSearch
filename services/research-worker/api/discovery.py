@@ -23,30 +23,38 @@ def matches_domain(host, domains):
     return any(host == domain or host.endswith("." + domain) for domain in domains)
 
 
+def eligible_source(article, settings):
+    try:
+        url = canonical_url(article.get("url"))
+    except (ValueError, UnicodeError):
+        return None
+    host = urlsplit(url).hostname
+    publisher = None
+    try:
+        publisher_host = urlsplit(canonical_url(article.get("publisher_url"))).hostname
+        publisher_name = article.get("publisher_name")
+        if isinstance(publisher_name, str) and publisher_name.strip():
+            publisher = {"domain": publisher_host, "name": publisher_name.strip()[:100]}
+    except (ValueError, UnicodeError):
+        pass
+    filter_host = publisher["domain"] if publisher else host
+    if host == "news.google.com" and publisher is None and (settings["preferredDomains"] or settings["excludedDomains"]):
+        return None
+    if matches_domain(host, settings["excludedDomains"]) or matches_domain(filter_host, settings["excludedDomains"]):
+        return None
+    return url, publisher
+
+
 def build_result(request, queries, providers, articles, today=None, selected_articles=None):
     _, _, _, maximum = execution_window(request, today)
     settings = request["settings"]
     sources = {}
     accepted_articles = {}
     for article in articles:
-        try:
-            url = canonical_url(article.get("url"))
-        except (ValueError, UnicodeError):
+        eligible = eligible_source(article, settings)
+        if eligible is None:
             continue
-        host = urlsplit(url).hostname
-        publisher = None
-        try:
-            publisher_host = urlsplit(canonical_url(article.get("publisher_url"))).hostname
-            publisher_name = article.get("publisher_name")
-            if isinstance(publisher_name, str) and publisher_name.strip():
-                publisher = {"domain": publisher_host, "name": publisher_name.strip()[:100]}
-        except (ValueError, UnicodeError):
-            pass
-        filter_host = publisher["domain"] if publisher else host
-        if host == "news.google.com" and publisher is None and (settings["preferredDomains"] or settings["excludedDomains"]):
-            continue
-        if matches_domain(host, settings["excludedDomains"]) or matches_domain(filter_host, settings["excludedDomains"]):
-            continue
+        url, publisher = eligible
         language = article.get("language")
         language = language.lower() if isinstance(language, str) and len(language) == 2 and language.isascii() and language.isalpha() else None
         published = None

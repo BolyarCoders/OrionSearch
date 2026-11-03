@@ -29,7 +29,7 @@ class ResearchBusy(RuntimeError):
 
 
 def run_contract_research(request):
-    from api.discovery import build_result, execution_window
+    from api.discovery import build_result, eligible_source, execution_window
 
     days, _, _, _ = execution_window(request)
     if not os.getenv("GEMINI_API_KEY"):
@@ -48,7 +48,7 @@ def run_contract_research(request):
         from google.genai import types
 
         # Preferences are research data. Only these fixed source adapters can be selected.
-        topic = request["title"] + "\nDescription: " + (request["description"] or "") + "\nResearch objective: " + request["objective"]
+        topic = {"title": request["title"], "description": request["description"], "objective": request["objective"]}
         client = genai.Client(api_key=os.environ["GEMINI_API_KEY"], http_options=types.HttpOptions(
             timeout=60000, retry_options=types.HttpRetryOptions(attempts=1)))
         try:
@@ -65,6 +65,7 @@ def run_contract_research(request):
             if errors:
                 logger.warning("Research source collection did not complete")
                 raise RuntimeError("Source collection did not complete")
+            articles = [article for article in articles if eligible_source(article, request["settings"]) is not None]
             articles = ai_agent.select_english_articles(client, articles)
             selected_articles = []
             result = build_result(request, queries, selected, articles, selected_articles=selected_articles)

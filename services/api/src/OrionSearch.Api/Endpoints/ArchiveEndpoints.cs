@@ -15,7 +15,7 @@ public static class ArchiveEndpoints
             var result = await service.CreateAsync(request.Title, request.Description, request.Settings!.ToSettings(), ct);
             return Results.Created($"/archives/{result.Archive.Id}", result);
         }).WithName("CreateArchive").WithSummary("Create an archive, settings and owner membership atomically")
-            .WithDescription("Requires a trusted authenticated, active application user. Title: 1–200 characters; description: at most 10000. Settings default to empty arrays and config object. Dates must be ordered; ISO 639-1 languages and DNS domains must be unique after normalization, without preferred/excluded overlap. No client ownerId is accepted.")
+            .WithDescription("Requires a trusted authenticated, active application user. Title: 1–200 characters; description: at most 10000. Settings default to empty arrays and config object. Research dateFrom, dateTo and languages are deprecated: retained and validated for compatibility but not applied by the current research worker, which uses a 90-day provider window and selects English. Dates must be ordered; ISO 639-1 languages and DNS domains must be unique after normalization, without preferred/excluded overlap. No client ownerId is accepted.")
             .Produces<ArchiveDetails>(201).ProducesProblem(400).ProducesProblem(401);
 
         group.MapGet("", async ([AsParameters] ArchiveListParameters query, ArchiveService service, CancellationToken ct) =>
@@ -33,7 +33,7 @@ public static class ArchiveEndpoints
         group.MapPatch("/{id:guid}", async (Guid id, PatchArchiveRequest request, ArchiveService service, CancellationToken ct) =>
             Results.Ok(await service.UpdateAsync(id, request.ToPatch(), ct)))
             .WithName("UpdateArchive").WithSummary("Update archive and research settings in one transaction")
-            .WithDescription("Owners and editors may edit metadata/settings; only owners may supply status (active, paused, archived). Omitted fields stay unchanged. Null clears description/date boundaries; null title, status, settings, arrays and config are rejected. Arrays and config replace the supplied field completely; nested config is not merged. The complete resulting settings are validated. Config is a JSON object of at most 16 KiB with opaque research preferences; no job execution is triggered.")
+            .WithDescription("Owners and editors may edit metadata/settings; only owners may supply status (active, paused, archived). Research dateFrom, dateTo and languages are deprecated: retained and validated but not applied by the current research worker. Omitted fields stay unchanged. Null clears description/date boundaries; null title, status, settings, arrays and config are rejected. Arrays and config replace the supplied field completely; nested config is not merged. The complete resulting settings are validated. Config is a JSON object of at most 16 KiB with opaque research preferences; no job execution is triggered.")
             .Produces<ArchiveDetails>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
 
         group.MapDelete("/{id:guid}", async (Guid id, ArchiveService service, CancellationToken ct) =>
