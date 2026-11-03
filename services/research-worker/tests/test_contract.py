@@ -245,16 +245,20 @@ def test_excluded_domains_never_reach_language_classification(request_body, monk
     articles = [
         {"url": "https://sub.excluded.example/a", "title": "EXCLUDED_HOST_SECRET"},
         {"url": "https://allowed.example/a", "publisher_name": "Excluded", "publisher_url": "https://excluded.example", "summary": "EXCLUDED_PUBLISHER_SECRET"},
+        {"url": "https://allowed.example/b", "publisher_url": "https://excluded.example", "title": "EXCLUDED_UNNAMED_PUBLISHER_SECRET"},
         {"url": "https://news.google.com/wrapped", "title": "UNKNOWN_PUBLISHER_SECRET"},
         {"url": "https://allowed.example/kept", "title": "Allowed article"},
     ]
     monkeypatch.setattr(service.ai_agent, "collect_articles", lambda *args, **kwargs: (articles, {}, 4))
     prompts = []
-    monkeypatch.setattr(service.ai_agent, "ask_ai", lambda client, prompt: prompts.append(prompt) or "[true]")
+    def classify(client, prompt):
+        prompts.append(prompt)
+        return json.dumps([True] * len(json.loads(prompt.rsplit("\n", 1)[-1])))
+    monkeypatch.setattr(service.ai_agent, "ask_ai", classify)
     result = service.run_contract_research(request_body)
     assert len(prompts) == 1
     assert "Allowed article" in prompts[0]
-    assert all(value not in prompts[0] for value in ("EXCLUDED_HOST_SECRET", "EXCLUDED_PUBLISHER_SECRET", "UNKNOWN_PUBLISHER_SECRET"))
+    assert all(value not in prompts[0] for value in ("EXCLUDED_HOST_SECRET", "EXCLUDED_PUBLISHER_SECRET", "EXCLUDED_UNNAMED_PUBLISHER_SECRET", "UNKNOWN_PUBLISHER_SECRET"))
     assert [source["canonicalUrl"] for source in result["sources"]] == ["https://allowed.example/kept"]
 
 

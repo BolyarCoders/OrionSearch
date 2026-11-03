@@ -30,6 +30,7 @@ def eligible_source(article, settings):
         return None
     host = urlsplit(url).hostname
     publisher = None
+    publisher_host = None
     try:
         publisher_host = urlsplit(canonical_url(article.get("publisher_url"))).hostname
         publisher_name = article.get("publisher_name")
@@ -37,10 +38,10 @@ def eligible_source(article, settings):
             publisher = {"domain": publisher_host, "name": publisher_name.strip()[:100]}
     except (ValueError, UnicodeError):
         pass
-    filter_host = publisher["domain"] if publisher else host
     if host == "news.google.com" and publisher is None and (settings["preferredDomains"] or settings["excludedDomains"]):
         return None
-    if matches_domain(host, settings["excludedDomains"]) or matches_domain(filter_host, settings["excludedDomains"]):
+    if (matches_domain(host, settings["excludedDomains"]) or
+            publisher_host is not None and matches_domain(publisher_host, settings["excludedDomains"])):
         return None
     return url, publisher
 
