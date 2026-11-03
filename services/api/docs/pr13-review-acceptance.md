@@ -58,16 +58,21 @@ hashes matched. Two synthetic versions remain in the bucket. The local probe
 removed the HTTP `Expect` header to accommodate the operator's network, so it is
 not proof of the unmodified Render-to-B2 upload path or an independent backup.
 
-**UNVERIFIED:** a combined restore of nonempty real versioned-object references
-with transactional remapping, restored API authorization and session revocation,
-lease fencing, and exact raw download from the target. The automated
-`RestoreAcceptanceTests` exercises these behaviors using disposable PostgreSQL
-and S3 containers. On 3 November the test failed during fixture setup because
-Testcontainers timed out connecting to `npipe://./pipe/docker_engine`; no
-restore assertions ran. The production
-certificate and encrypted snapshot have no verified independent recovery copy;
-RPO/RTO and revocation reconciliation remain unset. This is partial restore
-evidence, not a pass for the complete production recovery gate.
+The combined `RestoreAcceptanceTests` was rerun successfully after the operator
+started Docker. It used disposable PostgreSQL and versioned S3-compatible
+containers with synthetic accounts, jobs, evidence and an object. It exercised
+real dump/restore, object export/re-upload and reference remapping, restored
+authorization and exact raw download, session revocation and stale lease fencing.
+Command: `dotnet test services/api/tests/OrionSearch.Tests/OrionSearch.Tests.csproj
+--filter FullyQualifiedName~RestoreAcceptanceTests --no-restore`; 1 passed.
+The earlier fixture setup attempt failed because Docker was unavailable; no
+assertions ran in that attempt.
+
+**UNVERIFIED:** a combined restore of nonempty real production object references,
+which were absent from this snapshot. The production certificate and encrypted
+snapshot have no verified independent recovery copy; RPO/RTO and revocation
+reconciliation remain unset. The synthetic integrated test and real snapshot
+restore are strong evidence but are not complete production recovery sign-off.
 
 ## Provider and rollout gates
 
@@ -81,11 +86,16 @@ another teammate will address provider selection and verification.
 
 The live API setting `ResearchWorker__IncludeReport` was changed to `false` on
 3 November and the existing API commit was redeployed. Discovery remains
-enabled. The worker security fix was deployed at commit `c79cf36`; an
+enabled. The worker security fix was initially deployed at commit `c79cf36`; an
 authenticated synthetic run completed with 10 sources, no `theverge.com`
 sources when that domain was excluded, and the report endpoint returned 404.
 The synthetic archive was soft-archived; its test account remains. This confirms
 the flag and current single-source flow, not full intended-provider coverage.
+Follow-up commit `c14504d` also rejects excluded publisher domains when a
+publisher name is absent, and was deployed after its regression test passed.
+An authenticated synthetic request directly to that deployed worker returned
+10 sources, no `theverge.com` URLs, and no report when not requested. This
+direct test did not create an application run or verify complete provider coverage.
 Keep reports disabled until the intended providers and complete recovery
 acceptance are verified. Previous report records remain stored; this flag stops
 requesting new reports and does not erase existing data. Feature branches and
@@ -99,9 +109,9 @@ reconciled before enabling auto-deploy.
 | Worker security and contract tests | PASS | Python suite: 150 tests on the security-change working tree. |
 | Source-list filters and OpenAPI | PASS | 42 targeted .NET tests passed against an isolated PostgreSQL 18 instance, including date boundaries, unknown publication dates and language filters. |
 | Frontend | PASS, not released | TypeScript, 59 tests and the production build passed for PR #14. |
-| PostgreSQL and object restore | UNVERIFIED | Encrypted real DB backup and isolated DB restore passed; synthetic versioned B2 copy passed. Combined end-to-end recovery remains unverified as described above. |
+| Synthetic combined DB/object restore | PASS | `RestoreAcceptanceTests`: 1 passed with Docker, including access, session and lease checks. |
+| Production recovery readiness | UNVERIFIED | Real DB snapshot restore and synthetic B2 copy passed; independent keys/backups, nonempty production object remapping and RPO/RTO remain unverified. |
 | Provider coverage | UNVERIFIED | Intended provider set and Render-to-provider end-to-end checks remain to be confirmed. |
 | Report-disable gate | PASS | Live API setting is false pending provider and recovery gates; a new report request returned 404. |
-| Container restore acceptance | FAIL (environment) | The explicit restore test could not initialize its S3 fixture: Docker engine connection timed out. Rerun it with a working Docker engine. |
-| Full .NET suite | UNVERIFIED | The complete suite was not run; isolated PostgreSQL and API tests were run separately. |
+| Full .NET suite | PASS | `dotnet test services/api/OrionSearch.sln --configuration Release --no-restore`: 478 passed, 0 failed, 0 skipped on `c14504d`. |
 | Human product/security/release approval | UNVERIFIED | PR review and release decisions remain with the team. |
