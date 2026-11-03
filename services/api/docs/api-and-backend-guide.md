@@ -1,5 +1,11 @@
 # OrionSearch API and Backend Guide
 
+> **Research settings update (November 2026):** Saved research `dateFrom`,
+> `dateTo`, and `languages` are deprecated and no longer constrain discovery.
+> They remain stored and validated for compatibility. Source-list query filters
+> still apply. See [PR #13 review acceptance](pr13-review-acceptance.md) for the
+> product decision, frontend transition, and release gates.
+
 A developer reference for the HTTP API, application rules, PostgreSQL persistence and asynchronous research pipeline.
 
 **Documentation date:** 2026-10-20. **Code snapshot:** `f08a64029b950e5ba67e5505bcae5ca811a254e7`, branch `feature/ORION-9-backend-foundation`. This guide describes the checked-out implementation. It is not a fresh audit of GitHub, Jira or deployed Railway resources.
