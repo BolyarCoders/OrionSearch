@@ -52,8 +52,9 @@ export function SettingsPanel({ details, onUpdate }: { details: ArchiveDetails; 
       <fieldset disabled={readOnly || isSaving} className="space-y-5 disabled:opacity-70">
         <Input label="Archive title" required maxLength={200} value={title} onChange={e => setTitle(e.target.value)} />
         <Textarea label="Topic description" maxChars={10000} value={description} onChange={e => setDescription(e.target.value)} hint="Clear the field to remove the description." />
-        <div className="grid sm:grid-cols-2 gap-3"><Input type="date" label="Research from" value={dateFrom} onChange={e => setDateFrom(e.target.value)} /><Input type="date" label="Research to" value={dateTo} onChange={e => setDateTo(e.target.value)} /></div>
-        <Input label="Languages (ISO 639-1)" value={languages} onChange={e => setLanguages(e.target.value)} hint="Comma-separated two-letter codes, such as en, bg. Leave empty for no language preference." />
+        <p className="text-xs text-content-muted">Legacy date and language preferences are retained but no longer filter research. Discovery uses a rolling 90-day window and AI selects English source metadata. Existing saved values remain unchanged.</p>
+        <div className="grid sm:grid-cols-2 gap-3"><Input disabled type="date" label="Legacy research from" value={dateFrom} onChange={e => setDateFrom(e.target.value)} /><Input disabled type="date" label="Legacy research to" value={dateTo} onChange={e => setDateTo(e.target.value)} /></div>
+        <Input disabled label="Legacy languages (ISO 639-1)" value={languages} onChange={e => setLanguages(e.target.value)} hint="Saved for compatibility; not used for research." />
         <Textarea label="Preferred domains" value={preferred} onChange={e => setPreferred(e.target.value)} hint="DNS domains separated by commas or newlines; up to 100." />
         <Textarea label="Excluded domains" value={excluded} onChange={e => setExcluded(e.target.value)} hint="DNS domains only. Preferred and excluded lists cannot overlap." />
         <Textarea label="Additional preferences (JSON object)" value={config} onChange={e => setConfig(e.target.value)} className="font-mono text-xs" hint="Up to 16 KiB. Config replaces the whole object when edited; preserve other preferences you want to keep. A stored cadence does not activate scheduling." />

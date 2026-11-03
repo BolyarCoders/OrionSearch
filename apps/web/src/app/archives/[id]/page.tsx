@@ -376,21 +376,21 @@ export default function ArchiveDetailPage({ params, searchParams }: ArchiveDetai
                 </div>
 
                 <div className="pt-3 border-t border-border/60">
-                  <div className="text-content-muted font-medium mb-1">Date Window</div>
+                  <div className="text-content-muted font-medium mb-1">Legacy date preference (not applied to research)</div>
                   <div className="flex items-center gap-1.5 text-content-secondary">
                     <Calendar className="w-3.5 h-3.5 text-content-muted" />
                     <span>
                       {settings.dateFrom || settings.dateTo
                         ? `${settings.dateFrom || "Any"} to ${settings.dateTo || "Present"}`
-                        : "Unrestricted date window"}
+                        : "No saved preference"}
                     </span>
                   </div>
                 </div>
 
                 <div className="pt-3 border-t border-border/60">
-                  <div className="text-content-muted font-medium mb-1">Languages</div>
+                  <div className="text-content-muted font-medium mb-1">Legacy language preference (not applied to research)</div>
                   <div className="text-content-secondary">
-                    {settings.languages.join(", ").toUpperCase()}
+                    {settings.languages.length ? settings.languages.join(", ").toUpperCase() : "No saved preference"}
                   </div>
                 </div>
 

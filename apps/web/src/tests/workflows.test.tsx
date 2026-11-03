@@ -46,6 +46,19 @@ describe("Research polling", () => {
   });
 });
 describe("Documented form behavior", () => {
+  it("labels legacy research filters as inactive and preserves them on unrelated edits", async () => {
+    const details = structuredClone(INITIAL_ARCHIVES[0]);
+    details.settings.dateFrom = "2026-01-01";
+    details.settings.languages = ["bg"];
+    mocks.patchArchive.mockResolvedValue(details);
+    render(<SettingsPanel details={details} onUpdate={vi.fn()} />);
+    expect(screen.getByText(/Legacy date and language preferences are retained but no longer filter research/)).toBeInTheDocument();
+    expect(screen.getByLabelText("Legacy research from")).toBeDisabled();
+    expect(screen.getByLabelText("Legacy languages (ISO 639-1)")).toBeDisabled();
+    fireEvent.change(screen.getByLabelText(/Archive title/), { target: { value: "Renamed" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save settings" }));
+    await waitFor(() => expect(mocks.patchArchive).toHaveBeenCalledWith(details.archive.id, { title: "Renamed" }));
+  });
   it("reuses the key and objective after an uncertain research submission", async () => {
     mocks.submitResearchJob.mockRejectedValueOnce(new ApiError(503, "Network unavailable")).mockResolvedValueOnce(job);
     const started = vi.fn(); render(<StartResearchModal isOpen onClose={vi.fn()} archiveId={job.archiveId} archiveTitle="AI" onJobStarted={started} />);

@@ -57,15 +57,15 @@ export function CreateArchiveStepper() {
   const [excludedDomainInput, setExcludedDomainInput] = useState("");
   const [excludedDomainError, setExcludedDomainError] = useState<string | null>(null);
 
-  const [languageText, setLanguageText] = useState("en");
-  const [languages, setLanguages] = useState<string[]>(["en"]);
+  const [languageText, setLanguageText] = useState("");
+  const [languages, setLanguages] = useState<string[]>([]);
   const [frequency, setFrequency] = useState<string>("weekly");
 
   const steps = [
     { num: 1, title: "Basic information", desc: "Topic and description" },
-    { num: 2, title: "Time period", desc: "Date range boundaries" },
+    { num: 2, title: "Time period", desc: "Research window" },
     { num: 3, title: "Sources", desc: "Preferred and excluded domains" },
-    { num: 4, title: "Settings", desc: "Languages and cadence" },
+    { num: 4, title: "Settings", desc: "Language and cadence" },
     { num: 5, title: "Review", desc: "Confirm and create" },
   ];
 
@@ -274,8 +274,6 @@ export function CreateArchiveStepper() {
                     setTitle(preset.title);
                     setDescription(preset.description);
                     setPreferredDomains(preset.preferredDomains);
-                    setLanguages(preset.languages);
-                    setLanguageText(preset.languages.join(", "));
                     setSelectedTemplateKey(preset.key);
                     if (titleError) setTitleError(null);
                   }}
@@ -290,13 +288,14 @@ export function CreateArchiveStepper() {
               <div>
                 <h3 className="text-base font-semibold text-content-primary">Time period</h3>
                 <p className="text-xs text-content-muted mt-0.5">
-                  Set optional UTC publication date boundaries for discoveries.
+                  Date preferences are deprecated and no longer filter discoveries. Research uses a rolling 90-day provider window.
                 </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Input
                   label="From date"
+                  disabled
                   type="date"
                   value={dateFrom}
                   onChange={(e) => {
@@ -307,6 +306,7 @@ export function CreateArchiveStepper() {
                 />
                 <Input
                   label="To date"
+                  disabled
                   type="date"
                   value={dateTo}
                   onChange={(e) => {
@@ -334,7 +334,7 @@ export function CreateArchiveStepper() {
               )}
 
               <div className="p-3.5 rounded-control bg-surface-raised border border-border text-xs text-content-muted leading-relaxed">
-                Leaving dates empty keeps discovery open to all publication periods. Missing publication dates on discovered sources will remain tagged as <span className="text-content-primary font-mono text-xs">Unknown</span>.
+                Sources can have unknown publication dates when their pages do not provide reliable metadata.
               </div>
             </div>
           )}
@@ -466,11 +466,11 @@ export function CreateArchiveStepper() {
               <div>
                 <h3 className="text-base font-semibold text-content-primary">Settings & Preferences</h3>
                 <p className="text-xs text-content-muted mt-0.5">
-                  Configure language scope and preferred update frequency.
+                  Review language behavior and preferred update frequency.
                 </p>
               </div>
 
-              <Input label="Languages (ISO 639-1)" value={languageText} onChange={e => { setLanguageText(e.target.value); setLanguages(splitValues(e.target.value).map(s => s.toLowerCase())); }} hint="Comma-separated codes such as en, bg, es. Leave empty for no language preference." />
+              <Input disabled label="Legacy languages (ISO 639-1)" value={languageText} onChange={e => { setLanguageText(e.target.value); setLanguages(splitValues(e.target.value).map(s => s.toLowerCase())); }} hint="Deprecated: saved language preferences are not applied. AI selects English from available source metadata." />
               <Textarea label="Additional preferences (JSON object)" value={extraConfig} onChange={e => setExtraConfig(e.target.value)} hint="Optional research preferences, up to 16 KiB. The selected template and cadence are stored alongside these values." className="font-mono text-xs" />
               {/* Cadence preference */}
               <div className="pt-2 border-t border-border/80">
@@ -518,15 +518,15 @@ export function CreateArchiveStepper() {
 
                 <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/60">
                   <div>
-                    <div className="text-content-muted text-xs">Date Window</div>
+                    <div className="text-content-muted text-xs">Legacy date preference (not applied)</div>
                     <div className="text-content-secondary mt-0.5">
-                      {dateFrom || dateTo ? `${dateFrom || "Any"} to ${dateTo || "Present"}` : "Unrestricted"}
+                      {dateFrom || dateTo ? `${dateFrom || "Any"} to ${dateTo || "Present"}` : "No saved preference"}
                     </div>
                   </div>
                   <div>
-                    <div className="text-content-muted text-xs">Languages</div>
+                    <div className="text-content-muted text-xs">Legacy language preference (not applied)</div>
                     <div className="text-content-secondary mt-0.5">
-                      {languages.join(", ").toUpperCase()}
+                      {languages.length ? languages.join(", ").toUpperCase() : "No saved preference"}
                     </div>
                   </div>
                 </div>
