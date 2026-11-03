@@ -8,8 +8,10 @@ import { useResearchRun } from "@/lib/hooks/use-research-run";
 import { StartResearchModal } from "@/components/archive-detail/start-research-modal";
 import { SettingsPanel } from "@/components/archive-detail/settings-panel";
 import { ArchiveHeader } from "@/components/archive-detail/archive-header";
-const mocks = vi.hoisted(() => ({ getResearchJob: vi.fn(), submitResearchJob: vi.fn(), patchArchive: vi.fn() }));
+import { CreateArchiveStepper } from "@/components/create-archive/create-archive-stepper";
+const mocks = vi.hoisted(() => ({ getResearchJob: vi.fn(), submitResearchJob: vi.fn(), patchArchive: vi.fn(), createArchive: vi.fn(), push: vi.fn() }));
 vi.mock("@/lib/context/app-mode-context", () => ({ useAppMode: () => ({ client: mocks, mode: "demo" }) }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mocks.push }) }));
 const job: ResearchRunStatus = { id: "22222222-2222-4222-8222-222222222222", archiveId: INITIAL_ARCHIVES[0].archive.id, status: "queued", createdAt: "2026-10-27T00:00:00Z", startedAt: null, finishedAt: null, statistics: { queries: 0, sources: 0, versions: 0, findings: 0 }, attempts: 0, maxAttempts: 3, nextAttemptAt: null, retrying: false, error: null };
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.clearAllMocks(); sessionStorage.clear(); });
 describe("Research polling", () => {
@@ -46,6 +48,34 @@ describe("Research polling", () => {
   });
 });
 describe("Documented form behavior", () => {
+  it("creates an archive from a template without applying legacy date or language preferences", async () => {
+    mocks.createArchive.mockResolvedValue({ archive: { id: "new-archive" } });
+    render(<CreateArchiveStepper />);
+
+    const template = screen.getByRole("button", { name: /Artificial Intelligence Research and industry developments/ });
+    fireEvent.click(template);
+    expect(template).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(screen.getByLabelText("From date")).toBeDisabled();
+    expect(screen.getByLabelText("To date")).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(screen.getByLabelText("Legacy languages (ISO 639-1)")).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create Archive" }));
+
+    await waitFor(() => expect(mocks.createArchive).toHaveBeenCalledWith(expect.objectContaining({
+      title: "Artificial Intelligence",
+      settings: expect.objectContaining({
+        dateFrom: null,
+        dateTo: null,
+        languages: [],
+        config: expect.objectContaining({ templateKey: "artificial-intelligence" }),
+      }),
+    })));
+    expect(mocks.createArchive).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(mocks.push).toHaveBeenCalledWith("/archives/new-archive"));
+  });
   it("labels legacy research filters as inactive and preserves them on unrelated edits", async () => {
     const details = structuredClone(INITIAL_ARCHIVES[0]);
     details.settings.dateFrom = "2026-01-01";
