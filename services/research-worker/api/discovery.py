@@ -108,6 +108,9 @@ def build_result(request, queries, providers, articles, today=None, selected_art
             source["publishedAt"] = published.isoformat().replace("+00:00", "Z")
         if language:
             source["language"] = language
+        score = article.get("relevance")
+        if type(score) in (int, float) and 0 <= score <= 1:
+            source["relevance"] = score
         if publisher:
             source["publisher"] = publisher
         sources[url] = source
