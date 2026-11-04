@@ -6,6 +6,19 @@ namespace OrionSearch.Tests;
 
 public sealed class ReverseProxyTests
 {
+    [Fact]
+    public async Task DefaultAccountLimitAllowsSharedClientsMoreThanTheOldThreshold()
+    {
+        using var factory = new ApiFactory("Development");
+        using var configured = factory.WithSettings(new() { ["NativeIdentity:Enabled"] = "true" });
+        using var client = configured.CreateClient();
+        for (var i = 0; i < 12; i++)
+        {
+            using var response = await client.PostAsJsonAsync("/auth/login", new { });
+            Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        }
+    }
+
     [Theory]
     [InlineData("/auth/login")]
     [InlineData("/archives/11111111-1111-1111-1111-111111111111/research-jobs")]
