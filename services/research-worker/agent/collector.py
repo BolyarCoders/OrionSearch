@@ -19,6 +19,7 @@ logger = logging.getLogger("orionsearch.collector")
 # ============================================================
 
 SOURCES = (
+    "web_search",
     "google_news",
     "hacker_news",
     "arxiv",
@@ -97,7 +98,7 @@ def get_selected_sources():
     raw = os.getenv("RESEARCH_SOURCES")
 
     if raw is None:
-        return ["google_news", "hacker_news"]
+        return ["web_search", "google_news"]
 
     sources = [source.strip() for source in raw.split(",")]
 
@@ -291,8 +292,9 @@ def process_articles(articles, days, max_articles=None):
     """
     Filter, normalize, classify and deduplicate articles.
 
-    - Validates publication dates.
-    - Removes articles outside the requested period.
+    - Validates known publication dates.
+    - Retains undated web discoveries without inventing a publication time.
+    - Removes dated articles outside the requested period.
     - Deduplicates normalized titles.
     - Restores original trend classification.
     - Sorts newest first.
@@ -312,55 +314,56 @@ def process_articles(articles, days, max_articles=None):
         title = article.get("title", "")
         url = article.get("url", "")
         published = article.get("published_at")
-
-        if not title or not url or not published:
+        if not title or not url:
             continue
 
-        try:
-            date = datetime.fromisoformat(str(published).replace("Z", "+00:00"))
-
-            if date.tzinfo is None:
-                date = date.replace(tzinfo=timezone.utc)
-
-            date = date.astimezone(timezone.utc)
-
-        except (TypeError, ValueError):
+        # Search indexes return relevant URLs but usually no reliable
+        # publication date. Treat these as discoveries, not dated news.
+        known_date = None
+        if published:
+            try:
+                known_date = datetime.fromisoformat(
+                    str(published).replace("Z", "+00:00")
+                )
+                if known_date.tzinfo is None:
+                    known_date = known_date.replace(tzinfo=timezone.utc)
+                known_date = known_date.astimezone(timezone.utc)
+            except (TypeError, ValueError, OverflowError):
+                continue
+            if not cutoff <= known_date <= now:
+                continue
+        elif article.get("source") != "Web Search":
+            # Preserve the existing date requirement for RSS/news adapters.
             continue
 
-        # Reject outdated and future-dated articles.
-        if not cutoff <= date <= now:
-            continue
-
-        # Normalize title for deduplication.
-        key = re.sub(r"\W+", "", title.casefold())
-
+        key = re.sub(r"\\W+", "", title.casefold())
         if not key:
             continue
 
         normalized = dict(article)
-
-        normalized["published_at"] = date.isoformat()
-
-        # Restore keyword-based trend classification.
+        normalized["published_at"] = known_date.isoformat() if known_date else None
         normalized["trends"] = classify_trends(normalized)
-
         previous = unique.get(key)
-
-        # Keep the newest article when titles are duplicates.
         if previous is None or (
-            normalized["published_at"],
-            normalized["url"],
+            normalized.get("source") == "Web Search",
+            -normalized.get("search_rank", 99999),
+            normalized.get("published_at") or "",
         ) > (
-            previous["published_at"],
-            previous["url"],
+            previous.get("source") == "Web Search",
+            -previous.get("search_rank", 99999),
+            previous.get("published_at") or "",
         ):
             unique[key] = normalized
 
+    # General web results preserve search-engine relevance order.
+    # News-only results continue to rank by recency.
     result = sorted(
         unique.values(),
         key=lambda article: (
-            article["published_at"],
-            article["url"],
+            article.get("source") == "Web Search",
+            -article.get("search_rank", 99999),
+            article.get("published_at") or "",
+            article.get("url") or "",
         ),
         reverse=True,
     )
@@ -417,14 +420,19 @@ def collect(
             for query in queries
             if isinstance(query, str) and query.strip()
         )
-    )[:2] or [topic]
+    )[:3] or [topic]
 
     tasks = []
 
     # Build source-specific tasks.
     for source in dict.fromkeys(selected_sources):
 
-        if source == "google_news":
+        if source == "web_search":
+            from web_search import search_web
+            for query in query_list:
+                tasks.append((f"web_search:{query}", search_web, (query, days, feed_limit)))
+
+        elif source == "google_news":
             for query in query_list:
                 tasks.append(
                     (
