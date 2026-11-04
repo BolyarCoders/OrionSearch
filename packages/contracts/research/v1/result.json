@@ -1,0 +1,32 @@
+{
+  "contractVersion": "orion.research.v1",
+  "researchRunId": "11111111-1111-4111-8111-111111111111",
+  "queries": [{ "query": "documented research methods", "provider": "test-provider" }],
+  "sources": [
+    {
+      "key": "source-1",
+      "canonicalUrl": "https://example.com/methods",
+      "title": "Example research methods",
+      "language": "en",
+      "publishedAt": null,
+      "publisher": { "name": "Example", "domain": "example.com" },
+      "relevance": 0.8,
+      "capture": {
+        "fetchedAt": "2026-10-18T08:01:00Z",
+        "extractedText": "Research methods preserve evidence.",
+        "chunks": [{ "index": 0, "text": "Research methods preserve evidence.", "startOffset": 0, "endOffset": 35 }],
+        "metadata": { "producer": "deterministic-test-fixture" }
+      }
+    },
+    { "key": "discovery-2", "canonicalUrl": "https://example.com/discovered" }
+  ],
+  "findings": [
+    {
+      "key": "finding-1",
+      "statement": "The source discusses evidence preservation.",
+      "type": "observation",
+      "confidence": 0.7,
+      "evidence": [{ "sourceKey": "source-1", "chunkIndex": 0, "stance": "supports", "quote": "preserve evidence" }]
+    }
+  ]
+}

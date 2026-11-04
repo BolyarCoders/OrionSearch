@@ -7,7 +7,7 @@ using OrionSearch.Domain.Research;
 
 namespace OrionSearch.Application.Research;
 
-public sealed class ResearchService(IArchiveStore archives, ArchiveAuthorization authorization, IResearchStore store, ResearchWorkerOptions options)
+public sealed class ResearchService(IArchiveStore archives, ArchiveAuthorization authorization, IResearchStore store, ResearchWorkerOptions options, IResearchAdmission admission)
 {
     public async Task<ResearchStatus> SubmitAsync(Guid archiveId, string? objective, string? clientKey, CancellationToken ct)
     {
@@ -31,9 +31,10 @@ public sealed class ResearchService(IArchiveStore archives, ArchiveAuthorization
             return existing!;
         }
         if (access.Archive.Status != "active") throw new ArchiveRequestException(409, "Research requires an active archive.");
+        var admittedAt = await admission.RequireCapacityAsync(access.Archive.OwnerId, archiveId, ct);
         var settings = access.Settings;
         ArchiveValidation.Settings(settings);
-        var run = new ResearchRun { Id = Guid.NewGuid(), ArchiveId = archiveId };
+        var run = new ResearchRun { Id = Guid.NewGuid(), ArchiveId = archiveId, CreatedAt = admittedAt };
         var request = new AgentRequest(ResearchContract.Version, run.Id, archiveId, access.Archive.Title, access.Archive.Description,
             objective ?? access.Archive.Title, new ArchiveSettingsData(settings.DateFrom, settings.DateTo, settings.Languages,
                 settings.PreferredDomains, settings.ExcludedDomains, JsonSerializer.Deserialize<JsonElement>(settings.Config), settings.UpdatedAt));
@@ -42,6 +43,7 @@ public sealed class ResearchService(IArchiveStore archives, ArchiveAuthorization
             Id = Guid.NewGuid(),
             ResearchRunId = run.Id,
             JobType = "research_plan",
+            CreatedAt = admittedAt,
             MaxAttempts = options.MaxAttempts,
             Payload = JsonSerializer.Serialize(new ResearchPayload(fingerprint, request), ResearchContract.Json),
             IdempotencyKey = key
@@ -57,6 +59,16 @@ public sealed class ResearchService(IArchiveStore archives, ArchiveAuthorization
         var run = await store.FindRunAsync(id, ct) ?? throw new ArchiveRequestException(404, "Research run not found.");
         await authorization.RequireAccessAsync(userId, run.ArchiveId, false, ct);
         return (await store.StatusAsync(id, ct))!;
+    }
+
+    public async Task<ResearchReport> GetReportAsync(Guid id, CancellationToken ct)
+    {
+        var userId = await authorization.RequireUserAsync(ct);
+        var run = await store.FindRunAsync(id, ct) ?? throw new ArchiveRequestException(404, "Research run not found.");
+        await authorization.RequireAccessAsync(userId, run.ArchiveId, false, ct);
+        if (run.Status != "completed" || run.Report is null)
+            throw new ArchiveRequestException(404, "Research report not available.");
+        return new ResearchReport(run.Id, run.Report);
     }
 
     private static string Hash(string value) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));

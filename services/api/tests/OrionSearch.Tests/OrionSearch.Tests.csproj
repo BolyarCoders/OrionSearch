@@ -24,11 +24,15 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\OrionSearch.Api\OrionSearch.Api.csproj" />
+    <ProjectReference Include="..\..\src\OrionSearch.Worker\OrionSearch.Worker.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="../../../../packages/contracts/research/provisional-v1/request.json" Link="Contracts/request.json" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="../../../../packages/contracts/research/provisional-v1/result.json" Link="Contracts/result.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../../../packages/contracts/research/v1/request.json" Link="Contracts/request.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../../../packages/contracts/research/v1/result.json" Link="Contracts/result.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../../../packages/contracts/research/v1/discovery-result.json" Link="Contracts/discovery-result.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../../../packages/contracts/research/v1/capture-result.json" Link="Contracts/capture-result.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../../../packages/contracts/research/v1/capture-source.html" Link="Contracts/capture-source.html" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

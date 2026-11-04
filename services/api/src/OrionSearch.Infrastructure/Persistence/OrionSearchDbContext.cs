@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using OrionSearch.Domain.Auth;
 using OrionSearch.Domain.Content;
 using OrionSearch.Domain.Jobs;
@@ -7,8 +8,9 @@ using OrionSearch.Domain.Research;
 
 namespace OrionSearch.Infrastructure.Persistence;
 
-public sealed class OrionSearchDbContext(DbContextOptions<OrionSearchDbContext> options) : DbContext(options)
+public sealed class OrionSearchDbContext(DbContextOptions<OrionSearchDbContext> options) : DbContext(options), IDataProtectionKeyContext
 {
+    public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
     public DbSet<User> Users => Set<User>();
     public DbSet<Archive> Archives => Set<Archive>();
     public DbSet<ArchiveMember> ArchiveMembers => Set<ArchiveMember>();
@@ -19,6 +21,7 @@ public sealed class OrionSearchDbContext(DbContextOptions<OrionSearchDbContext> 
     public DbSet<Document> Documents => Set<Document>();
     public DbSet<DocumentVersion> DocumentVersions => Set<DocumentVersion>();
     public DbSet<ArchiveDocument> ArchiveDocuments => Set<ArchiveDocument>();
+    public DbSet<ArchiveDocumentVersion> ArchiveDocumentVersions => Set<ArchiveDocumentVersion>();
     public DbSet<DocumentChunk> DocumentChunks => Set<DocumentChunk>();
     public DbSet<Finding> Findings => Set<Finding>();
     public DbSet<FindingEvidence> FindingEvidence => Set<FindingEvidence>();
@@ -28,6 +31,7 @@ public sealed class OrionSearchDbContext(DbContextOptions<OrionSearchDbContext> 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasPostgresExtension("citext");
+        modelBuilder.Entity<DataProtectionKey>().ToTable("data_protection_keys", "system");
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(OrionSearchDbContext).Assembly);
     }
 }

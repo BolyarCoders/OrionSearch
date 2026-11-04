@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using Microsoft.Extensions.Logging;
 using OrionSearch.Application.Archives;
 using OrionSearch.Application.Research;
 using OrionSearch.Infrastructure.Research;
@@ -8,6 +9,57 @@ namespace OrionSearch.Tests.Research;
 
 public sealed class ResearchAgentHttpTests
 {
+    [Fact]
+    public async Task DefaultV1DispatchRequestsReportWithSelectedDates()
+    {
+        var request = Request();
+        request = request with { Settings = request.Settings with { DateFrom = new DateOnly(2026, 10, 1), DateTo = new DateOnly(2026, 10, 31) } };
+        var options = new ResearchWorkerOptions { AgentBaseAddress = "https://agent.example/", AgentApiKey = "synthetic-test-service-credential" };
+        using var client = new HttpClient(new StubHandler(async (message, _) =>
+        {
+            var sent = (await message.Content!.ReadFromJsonAsync<AgentRequest>(ResearchContract.Json))!;
+            Assert.True(sent.IncludeReport);
+            Assert.Equal(request.Settings.DateFrom, sent.Settings.DateFrom);
+            Assert.Equal(request.Settings.DateTo, sent.Settings.DateTo);
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(ResearchTestData.Output(request.ResearchRunId) with { Report = "Обзор [1]" }, options: ResearchContract.Json) };
+        }));
+        Assert.Equal("Обзор [1]", (await new HttpResearchAgentClient(client, options).ExecuteAsync(request, default)).Report);
+    }
+
+    [Fact]
+    public async Task OptInRequestsAndValidatesAReport()
+    {
+        var request = Request();
+        var options = Options();
+        options.IncludeReport = true;
+        using var client = new HttpClient(new StubHandler(async (message, _) =>
+        {
+            var sent = await message.Content!.ReadFromJsonAsync<AgentRequest>(ResearchContract.Json);
+            Assert.True(sent!.IncludeReport);
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(ResearchTestData.Output(request.ResearchRunId) with { Report = "Analysis [1]" }, options: ResearchContract.Json) };
+        }));
+        Assert.Equal("Analysis [1]", (await new HttpResearchAgentClient(client, options).ExecuteAsync(request, default)).Report);
+    }
+
+    [Fact]
+    public async Task MissingRequestedReportIsAContractFailure()
+    {
+        var request = Request();
+        var options = Options();
+        options.IncludeReport = true;
+        using var client = new HttpClient(new StubHandler((_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        { Content = JsonContent.Create(ResearchTestData.Output(request.ResearchRunId), options: ResearchContract.Json) })));
+        Assert.Equal(ResearchFailure.Contract, (await Assert.ThrowsAsync<ResearchAgentException>(() => new HttpResearchAgentClient(client, options).ExecuteAsync(request, default))).Failure);
+    }
+
+    [Fact]
+    public async Task UnrequestedReportIsAContractFailure()
+    {
+        var request = Request();
+        using var client = new HttpClient(new StubHandler((_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        { Content = JsonContent.Create(ResearchTestData.Output(request.ResearchRunId) with { Report = "Unexpected" }, options: ResearchContract.Json) })));
+        Assert.Equal(ResearchFailure.Contract, (await Assert.ThrowsAsync<ResearchAgentException>(() => new HttpResearchAgentClient(client, Options()).ExecuteAsync(request, default))).Failure);
+    }
     [Fact]
     public async Task HttpClientUsesOnlyConfiguredAddressAuthenticationAndVersionedBody()
     {
@@ -48,7 +100,7 @@ public sealed class ResearchAgentHttpTests
     [InlineData("null")]
     public async Task InvalidBodiesCannotBecomeSuccessfulResults(string body)
     {
-        using var client = new HttpClient(new StubHandler((_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(body) })));
+        using var client = new HttpClient(new StubHandler((_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json") })));
         var exception = await Assert.ThrowsAsync<ResearchAgentException>(() => new HttpResearchAgentClient(client, Options()).ExecuteAsync(Request(), default));
         Assert.Equal(ResearchFailure.Contract, exception.Failure);
     }
@@ -59,7 +111,7 @@ public sealed class ResearchAgentHttpTests
         var options = Options();
         options.MaxResponseBytes = 1024;
         using var client = new HttpClient(new StubHandler((_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-        { Content = new StreamContent(new NonSeekableMemoryStream(new byte[1025])) })));
+        { Content = JsonStream(new NonSeekableMemoryStream(new byte[1025])) })));
         var exception = await Assert.ThrowsAsync<ResearchAgentException>(() => new HttpResearchAgentClient(client, options).ExecuteAsync(Request(), default));
         Assert.Equal(ResearchFailure.Contract, exception.Failure);
     }
@@ -72,6 +124,16 @@ public sealed class ResearchAgentHttpTests
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => new HttpResearchAgentClient(failed, Options()).ExecuteAsync(Request(), cancellation.Token));
+    }
+
+    [Fact]
+    public async Task NetworkDiagnosticsDoNotLogPrivateExceptionDetails()
+    {
+        var logger = new RecordingLogger();
+        using var client = new HttpClient(new StubHandler((_, _) => throw new HttpRequestException("private network address")));
+        await Assert.ThrowsAsync<ResearchAgentException>(() => new HttpResearchAgentClient(client, Options(), logger: logger).ExecuteAsync(Request(), default));
+        Assert.Contains("network failure", logger.Message);
+        Assert.DoesNotContain("private network address", logger.Message);
     }
 
     [Theory]
@@ -88,19 +150,19 @@ public sealed class ResearchAgentHttpTests
     public async Task AnInterruptedResponseBodyIsATransientServiceFailure()
     {
         using var http = new HttpClient(new StubHandler((_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-        { Content = new StreamContent(new InterruptedResponseStream()) })));
+        { Content = JsonStream(new InterruptedResponseStream()) })));
         var failure = await Assert.ThrowsAsync<ResearchAgentException>(() => new HttpResearchAgentClient(http, Options()).ExecuteAsync(Request(), default));
         Assert.Equal(ResearchFailure.Unavailable, failure.Failure);
         Assert.DoesNotContain("private", failure.Message);
     }
 
     [Fact]
-    public void ConfigurationRequiresExplicitProvisionalOptInAndCredentials()
+    public void StableConfigurationRequiresCredentialsWithoutProvisionalOptIn()
     {
         using var http = new HttpClient();
         var options = Options();
         options.AllowProvisionalContract = false;
-        Assert.False(new HttpResearchAgentClient(http, options).IsConfigured);
+        Assert.True(new HttpResearchAgentClient(http, options).IsConfigured);
         options.AllowProvisionalContract = true;
         options.AgentApiKey = null;
         Assert.False(new HttpResearchAgentClient(http, options).IsConfigured);
@@ -118,8 +180,16 @@ public sealed class ResearchAgentHttpTests
         Assert.False(new HttpResearchAgentClient(http, options).IsConfigured);
     }
 
+    private static StreamContent JsonStream(Stream stream)
+    {
+        var content = new StreamContent(stream);
+        content.Headers.ContentType = new("application/json");
+        return content;
+    }
+
     private static ResearchWorkerOptions Options() => new()
     {
+        IncludeReport = false,
         AgentBaseAddress = "https://agent.example/internal/",
         AgentApiKey = "synthetic-test-service-credential",
         AllowProvisionalContract = true
@@ -129,6 +199,14 @@ public sealed class ResearchAgentHttpTests
     private sealed class StubHandler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> send) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) => send(request, cancellationToken);
+    }
+    private sealed class RecordingLogger : ILogger<HttpResearchAgentClient>
+    {
+        public string Message { get; private set; } = "";
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel logLevel) => true;
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) =>
+            Message = formatter(state, exception);
     }
     private sealed class NonSeekableMemoryStream(byte[] bytes) : MemoryStream(bytes)
     {

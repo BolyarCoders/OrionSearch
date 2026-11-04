@@ -14,6 +14,7 @@ using OrionSearch.Domain.Auth;
 using OrionSearch.Domain.Research;
 using OrionSearch.Infrastructure.Persistence;
 using OrionSearch.Tests.Persistence;
+using OrionSearch.Application.Research;
 
 namespace OrionSearch.Tests.Archives;
 
@@ -27,7 +28,7 @@ internal sealed class ArchiveApiScenario(PostgreSqlFixture database, string conn
     public OrionSearchDbContext Context() => database.CreateContext(ConnectionString);
     public AsyncServiceScope Scope() => _factory!.Services.CreateAsyncScope();
 
-    public static async Task<ArchiveApiScenario> CreateAsync(PostgreSqlFixture database)
+    public static async Task<ArchiveApiScenario> CreateAsync(PostgreSqlFixture database, Action<IServiceCollection>? configure = null, bool useDefaultResearchLimits = false)
     {
         var scenario = new ArchiveApiScenario(database, await database.CreateDatabaseAsync());
         await using var context = scenario.Context();
@@ -58,8 +59,21 @@ internal sealed class ArchiveApiScenario(PostgreSqlFixture database, string conn
         {
             builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(
                 new Dictionary<string, string?> { ["ConnectionStrings:OrionSearch"] = scenario.ConnectionString }));
-            builder.ConfigureServices(services => services.AddAuthentication("ArchiveTest")
-                .AddScheme<AuthenticationSchemeOptions, ArchiveTestAuthenticationHandler>("ArchiveTest", _ => { }));
+            builder.ConfigureServices(services =>
+            {
+                services.AddAuthentication("ArchiveTest")
+                    .AddScheme<AuthenticationSchemeOptions, ArchiveTestAuthenticationHandler>("ArchiveTest", _ => { });
+                // Lease/provenance tests exercise multiple simultaneous jobs. Quota
+                // acceptance tests explicitly use production defaults instead.
+                if (!useDefaultResearchLimits) services.PostConfigure<ResearchLimitOptions>(limits =>
+                {
+                    limits.MaxConcurrentAttempts = 100;
+                    limits.MaxOutstandingGlobal = limits.MaxOutstandingPerOwner = limits.MaxOutstandingPerArchive = 1000;
+                    limits.MaxRunsGlobalPerDay = limits.MaxRunsPerOwnerPerDay = limits.MaxRunsPerOwnerPerMinute = 1000;
+                    limits.MaxSubmissionsPerIpPerMinute = limits.MaxAttemptsGlobalPerDay = limits.MaxAttemptsPerOwnerPerDay = 1000;
+                });
+                configure?.Invoke(services);
+            });
         });
         return scenario;
     }

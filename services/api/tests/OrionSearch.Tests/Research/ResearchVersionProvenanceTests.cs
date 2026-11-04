@@ -16,7 +16,7 @@ public sealed class ResearchVersionProvenanceTests(PostgreSqlFixture database)
     [InlineData(true)]
     public async Task TextEnrichesAnIdenticalRawVersionWithoutChangingItsIdentity(bool legacyMetadata)
     {
-        await using var scenario = await ArchiveApiScenario.CreateAsync(database);
+        await using var scenario = await ArchiveApiScenario.CreateAsync(database, TestCaptureStore.RegisterLegacyFixtures);
         var rawRun = await ResearchTestData.SubmitAsync(scenario);
         var rawHash = ContentFingerprint.ComputeRaw("Research preserves evidence."u8);
         Assert.Equal(ContentFingerprint.Compute("Research preserves evidence."), rawHash);
@@ -73,7 +73,7 @@ public sealed class ResearchVersionProvenanceTests(PostgreSqlFixture database)
     [Fact]
     public async Task DifferentRawAndTextDigestsRemainSeparateVersions()
     {
-        await using var scenario = await ArchiveApiScenario.CreateAsync(database);
+        await using var scenario = await ArchiveApiScenario.CreateAsync(database, TestCaptureStore.RegisterLegacyFixtures);
         var rawRun = await ResearchTestData.SubmitAsync(scenario);
         var rawHash = ContentFingerprint.ComputeRaw("<html>Research preserves evidence.</html>"u8);
         var textHash = ContentFingerprint.Compute("Research preserves evidence.");
@@ -132,6 +132,7 @@ public sealed class ResearchVersionProvenanceTests(PostgreSqlFixture database)
             Metadata = JsonSerializer.SerializeToElement(new
             {
                 producer = "test",
+                verified_raw = new { size_bytes = 999, media_type = "forged" },
                 raw_sha256 = ContentFingerprint.ComputeRaw("unrelated bytes"u8),
                 content_hash = new { basis = "raw_bytes" },
                 representations = new { raw = new { storage_uri = "urn:not-retained" } }
@@ -147,6 +148,7 @@ public sealed class ResearchVersionProvenanceTests(PostgreSqlFixture database)
         Assert.Null(version.StorageUri);
         Assert.Equal("normalized_extracted_text", metadata.RootElement.GetProperty("content_hash").GetProperty("basis").GetString());
         Assert.False(metadata.RootElement.TryGetProperty("raw_sha256", out _));
+        Assert.False(metadata.RootElement.TryGetProperty("verified_raw", out _));
         Assert.False(metadata.RootElement.GetProperty("representations").TryGetProperty("raw", out _));
     }
 

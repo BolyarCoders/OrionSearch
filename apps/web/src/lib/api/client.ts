@@ -35,6 +35,19 @@ export class ApiError extends Error {
   }
 }
 
+export class ApiCloudflareChallengeError extends ApiError {
+  constructor(status: number) {
+    super(status, "Защитата на сайта изисква проверка, която не може да бъде завършена тук. Опитайте отново по-късно или се свържете с екипа за поддръжка.");
+    this.name = "ApiCloudflareChallengeError";
+  }
+}
+
+function checkForChallenge(response: Response): void {
+  if (response.headers.get("cf-mitigated") === "challenge") {
+    throw new ApiCloudflareChallengeError(response.status);
+  }
+}
+
 export const DEFAULT_API_URL = process.env.NEXT_PUBLIC_API_URL || "https://orionsearch-api.onrender.com";
 
 /** Same-origin path that next.config.mjs rewrites to the API (avoids browser CORS). */
@@ -125,10 +138,14 @@ export class LiveApiClient implements IApiClient {
             cache: "no-store",
             signal: AbortSignal.timeout(75000),
           });
+          checkForChallenge(res);
           if (!res.ok) { if (res.status === 401) tokenStore.write(null); return false; }
           tokenStore.write((await res.json()) as TokenResponse);
           return true;
-        } catch { return false; }
+        } catch (error) {
+          if (error instanceof ApiCloudflareChallengeError) throw error;
+          return false;
+        }
       })().finally(() => { this.refreshing = null; });
     }
     return this.refreshing;
@@ -151,6 +168,7 @@ export class LiveApiClient implements IApiClient {
         `Неуспешна връзка със сървъра (${this.baseUrl}): ${err instanceof Error ? err.message : String(err)}`
       );
     }
+    checkForChallenge(response);
     if (response.status === 401 && auth && tokens && !retried && (await this.refresh())) {
       return this.send(path, options, auth, true);
     }

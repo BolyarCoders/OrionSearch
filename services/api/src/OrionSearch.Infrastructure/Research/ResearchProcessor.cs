@@ -21,27 +21,27 @@ public sealed class ResearchProcessor(IResearchQueue queue, IResearchAgentClient
         var pulse = KeepLeaseAsync(lease, heartbeat.Token, call);
         try
         {
-            AgentResult result;
-            try { result = await agent.ExecuteAsync(request, call.Token); }
-            finally
-            {
-                // Settle any renewal before completion/failure acquires the job row.
-                await heartbeat.CancelAsync();
-                await pulse;
-            }
-            var committed = await queue.CompleteAsync(lease, result, ct);
+            var result = await agent.ExecuteAsync(request, call.Token);
+            var committed = await queue.CompleteAsync(lease, result, call.Token);
             logger.LogInformation("Research {RunId} attempt {Attempt} finished; committed={Committed}", lease.RunId, lease.Attempt, committed);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (OperationCanceledException) { await FailAsync(lease, ResearchFailure.Timeout, ct); }
-        catch (ResearchAgentException exception) { await FailAsync(lease, exception.Failure, ct); }
+        catch (ResearchAgentException exception) { await FailAsync(lease, exception.Failure, ct, exception.RetryAfterSeconds); }
         catch (Exception) { await FailAsync(lease, ResearchFailure.Persistence, ct); }
+        finally
+        {
+            // Verification performs object I/O before completion locks the job. Keep
+            // renewing through it; settle any blocked renewal after commit/rollback.
+            await heartbeat.CancelAsync();
+            await pulse;
+        }
         return true;
     }
 
-    private async Task FailAsync(ResearchLease lease, ResearchFailure failure, CancellationToken ct)
+    private async Task FailAsync(ResearchLease lease, ResearchFailure failure, CancellationToken ct, int? retryAfterSeconds = null)
     {
-        var recorded = await queue.FailAsync(lease, failure, ct);
+        var recorded = await queue.FailAsync(lease, failure, ct, retryAfterSeconds);
         logger.LogWarning("Research {RunId} attempt {Attempt} failed: {Failure}; recorded={Recorded}", lease.RunId, lease.Attempt, failure, recorded);
     }
 

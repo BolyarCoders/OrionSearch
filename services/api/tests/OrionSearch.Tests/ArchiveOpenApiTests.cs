@@ -16,7 +16,14 @@ public sealed class ArchiveOpenApiTests
         {
             ("/archives", "post"), ("/archives", "get"), ("/archives/{id}", "get"),
             ("/archives/{id}", "patch"), ("/archives/{id}", "delete"), ("/archives/{id}/sources", "get"),
-            ("/archives/{archiveId}/research-jobs", "post"), ("/research-jobs/{id}", "get")
+            ("/archives/{archiveId}/research-jobs", "post"), ("/research-jobs/{id}", "get"),
+            ("/archives/{archiveId}/sources/{documentId}/versions", "get"),
+            ("/archives/{archiveId}/sources/{documentId}/versions/{versionId}", "get"),
+            ("/archives/{archiveId}/sources/{documentId}/versions/{versionId}/raw", "get"),
+            ("/archives/{archiveId}/research-jobs", "get"),
+            ("/archives/{archiveId}/findings", "get"),
+            ("/archives/{archiveId}/findings/{findingId}", "get"),
+            ("/archives/{archiveId}/sources/{documentId}", "get")
         };
         foreach (var (path, method) in operations)
         {
@@ -27,6 +34,8 @@ public sealed class ArchiveOpenApiTests
         }
         Assert.True(paths.GetProperty("/archives").GetProperty("post").TryGetProperty("requestBody", out _));
         Assert.True(paths.GetProperty("/archives/{id}").GetProperty("patch").TryGetProperty("requestBody", out _));
+        Assert.Contains("inclusive UTC publication-date bounds", paths.GetProperty("/archives").GetProperty("post").GetProperty("description").GetString(), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("snapshotted", paths.GetProperty("/archives/{id}").GetProperty("patch").GetProperty("description").GetString(), StringComparison.OrdinalIgnoreCase);
         Assert.True(paths.GetProperty("/archives").GetProperty("post").GetProperty("responses").TryGetProperty("201", out _));
         var research = paths.GetProperty("/archives/{archiveId}/research-jobs").GetProperty("post");
         Assert.True(research.GetProperty("responses").TryGetProperty("202", out _));

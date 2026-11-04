@@ -2,6 +2,7 @@
 node_modules/
 .venv/
 __pycache__/
+/venv/
 
 # Build output
 dist/
@@ -24,3 +25,6 @@ TestResults/
 *.user
 *.suo
 appsettings.Local.json
+
+# Generated research reports
+services/research-worker/agent/output/

@@ -9,6 +9,7 @@ public sealed record ResearchStatus(Guid Id, Guid ArchiveId, string Status, Date
     DateTime? StartedAt, DateTime? FinishedAt, RunStatistics Statistics, int Attempts,
     int MaxAttempts, DateTime? NextAttemptAt, bool Retrying, string? Error);
 public sealed record ResearchPayload(string Fingerprint, AgentRequest Request);
+public sealed record ResearchReport(Guid ResearchRunId, string Text);
 
 public interface IResearchStore
 {
@@ -27,7 +28,7 @@ public interface IResearchQueue
     Task<AgentRequest?> DispatchAsync(ResearchLease lease, CancellationToken ct);
     Task<bool> HeartbeatAsync(ResearchLease lease, CancellationToken ct);
     Task<bool> CompleteAsync(ResearchLease lease, AgentResult result, CancellationToken ct);
-    Task<bool> FailAsync(ResearchLease lease, ResearchFailure failure, CancellationToken ct);
+    Task<bool> FailAsync(ResearchLease lease, ResearchFailure failure, CancellationToken ct, int? retryAfterSeconds = null);
     Task<int> RecoverAsync(CancellationToken ct);
 }
 
@@ -45,6 +46,13 @@ public sealed class ResearchWorkerOptions
     public string? AgentBaseAddress { get; set; }
     public string? AgentApiKey { get; set; }
     public bool AllowProvisionalContract { get; set; }
+    // Every completed research run should have a readable briefing by default.
+    // Operators may explicitly disable this for legacy worker deployments.
+    public bool IncludeReport { get; set; } = true;
+
+    public bool HasAgentConfiguration() => AgentApiKey is { Length: > 0 and <= 4096 } key
+        && key.All(character => character is >= '!' and <= '~')
+        && AgentBaseAddress is { } address && ValidAddress(address);
 
     public bool IsValid() => LeaseSeconds is >= 10 and <= 3600 && HeartbeatSeconds >= 1
         && HeartbeatSeconds <= LeaseSeconds / 3 && PollSeconds is >= 1 and <= 300

@@ -13,6 +13,49 @@ namespace OrionSearch.Tests.Research;
 public sealed class ResearchApiTests(PostgreSqlFixture database)
 {
     [Theory]
+    [InlineData("owner", 200)]
+    [InlineData("editor", 200)]
+    [InlineData("viewer", 200)]
+    [InlineData("nonmember", 404)]
+    [InlineData(null, 401)]
+    public async Task ReportIsCommittedWithTheRunAndRequiresArchiveMembership(string? role, int expected)
+    {
+        await using var scenario = await ArchiveApiScenario.CreateAsync(database);
+        var run = await ResearchTestData.SubmitAsync(scenario);
+        await using var scope = scenario.Scope();
+        var queue = ResearchTestData.Queue(scope);
+        var lease = (await queue.ClaimAsync("report-worker", default))!;
+        Assert.True(await queue.CompleteAsync(lease, ResearchTestData.Output(run.Id) with { Report = "Analysis [1]" }, default));
+        using var client = scenario.Client(role);
+        using var response = await client.GetAsync($"/research-jobs/{run.Id}/report");
+        Assert.Equal((HttpStatusCode)expected, response.StatusCode);
+        if (expected == 200)
+        {
+            var report = await response.Content.ReadFromJsonAsync<ResearchReport>();
+            Assert.Equal("Analysis [1]", report!.Text);
+            Assert.Equal("no-store", response.Headers.CacheControl!.ToString());
+        }
+    }
+    [Theory]
+    [InlineData("queued")]
+    [InlineData("completed")]
+    public async Task ReportIsUnavailableWhenNoneWasGenerated(string status)
+    {
+        await using var scenario = await ArchiveApiScenario.CreateAsync(database);
+        var run = await ResearchTestData.SubmitAsync(scenario);
+        if (status == "completed")
+        {
+            await using var scope = scenario.Scope();
+            var queue = ResearchTestData.Queue(scope);
+            var lease = (await queue.ClaimAsync("report-worker", default))!;
+            Assert.True(await queue.CompleteAsync(lease, ResearchTestData.Output(run.Id), default));
+        }
+        using var client = scenario.Client();
+        using var response = await client.GetAsync($"/research-jobs/{run.Id}/report");
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Theory]
     [InlineData("owner", 202)]
     [InlineData("editor", 202)]
     [InlineData("viewer", 403)]

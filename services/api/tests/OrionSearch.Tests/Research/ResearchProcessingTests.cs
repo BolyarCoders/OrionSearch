@@ -157,7 +157,7 @@ public sealed class ResearchProcessingTests(PostgreSqlFixture database)
     [Fact]
     public async Task RawOnlyOutputRetainsRealHashBasisAndNeverCreatesInventedText()
     {
-        await using var scenario = await ArchiveApiScenario.CreateAsync(database);
+        await using var scenario = await ArchiveApiScenario.CreateAsync(database, TestCaptureStore.RegisterLegacyFixtures);
         var run = await ResearchTestData.SubmitAsync(scenario);
         var hash = ContentFingerprint.ComputeRaw("preserved raw bytes"u8);
         var output = ResearchTestData.Output(run.Id);
@@ -203,7 +203,7 @@ public sealed class ResearchProcessingTests(PostgreSqlFixture database)
     [Fact]
     public async Task AddingRawStorageToAnExistingTextVersionRetainsItsDigestAndOriginalMetadata()
     {
-        await using var scenario = await ArchiveApiScenario.CreateAsync(database);
+        await using var scenario = await ArchiveApiScenario.CreateAsync(database, TestCaptureStore.RegisterLegacyFixtures);
         var first = await ResearchTestData.SubmitAsync(scenario);
         await using var scope = scenario.Scope();
         var queue = ResearchTestData.Queue(scope);

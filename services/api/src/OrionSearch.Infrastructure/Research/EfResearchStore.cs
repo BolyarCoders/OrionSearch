@@ -22,18 +22,7 @@ internal sealed class EfResearchStore(OrionSearchDbContext context) : IResearchS
                          where run.Id == id
                          select new { Run = run, Job = job }).SingleOrDefaultAsync(ct);
         if (row is null) return null;
-        var statistics = new RunStatistics();
-        try
-        {
-            using var json = JsonDocument.Parse(row.Run.Stats);
-            int Count(string name) => json.RootElement.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out var count) && count >= 0 ? count : 0;
-            statistics = new RunStatistics(Count("queries"), Count("sources"), Count("versions"), Count("findings"));
-        }
-        catch (JsonException) { }
-        var next = row.Job?.Status == "pending" ? row.Job.RunAfter : (DateTime?)null;
-        return new ResearchStatus(row.Run.Id, row.Run.ArchiveId, row.Run.Status, row.Run.CreatedAt,
-            row.Run.StartedAt, row.Run.FinishedAt, statistics, row.Job?.Attempts ?? 0, row.Job?.MaxAttempts ?? 0,
-            next, row.Run.Status == "queued" && row.Job?.Attempts > 0, ResearchFailures.Sanitize(row.Run.ErrorMessage));
+        return ResearchStatusMapping.Map(row.Run, row.Job);
     }
 
     public void Add(ResearchRun run, Job job)

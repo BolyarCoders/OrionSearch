@@ -47,9 +47,48 @@ The implementation may evolve as the team builds the MVP. AI and search provider
 
 ## Development status
 
-The ASP.NET Core API includes archive management, metadata topic/date filtering, EF Core migrations and queued research execution; see [the backend README](services/api/README.md) for setup, testing and integration prerequisites. A development PostgreSQL service is provisioned on Railway. Authentication-provider integration and the AI team's agreed research contract remain pending; normal API startup rejects protected requests and leaves research processing disabled. The rest of the application and local service stack are still being developed. Docker configuration and an example environment file are planned under ORION-14.
+The ASP.NET Core API includes archive management, metadata topic/date filtering, EF Core migrations and queued research execution; see [the backend README](services/api/README.md) for setup and integration prerequisites. Native ASP.NET Core Identity accounts are implemented behind explicit configuration; email/password registration, immediate login, refresh and password changes are described in [Native Identity](services/api/docs/native-identity.md). No confirmation email or external identity provider is required. Public account activation, frontend integration and the AI team's agreed research contract remain pending. Default startup rejects protected requests and leaves research processing disabled. The [Render hosting record](services/api/docs/render-hosting.md) documents the API/database deployment separately from product readiness.
 
 Never commit secrets, API keys, local `.env` files, or user data.
+
+A separate [.NET executor and results API](services/api/docs/execution-results.md)
+now provide background execution, archive research history, findings with
+authorized evidence references and source details. They share the existing
+PostgreSQL queue and version grants; no second job store is introduced. Hosting
+activation, live AI synthesis, frontend screens and product acceptance remain
+separate gates.
+
+## Research worker prototype
+
+The current branch includes a prototype research worker with four public-source adapters (Google News RSS, arXiv RSS, the Hacker News Algolia API, and the Hugging Face blog feed), article filtering/deduplication, Gemini-assisted research planning and analysis, Markdown/JSON report output, and a FastAPI interface for synchronous research and background-job status.
+
+The worker implements the [research v1 contract](packages/contracts/research/v1/README.md) consumed by the .NET executor. PostgreSQL queue ownership and ingestion remain in .NET; Python receives no database credentials. Discovery is the default. An explicit optional capture stage fetches public HTML/text and uploads immutable versions to private S3-compatible storage; .NET verifies actual bytes before ingestion and authorizes reads per archive. See [capture storage](services/api/docs/capture-storage.md) for configuration and limits. Synthesis, LangGraph and real hosted end-to-end acceptance remain pending. See [research integration](services/api/docs/research-integration.md).
+
+### Install and run tests
+
+From the repository root:
+
+```bash
+python -m venv .venv
+# Activate the virtual environment for your shell, then:
+python -m pip install -r services/research-worker/requirements-dev.txt
+cd services/research-worker
+python -m pytest tests agent/tests -q
+```
+
+The tests mock external services and should not require live source APIs or a Gemini key. Generated test output should use temporary directories rather than the repository's output folder.
+
+### Run the worker API locally
+
+From `services/research-worker`, set `ORION_WORKER_API_KEY` and `GEMINI_API_KEY` in your environment (or a local ignored `.env` file), then run:
+
+```bash
+python -m uvicorn api.main:app --host 127.0.0.1 --port 8000
+```
+
+The integrated API exposes `GET /health` and `POST /research`. Research requires `Authorization: Bearer <ORION_WORKER_API_KEY>` and the versioned v1 JSON request; it does not accept the old topic/days body. The .NET API remains responsible for public research jobs and their persistent status. The old prototype routes are under `/prototype/research` and `/prototype/research/jobs`, require `ORION_ENABLE_PROTOTYPE_API=true` and `X-API-Key`, and stay disabled in integrated mode.
+
+The integrated route writes no local reports. Standalone CLI/prototype JSON and Markdown reports remain under `services/research-worker/agent/output/`; these local artifacts are ignored by Git and must not be committed.
 
 ## Contributing
 
