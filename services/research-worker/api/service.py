@@ -63,10 +63,15 @@ def run_contract_research(request):
                 raise RuntimeError("No discovery source is enabled")
             articles, errors, _ = ai_agent.collect_articles(request["objective"], days, queries, selected, max_articles=50)
             if errors:
-                logger.warning("Research source collection did not complete")
-                raise RuntimeError("Source collection did not complete")
+                logger.warning("One or more research discovery sources failed")
+                # A partial provider outage must not discard valid sources.
+                if not articles:
+                    raise RuntimeError("Source collection did not complete")
             articles = [article for article in articles if eligible_source(article, request["settings"]) is not None]
-            articles = ai_agent.select_english_articles(client, articles)
+            # Do not silently discard Bulgarian or other non-English results.
+            # Legacy English-only behavior is an explicit opt-in for deployments.
+            if os.getenv("RESEARCH_ENGLISH_ONLY", "").lower() == "true":
+                articles = ai_agent.select_english_articles(client, articles)
             selected_articles = []
             result = build_result(request, queries, selected, articles, selected_articles=selected_articles)
             from api.source_metadata import enrich_sources
