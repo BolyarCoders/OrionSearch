@@ -1,60 +1,79 @@
+# OrionSearch Research Worker
 
-## Research Worker Architecture
+## Topic-independent discovery (default)
 
-### Fast Research Mode
+The worker can search for **any public topic**, not only AI/technology:
+fashion, agriculture, medicine, vehicles, literature, and more.
 
-The research worker uses a low-latency research pipeline.
+The default `RESEARCH_SOURCES` is `web_search,google_news`.
+`web_search` searches general web indexes through the `ddgs`
+metasearch client, not a fixed list of sites. A valid
+`BRAVE_SEARCH_API_KEY` switches web discovery to the official Brave
+Web Search API, with a metasearch fallback on provider network errors.
+Use an official search API for production reliability: public metasearch
+backends may throttle, fail or change their behavior without notice.
 
-1. The user's topic is used directly as the search query.
-2. Sources are selected using RESEARCH_SOURCES.
-3. Sources are queried concurrently.
-4. Articles are filtered by publication date and deduplicated.
-5. The newest max_articles articles are analyzed by Gemini.
-6. The report and selected articles are returned through the API.
+`google_news` adds query-based topical news results. Specialized
+`hacker_news`, `arxiv` and `hugging_face` are still available for
+explicit opt-in, but **are not defaults**. The two RSS adapters for
+arXiv and Hugging Face retrieve fixed AI feeds, so do not enable them
+for arbitrary topics.
 
-Gemini-based query planning is intentionally disabled in Fast Mode.
-This prioritizes response speed over search coverage and diversity.
+The integrated `POST /research` endpoint:
+1. Translates the research objective into an English search query with Gemini.
+2. Also searches using the original-language objective (for example Bulgarian).
+3. Runs up to three queries against the chosen adapters concurrently.
+4. Keeps general web results in search-index relevance order; sorts dated RSS
+   results by recency and deduplicates titles.
+5. Accepts undated *web discoveries* without inventing publication dates.
+   Dated feed results still use the existing rolling date validation.
+6. Enforces domain exclusions **before** optional AI language classification.
+7. Preserves valid results if another provider fails. An entirely failed
+   collection still fails the request.
+8. Returns versioned `orion.research.v1` discovery and optionally a Gemini
+   report, without changing the .NET API contract or its job ownership.
 
-Default sources:
-- google_news
-- hacker_news
+The integrated endpoint no longer enforces English-only results by default,
+so searches can include Bulgarian and other languages. To restore the legacy
+filter, set `RESEARCH_ENGLISH_ONLY=true`; explicit archive language/date
+settings remain governed by the existing v1 integration behavior.
 
-RESEARCH_SOURCES may contain:
-google_news,hacker_news,arxiv,hugging_face
+### Configuration
 
-Invalid or empty explicit configurations raise ValueError.
+```env
+GEMINI_API_KEY=your_key
+ORION_WORKER_API_KEY=your_service_key
+RESEARCH_SOURCES=web_search,google_news
+RESEARCH_FEED_LIMIT=12
+# Optional official provider; without it web_search uses ddgs.
+BRAVE_SEARCH_API_KEY=
+# Optional legacy filter:
+RESEARCH_ENGLISH_ONLY=false
+```
 
-### Persistence
+`RESEARCH_SOURCES` can contain
+`web_search,google_news,hacker_news,arxiv,hugging_face`.
+Invalid or blank explicit settings fail fast.
 
-File-based JSON and Markdown persistence was intentionally removed.
+Run `python -m pip install -r requirements-dev.txt` and
+`python -m pytest tests agent/tests -q` from `services/research-worker`.
+Network calls are mocked in discovery regression tests. Run a separate
+authorized live smoke test of the deployed worker before switching the
+production endpoint.
 
-The research worker does not persist completed reports or raw
-collection results to the local filesystem.
+### API behavior and persistence
 
-POST /research returns a ResearchResult object.
+`POST /research` is the versioned, service-to-service endpoint
+authenticated by `Authorization: Bearer`; the .NET backend owns
+authorization and the persistent queue. The prototype route
+`POST /prototype/research` is opt-in and uses `X-API-Key`.
+The prototype asynchronous jobs are in-memory and vanish on restart.
 
-POST /research/jobs uses an in-memory job store.
-Job states and results are lost when the process restarts.
+The worker does not store research reports as local JSON/Markdown files.
+It uses search snippets and feed summaries for analysis by default;
+full-text verification is not guaranteed. For evidence-quality research,
+enable and verify the existing capture pipeline separately.
 
-Persistent research history is planned for the main backend
-using PostgreSQL. It is not implemented by this PR.
-
-The interactive CLI chat remains available, with conversation
-history stored only in memory.
-
-### Response Semantics
-
-total_articles:
-Number of unique articles matching the publication date window,
-before the max_articles limit is applied.
-
-articles:
-The selected articles returned to the client, limited by
-max_articles. These are also the articles used for AI analysis.
-
-errors:
-Collection errors keyed by source and query/task identifier.
-Partial source failures do not necessarily prevent a report.
-
-The worker does not perform full article verification and
-analyzes feed metadata and summaries rather than full texts.
+`total_articles` in the prototype response counts unique eligible results
+before its output limit. `errors` records source collection failures,
+which do not necessarily invalidate results from other sources.
