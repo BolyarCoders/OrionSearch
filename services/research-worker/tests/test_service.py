@@ -40,7 +40,7 @@ def test_integrated_service_uses_existing_planner_without_reports_or_second_job_
     def collect(topic, days, queries, selected, *, max_articles):
         assert topic == request["objective"]
         assert max_articles == 50
-        return ([{"url": "https://example.com/source", "language": "en", "title": "Discovered"}],
+        return ([{"url": "https://example.com/source", "language": "en", "title": "Discovered", "published_at": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()}],
                 {"google_news": "private upstream body"} if collection_fails else {}, 1)
 
     engine = ModuleType("ai_agent")
