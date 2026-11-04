@@ -8,6 +8,30 @@ beforeEach(() => localStorage.clear());
 afterEach(() => vi.unstubAllGlobals());
 
 describe("authentication", () => {
+  it("reports a Cloudflare challenge on login without retrying or storing tokens", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response("<html>challenge</html>", {
+      status: 429, headers: { "cf-mitigated": "challenge", "content-type": "text/html" },
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(new LiveApiClient("http://api.test").login("a@b.co", "pw"))
+      .rejects.toMatchObject({ name: "ApiCloudflareChallengeError" });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(tokenStore.read()).toBeNull();
+  });
+
+  it("preserves the session and reports a challenge during refresh", async () => {
+    tokenStore.write(tokens("old"));
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(json({ title: "Unauthorized" }, 401))
+      .mockResolvedValueOnce(new Response("<html>challenge</html>", {
+        status: 403, headers: { "cf-mitigated": "challenge", "content-type": "text/html" },
+      }));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(new LiveApiClient("http://api.test").me()).rejects.toMatchObject({ name: "ApiCloudflareChallengeError" });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(tokenStore.read()).toEqual(tokens("old"));
+  });
+
   it("stores tokens on login and sends them as a bearer header", async () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(json(tokens("1"))).mockResolvedValueOnce(json({ items: [], pageNumber: 1, pageSize: 20, totalCount: 0 }));
     vi.stubGlobal("fetch", fetchMock);
