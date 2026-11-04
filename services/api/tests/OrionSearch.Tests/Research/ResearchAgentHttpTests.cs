@@ -170,7 +170,7 @@ public sealed class ResearchAgentHttpTests
         return content;
     }
 
-    private static ResearchWorkerOptions Options() => new()
+    private static ResearchWorkerOptions Options() => new() { IncludeReport = false,
     {
         AgentBaseAddress = "https://agent.example/internal/",
         AgentApiKey = "synthetic-test-service-credential",
