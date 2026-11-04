@@ -46,7 +46,9 @@ public sealed class ResearchWorkerOptions
     public string? AgentBaseAddress { get; set; }
     public string? AgentApiKey { get; set; }
     public bool AllowProvisionalContract { get; set; }
-    public bool IncludeReport { get; set; }
+    // Every completed research run should have a readable briefing by default.
+    // Operators may explicitly disable this for legacy worker deployments.
+    public bool IncludeReport { get; set; } = true;
 
     public bool HasAgentConfiguration() => AgentApiKey is { Length: > 0 and <= 4096 } key
         && key.All(character => character is >= '!' and <= '~')
