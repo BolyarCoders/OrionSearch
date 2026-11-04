@@ -157,7 +157,9 @@ def analyze_articles(client, topic, days, articles):
     prompt = f"""
         You are the research analyst for OrionSearch.
 
-        Period: Last {days} days.
+        Requested discovery window for dated feeds: last {days} days.
+        Undated web discoveries may predate this window. Do not describe an
+        undated source as recent unless its contents independently establish it.
 
         Analyze the following article metadata and summaries.
 

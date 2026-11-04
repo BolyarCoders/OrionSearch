@@ -206,7 +206,7 @@ def test_research_rejects_invalid_translated_search_query(monkeypatch, answer):
         ai_agent.translate_search_query(object(), "Изкуствен интелект")
 
 
-def test_integrated_research_classifies_sources_before_saving_or_reporting(request_body, monkeypatch):
+def test_integrated_research_preserves_multilingual_sources_by_default(request_body, monkeypatch):
     from google import genai
     from api import source_metadata
 
@@ -227,11 +227,12 @@ def test_integrated_research_classifies_sources_before_saving_or_reporting(reque
     seen = []
     monkeypatch.setattr(service.ai_agent, "analyze_articles", lambda client, topic, days, selected: seen.extend(selected) or "Report")
     result = service.run_contract_research(request_body)
-    assert [source["canonicalUrl"] for source in result["sources"]] == ["https://example.com/en"]
-    assert [article["url"] for article in seen] == ["https://example.com/en"]
+    assert [source["canonicalUrl"] for source in result["sources"]] == ["https://example.com/en", "https://example.com/bg"]
+    assert [article["url"] for article in seen] == ["https://example.com/en", "https://example.com/bg"]
 
 
 def test_excluded_domains_never_reach_language_classification(request_body, monkeypatch):
+    monkeypatch.setenv("RESEARCH_ENGLISH_ONLY", "true")
     from google import genai
     from api import source_metadata
 

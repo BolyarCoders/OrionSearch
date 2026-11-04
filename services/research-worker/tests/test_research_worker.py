@@ -101,7 +101,7 @@ def test_default_sources(monkeypatch):
     queries, sources = ai_agent.plan_research(None, "Artificial Intelligence", 7)
 
     assert queries == ["Artificial Intelligence"]
-    assert sources == ["google_news", "hacker_news"]
+    assert sources == ["web_search", "google_news"]
 
 
 def test_explicit_sources(monkeypatch):
@@ -127,6 +127,10 @@ def test_all_source_task_signatures(monkeypatch):
     monkeypatch.setenv("RESEARCH_FEED_LIMIT", "8")
     calls = []
 
+    def web(query, days, limit):
+        calls.append(("web_search", query, days, limit))
+        return []
+
     def google(query, days, limit):
         calls.append(("google_news", query, days, limit))
         return []
@@ -143,6 +147,8 @@ def test_all_source_task_signatures(monkeypatch):
         calls.append(("hugging_face", limit))
         return []
 
+    import web_search
+    monkeypatch.setattr(web_search, "search_web", web)
     monkeypatch.setattr(collector, "search_google_news", google)
     monkeypatch.setattr(collector, "search_hacker_news", hacker)
     monkeypatch.setattr(collector, "search_arxiv", arxiv)
@@ -156,6 +162,8 @@ def test_all_source_task_signatures(monkeypatch):
     assert errors == {}
     assert total == 0
     assert set(calls) == {
+        ("web_search", "query-a", 3, 8),
+        ("web_search", "query-b", 3, 8),
         ("google_news", "query-a", 3, 8),
         ("google_news", "query-b", 3, 8),
         ("hacker_news", "query-a", 3, 8),

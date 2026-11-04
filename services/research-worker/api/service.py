@@ -54,6 +54,10 @@ def run_contract_research(request):
         try:
             search_query = ai_agent.translate_search_query(client, request["objective"])
             queries, selected = ai_agent.plan_research(client, search_query, days)
+            # Keep the original-language objective as a second search.
+            # Translating Bulgarian to English must not erase local sources.
+            original_query = request["objective"].strip()[:1000]
+            queries = list(dict.fromkeys([*queries, original_query]))[:3]
             if not queries or len(queries) > 5 or any(not isinstance(query, str) or not query.strip() or len(query) > 1000 for query in queries):
                 from api.contract import ContractError
                 raise ContractError("Invalid research plan")
@@ -63,10 +67,15 @@ def run_contract_research(request):
                 raise RuntimeError("No discovery source is enabled")
             articles, errors, _ = ai_agent.collect_articles(request["objective"], days, queries, selected, max_articles=50)
             if errors:
-                logger.warning("Research source collection did not complete")
-                raise RuntimeError("Source collection did not complete")
+                logger.warning("One or more research discovery sources failed")
+                # A partial provider outage must not discard valid sources.
+                if not articles:
+                    raise RuntimeError("Source collection did not complete")
             articles = [article for article in articles if eligible_source(article, request["settings"]) is not None]
-            articles = ai_agent.select_english_articles(client, articles)
+            # Do not silently discard Bulgarian or other non-English results.
+            # Legacy English-only behavior is an explicit opt-in for deployments.
+            if os.getenv("RESEARCH_ENGLISH_ONLY", "").lower() == "true":
+                articles = ai_agent.select_english_articles(client, articles)
             selected_articles = []
             result = build_result(request, queries, selected, articles, selected_articles=selected_articles)
             from api.source_metadata import enrich_sources

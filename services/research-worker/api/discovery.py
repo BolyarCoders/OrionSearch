@@ -81,13 +81,22 @@ def build_result(request, queries, providers, articles, today=None, selected_art
             source["publisher"] = publisher
         sources[url] = source
         accepted_articles[url] = article
-    ordered = sorted(sources.values(), key=lambda source: (
-        not matches_domain(source.get("publisher", {}).get("domain", urlsplit(source["canonicalUrl"]).hostname), settings["preferredDomains"]), source["canonicalUrl"]))[:maximum]
+    # Python's stable sort preserves collector relevance, while honoring
+    # explicitly preferred publishers. Alphabetical URL sorting is not ranking.
+    ordered = sorted(
+        sources.values(),
+        key=lambda source: not matches_domain(
+            source.get("publisher", {}).get(
+                "domain", urlsplit(source["canonicalUrl"]).hostname
+            ),
+            settings["preferredDomains"],
+        ),
+    )[:maximum]
     if selected_articles is not None:
         selected_articles.extend(accepted_articles[source["canonicalUrl"]] for source in ordered)
     executed = []
     for provider in providers:
-        actual_queries = queries if provider in ("google_news", "hacker_news") else ["cs.AI+cs.LG+cs.CL" if provider == "arxiv" else "hugging_face_blog_feed"]
+        actual_queries = queries if provider in ("web_search", "google_news", "hacker_news") else ["cs.AI+cs.LG+cs.CL" if provider == "arxiv" else "hugging_face_blog_feed"]
         for query in actual_queries:
             if not isinstance(query, str) or not query.strip() or len(query) > 1000:
                 raise ContractError("Invalid planned query")
