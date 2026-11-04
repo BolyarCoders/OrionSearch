@@ -18,7 +18,8 @@ def _brave_results(query, limit, key):
     response = requests.get(
         BRAVE_URL,
         headers={"X-Subscription-Token": key, "Accept": "application/json"},
-        params={"q": query, "count": min(limit, 20), "safesearch": "moderate"},
+        # Brave rejects requests above 600 characters or 75 words.
+        params={"q": " ".join(query.split()[:70])[:500], "count": min(limit, 20), "safesearch": "moderate"},
         timeout=(3, 10),
     )
     response.raise_for_status()
