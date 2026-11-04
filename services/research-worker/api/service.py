@@ -54,6 +54,10 @@ def run_contract_research(request):
         try:
             search_query = ai_agent.translate_search_query(client, request["objective"])
             queries, selected = ai_agent.plan_research(client, search_query, days)
+            # Keep the original-language objective as a second search.
+            # Translating Bulgarian to English must not erase local sources.
+            original_query = request["objective"].strip()[:1000]
+            queries = list(dict.fromkeys([*queries, original_query]))[:3]
             if not queries or len(queries) > 5 or any(not isinstance(query, str) or not query.strip() or len(query) > 1000 for query in queries):
                 from api.contract import ContractError
                 raise ContractError("Invalid research plan")
