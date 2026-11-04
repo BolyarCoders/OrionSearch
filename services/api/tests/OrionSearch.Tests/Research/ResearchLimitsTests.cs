@@ -17,22 +17,29 @@ namespace OrionSearch.Tests.Research;
 public sealed class ResearchLimitsTests(PostgreSqlFixture database)
 {
     [Fact]
-    public async Task ANewApiHostCannotResetAnOwnersPersistedDailyUsage()
+    public async Task LegacyDailyLimitDoesNotBlockAnotherApiHost()
     {
-        await using var scenario = await ArchiveApiScenario.CreateAsync(database, services => services.PostConfigure<ResearchLimitOptions>(limits => limits.MaxRunsPerOwnerPerDay = 1), useDefaultResearchLimits: true);
+        await using var scenario = await ArchiveApiScenario.CreateAsync(database, services => services.PostConfigure<ResearchLimitOptions>(limits =>
+        {
+            limits.MaxRunsPerOwnerPerDay = 1;
+            limits.MaxRunsGlobalPerDay = 1;
+            limits.MaxRunsPerOwnerPerMinute = 1;
+        }), useDefaultResearchLimits: true);
         await ResearchTestData.SubmitAsync(scenario);
         using var root = new ApiFactory();
         using var factory = root.WithSettings(new()
         {
             ["ConnectionStrings:OrionSearch"] = scenario.ConnectionString,
-            ["ResearchLimits:MaxRunsPerOwnerPerDay"] = "1"
+            ["ResearchLimits:MaxRunsPerOwnerPerDay"] = "1",
+            ["ResearchLimits:MaxRunsGlobalPerDay"] = "1",
+            ["ResearchLimits:MaxRunsPerOwnerPerMinute"] = "1"
         }).WithWebHostBuilder(builder => builder.ConfigureServices(services => services.AddAuthentication("ArchiveTest")
             .AddScheme<AuthenticationSchemeOptions, ArchiveTestAuthenticationHandler>("ArchiveTest", _ => { })));
         using var client = factory.CreateClient();
         client.DefaultRequestHeaders.Add("X-Test-Identity", scenario.Users["owner"].ToString());
-        Assert.Equal(HttpStatusCode.TooManyRequests, (await client.PostAsJsonAsync($"/archives/{scenario.ArchiveId}/research-jobs", new { })).StatusCode);
+        Assert.Equal(HttpStatusCode.Accepted, (await client.PostAsJsonAsync($"/archives/{scenario.ArchiveId}/research-jobs", new { })).StatusCode);
         await using var context = scenario.Context();
-        Assert.Single(await context.Jobs.ToListAsync());
+        Assert.Equal(2, await context.Jobs.CountAsync());
     }
 
     [Fact]
@@ -48,9 +55,6 @@ public sealed class ResearchLimitsTests(PostgreSqlFixture database)
     }
 
     [Theory]
-    [InlineData("owner-day")]
-    [InlineData("global-day")]
-    [InlineData("owner-minute")]
     [InlineData("owner-outstanding")]
     [InlineData("global-outstanding")]
     public async Task NewArchiveOrCollaboratorCannotBypassOwnerAndGlobalLimits(string kind)
@@ -59,9 +63,6 @@ public sealed class ResearchLimitsTests(PostgreSqlFixture database)
         {
             switch (kind)
             {
-                case "owner-day": limits.MaxRunsPerOwnerPerDay = 1; break;
-                case "global-day": limits.MaxRunsGlobalPerDay = 1; break;
-                case "owner-minute": limits.MaxRunsPerOwnerPerMinute = 1; break;
                 case "owner-outstanding": limits.MaxOutstandingPerOwner = 1; break;
                 default: limits.MaxOutstandingGlobal = 1; break;
             }
@@ -81,11 +82,11 @@ public sealed class ResearchLimitsTests(PostgreSqlFixture database)
     }
 
     [Fact]
-    public async Task ConcurrentSubmissionsReserveTheBudgetAtomically()
+    public async Task ConcurrentSubmissionsReserveQueueCapacityAtomically()
     {
         await using var scenario = await ArchiveApiScenario.CreateAsync(database, services => services.PostConfigure<ResearchLimitOptions>(limits =>
         {
-            limits.MaxRunsPerOwnerPerDay = 3;
+            limits.MaxOutstandingPerOwner = 3;
             limits.MaxRunsPerOwnerPerMinute = limits.MaxSubmissionsPerIpPerMinute = 1000;
         }), useDefaultResearchLimits: true);
         using var client = scenario.Client();
@@ -107,7 +108,7 @@ public sealed class ResearchLimitsTests(PostgreSqlFixture database)
     [Fact]
     public async Task MatchingReplayStillSucceedsAtCapacityAndIncompatibleReuseStillConflicts()
     {
-        await using var scenario = await ArchiveApiScenario.CreateAsync(database, services => services.PostConfigure<ResearchLimitOptions>(limits => limits.MaxRunsPerOwnerPerDay = 1), useDefaultResearchLimits: true);
+        await using var scenario = await ArchiveApiScenario.CreateAsync(database, services => services.PostConfigure<ResearchLimitOptions>(limits => limits.MaxOutstandingPerOwner = 1), useDefaultResearchLimits: true);
         var original = await ResearchTestData.SubmitAsync(scenario, "repeat");
         Assert.Equal(original.Id, (await ResearchTestData.SubmitAsync(scenario, "repeat")).Id);
         using var client = scenario.Client();
@@ -121,17 +122,15 @@ public sealed class ResearchLimitsTests(PostgreSqlFixture database)
     }
 
     [Fact]
-    public async Task IpRequestLimitsHaveRetryHintsAndDoNotCreateRejectedJobs()
+    public async Task LegacyIpRateLimitDoesNotRejectSubmissions()
     {
         await using var scenario = await ArchiveApiScenario.CreateAsync(database, services => services.PostConfigure<ResearchLimitOptions>(limits => limits.MaxSubmissionsPerIpPerMinute = 1), useDefaultResearchLimits: true);
         await ResearchTestData.SubmitAsync(scenario);
         using var client = scenario.Client();
         using var response = await client.PostAsJsonAsync($"/archives/{scenario.ArchiveId}/research-jobs", new { });
-        Assert.Equal(HttpStatusCode.TooManyRequests, response.StatusCode);
-        Assert.NotNull(response.Headers.RetryAfter);
-        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
         await using var context = scenario.Context();
-        Assert.Single(await context.Jobs.ToListAsync());
+        Assert.Equal(2, await context.Jobs.CountAsync());
     }
 
     [Fact]
@@ -149,32 +148,20 @@ public sealed class ResearchLimitsTests(PostgreSqlFixture database)
         Assert.Equal(1, await context.ResearchRuns.CountAsync(run => run.Status == "queued"));
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task DailyAttemptBudgetCountsRetriesAndDoesNotStarveAnotherOwner(bool global)
+    [Fact]
+    public async Task LegacyDailyAttemptLimitsDoNotBlockRetries()
     {
         await using var scenario = await ArchiveApiScenario.CreateAsync(database, services => services.PostConfigure<ResearchLimitOptions>(limits =>
-        { if (global) limits.MaxAttemptsGlobalPerDay = 1; else limits.MaxAttemptsPerOwnerPerDay = 1; }), useDefaultResearchLimits: true);
+        { limits.MaxAttemptsGlobalPerDay = 1; limits.MaxAttemptsPerOwnerPerDay = 1; }), useDefaultResearchLimits: true);
         await ResearchTestData.SubmitAsync(scenario);
         await using var scope = scenario.Scope();
         var queue = ResearchTestData.Queue(scope);
         var first = (await queue.ClaimAsync("first", default))!;
         await queue.FailAsync(first, ResearchFailure.Unavailable, default);
         await ResearchTestData.ReadyAsync(scenario);
-        Assert.Null(await queue.ClaimAsync("retry-over-budget", default));
-        using var creator = scenario.Client("nonmember");
-        using var created = await creator.PostAsJsonAsync("/archives", new { title = "Other owner" });
-        var archive = (await created.Content.ReadFromJsonAsync<ArchiveDetails>())!.Archive.Id;
-        Assert.Equal(HttpStatusCode.Accepted, (await creator.PostAsJsonAsync($"/archives/{archive}/research-jobs", new { })).StatusCode);
-        var another = await queue.ClaimAsync("other-owner", default);
-        if (global) Assert.Null(another); else Assert.Equal(archive, another!.ArchiveId);
+        Assert.NotNull(await queue.ClaimAsync("retry", default));
         await using var context = scenario.Context();
-        Assert.Equal(global ? 1 : 2, await context.JobAttempts.CountAsync());
-        if (another is not null) await queue.FailAsync(another, ResearchFailure.Contract, default);
-        var previousDay = (await context.Database.SqlQuery<DateTime>($"SELECT clock_timestamp() AS \"Value\"").SingleAsync()).Date.AddDays(-1);
-        await context.JobAttempts.ExecuteUpdateAsync(setters => setters.SetProperty(attempt => attempt.StartedAt, previousDay));
-        Assert.NotNull(await queue.ClaimAsync("next-day-budget", default));
+        Assert.Equal(2, await context.JobAttempts.CountAsync());
     }
 
     [Fact]

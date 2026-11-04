@@ -1,5 +1,9 @@
 # OrionSearch API and Backend Guide
 
+> **Rate-limit update:** Application request-rate limits and daily research
+> quotas have been removed. Queue-capacity controls and external provider
+> limits remain. Older rate-limit configuration described below is historical.
+
 > **Research settings update (November 2026):** Saved research `dateFrom`,
 > `dateTo`, and `languages` are deprecated and no longer constrain discovery.
 > They remain stored and validated for compatibility. Source-list query filters

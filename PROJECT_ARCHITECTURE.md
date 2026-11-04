@@ -140,7 +140,7 @@ Archive and source lists support pagination and filters. The `topic` filter is a
 
 ### Submission
 
-`POST /archives/{archiveId}/research-jobs` requires an authenticated owner or editor and an eligible archive. The optional objective defaults to the archive title when omitted. The server validates input and applies admission and rate limits.
+`POST /archives/{archiveId}/research-jobs` requires an authenticated owner or editor and an eligible archive. The optional objective defaults to the archive title when omitted. The server validates input and applies queue-capacity admission limits; it does not enforce request-rate or daily usage limits.
 
 The optional `Idempotency-Key` allows a client to retry the same request safely. A matching repeat returns the existing run; incompatible reuse produces `409`. Without a key, a new submission creates a new run. A successful submission returns `202`, not a finished AI answer.
 
@@ -266,7 +266,7 @@ These are not exhaustive startup instructions. See [native-identity.md](services
 1. **Identify the failing boundary.** Record the time, requested endpoint, HTTP status and trace ID. Avoid collecting passwords, bearer tokens or research content unnecessarily.
 2. **Check liveness and readiness.** `/health` checks the API process. `/health/ready` includes PostgreSQL readiness. A healthy response is not an end-to-end test.
 3. **For browser failures, inspect the real frontend origin and preflight.** Check whether the exact origin is configured and whether the response contains `Access-Control-Allow-Origin`. Browser `Load failed` can have causes other than CORS.
-4. **For account failures, inspect safe validation and rate-limit responses.** Verify Identity is enabled and check whether the request is login or registration. Do not test using another person's password.
+4. **For account failures, inspect safe validation and upstream responses.** Verify Identity is enabled and check whether the request is login or registration. An upstream Cloudflare challenge can interrupt a login request. Do not test using another person's password.
 5. **For stuck jobs, inspect run state, worker enablement, leases, retries and capacity.** Check whether the API host is asleep and whether the Python service and providers are reachable. A Python health response alone does not prove a real research run works.
 6. **For missing reports or captures, inspect feature configuration and run result.** A successful discovery can legitimately produce metadata without a report, captured article, finding or evidence.
 7. **After a deployment, verify the deployed commit, service health, database readiness and an appropriate authorized workflow.** A queued deploy is not yet live. Use synthetic test data only with an explicit cleanup plan; avoid destructive tests against production.

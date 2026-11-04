@@ -14,7 +14,7 @@ public static class AccountEndpoints
     public static IEndpointRouteBuilder MapAccountEndpoints(this IEndpointRouteBuilder endpoints)
     {
         if (!endpoints.ServiceProvider.GetRequiredService<NativeIdentitySettings>().Enabled) return endpoints;
-        var group = endpoints.MapGroup("/auth").WithTags("Accounts").RequireRateLimiting("accounts");
+        var group = endpoints.MapGroup("/auth").WithTags("Accounts");
 
         group.MapPost("/register", async (RegisterAccount request, UserManager<User> users) =>
         {

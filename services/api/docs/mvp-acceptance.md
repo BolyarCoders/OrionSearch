@@ -1,5 +1,8 @@
 # P5 acceptance and operational hardening
 
+> Historical acceptance record: application request-rate limits and daily
+> research quotas were subsequently removed; queue capacity controls remain.
+
 Candidate branch feature/backend-integration, starting at cbb2708, 2026-10-29.
 This is a local acceptance package, not production sign-off. No hosted writes,
 paid resources, automatic deployment, main push or CI/CD changes are authorized

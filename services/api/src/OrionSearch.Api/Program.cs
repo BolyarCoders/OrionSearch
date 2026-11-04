@@ -35,7 +35,6 @@ app.Use(async (context, next) =>
     }
     await next();
 });
-app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 

@@ -41,7 +41,7 @@ or apply migrations to Render. Incomplete enabled configuration fails startup.
 | Setting | Purpose |
 | --- | --- |
 | `NativeIdentity__Enabled` | `true` to activate account routes |
-| `NativeIdentity__RequestsPerMinute` | Auth requests per client IP; default 10, range 1–1000 |
+| `NativeIdentity__RequestsPerMinute` | Legacy setting retained for compatibility; no longer enforced. |
 | `NativeIdentity__KeyEncryptionCertificatePath` | Absolute mounted private-key PFX path; required outside Development |
 | `NativeIdentity__KeyEncryptionCertificateBase64` | Alternative to the path: base64-encoded PFX supplied as a secret environment variable; never configure both sources |
 | `NativeIdentity__KeyEncryptionCertificatePassword` | PFX password, supplied through secret configuration |
