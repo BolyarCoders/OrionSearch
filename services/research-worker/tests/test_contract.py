@@ -244,6 +244,7 @@ def test_excluded_domains_never_reach_language_classification(request_body, monk
     monkeypatch.setattr(source_metadata, "enrich_sources", lambda sources, excluded: None)
     request_body["settings"].update(excludedDomains=["excluded.example"], languages=[])
     monkeypatch.setattr(genai, "Client", lambda **kwargs: type("Client", (), {"close": lambda self: None})())
+    monkeypatch.setattr(service.ai_agent, "expand_news_queries", lambda client, objective, queries: queries)
     monkeypatch.setattr(service.ai_agent, "translate_search_query", lambda client, objective: "query")
     monkeypatch.setattr(service.ai_agent, "plan_research", lambda *args: (["query"], ["google_news"]))
     articles = [
@@ -278,9 +279,9 @@ def test_report_prompt_serializes_untrusted_request_context(monkeypatch):
     assert json.dumps(context, ensure_ascii=True) in prompts[0]
 
 
-def test_legacy_window_is_ignored_but_invalid_execution_config_is_rejected(request_body):
+def test_historical_window_is_respected_and_invalid_config_is_rejected(request_body):
     request_body["settings"]["dateFrom"] = "2025-01-01"
-    assert execution_window(request_body, today=date(2026, 10, 28))[0] == 90
+    assert execution_window(request_body, today=date(2026, 10, 28))[0] == 666
     request_body["settings"]["dateFrom"] = None
     request_body["settings"]["config"] = {"maxArticles": True}
     with pytest.raises(ContractError): execution_window(request_body)
