@@ -151,7 +151,7 @@ def test_domain_preferences_and_exclusions_preserve_unknown_dates(request_body):
     assert len(build_result(request_body, ["query"], ["google_news"], articles, today=date(2026, 10, 28))["sources"]) == 1
 
 
-def test_research_ignores_saved_language_and_date_filters(request_body):
+def test_research_respects_saved_date_filters(request_body):
     request_body["settings"].update(dateFrom="2026-10-27", dateTo="2026-12-06", languages=["en"])
     articles = [
         {"url": "https://example.com/article", "title": "Article",
@@ -165,7 +165,7 @@ def test_research_ignores_saved_language_and_date_filters(request_body):
     assert "language" not in result["sources"][0]
     assert result["sources"][1]["language"] == "fr"
     assert result["sources"][1]["publishedAt"] == "2026-10-01T10:00:00Z"
-    assert execution_window(request_body, today=date(2026, 11, 2))[0] == 90
+    assert execution_window(request_body, today=date(2026, 11, 2))[:3] == (7, date(2026, 10, 27), date(2026, 11, 2))
 
 
 def test_ai_language_detection_selects_only_english_titles(monkeypatch):
@@ -220,8 +220,10 @@ def test_integrated_research_preserves_multilingual_sources_by_default(request_b
         assert objective == "translated English"
         return [objective], ["hacker_news"]
     monkeypatch.setattr(service.ai_agent, "plan_research", plan)
-    articles = [{"url": "https://example.com/en", "title": "English text"},
-                {"url": "https://example.com/bg", "title": "Български текст"}]
+    from datetime import datetime, timezone
+    today = datetime.now(timezone.utc).isoformat()
+    articles = [{"url": "https://example.com/en", "title": "English text", "published_at": today},
+                {"url": "https://example.com/bg", "title": "Български текст", "published_at": today}]
     monkeypatch.setattr(service.ai_agent, "collect_articles", lambda *args, **kwargs: (articles, {}, 2))
     monkeypatch.setattr(service.ai_agent, "select_relevant_articles", lambda client, objective, queries, articles: articles)
     monkeypatch.setattr(service.ai_agent, "select_english_articles", lambda client, values: values[:1])
@@ -242,6 +244,7 @@ def test_excluded_domains_never_reach_language_classification(request_body, monk
     monkeypatch.setattr(source_metadata, "enrich_sources", lambda sources, excluded: None)
     request_body["settings"].update(excludedDomains=["excluded.example"], languages=[])
     monkeypatch.setattr(genai, "Client", lambda **kwargs: type("Client", (), {"close": lambda self: None})())
+    monkeypatch.setattr(service.ai_agent, "expand_news_queries", lambda client, objective, queries: queries)
     monkeypatch.setattr(service.ai_agent, "translate_search_query", lambda client, objective: "query")
     monkeypatch.setattr(service.ai_agent, "plan_research", lambda *args: (["query"], ["google_news"]))
     articles = [
@@ -249,7 +252,7 @@ def test_excluded_domains_never_reach_language_classification(request_body, monk
         {"url": "https://allowed.example/a", "publisher_name": "Excluded", "publisher_url": "https://excluded.example", "summary": "EXCLUDED_PUBLISHER_SECRET"},
         {"url": "https://allowed.example/b", "publisher_url": "https://excluded.example", "title": "EXCLUDED_UNNAMED_PUBLISHER_SECRET"},
         {"url": "https://news.google.com/wrapped", "title": "UNKNOWN_PUBLISHER_SECRET"},
-        {"url": "https://allowed.example/kept", "title": "Allowed article"},
+        {"url": "https://allowed.example/kept", "title": "Allowed article", "published_at": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()},
     ]
     monkeypatch.setattr(service.ai_agent, "collect_articles", lambda *args, **kwargs: (articles, {}, 4))
     monkeypatch.setattr(service.ai_agent, "select_relevant_articles", lambda client, objective, queries, articles: articles)
@@ -276,9 +279,9 @@ def test_report_prompt_serializes_untrusted_request_context(monkeypatch):
     assert json.dumps(context, ensure_ascii=True) in prompts[0]
 
 
-def test_legacy_window_is_ignored_but_invalid_execution_config_is_rejected(request_body):
+def test_historical_window_is_respected_and_invalid_config_is_rejected(request_body):
     request_body["settings"]["dateFrom"] = "2025-01-01"
-    assert execution_window(request_body, today=date(2026, 10, 28))[0] == 90
+    assert execution_window(request_body, today=date(2026, 10, 28))[0] == 666
     request_body["settings"]["dateFrom"] = None
     request_body["settings"]["config"] = {"maxArticles": True}
     with pytest.raises(ContractError): execution_window(request_body)
@@ -319,9 +322,10 @@ def test_report_uses_only_selected_sources_and_is_opt_in(request_body, monkeypat
     articles = [
         {"url": "https://excluded.example/private", "title": "Excluded", "summary": "not allowed"},
         {"url": "https://example.com/kept", "title": "Excluded publisher", "publisher_name": "Excluded", "publisher_url": "https://excluded.example", "summary": "not allowed"},
-        {"url": "https://example.com/kept#fragment", "title": "Kept", "summary": "Allowed summary"},
+        {"url": "https://example.com/kept#fragment", "title": "Kept", "summary": "Allowed summary", "published_at": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()},
     ]
     monkeypatch.setattr(genai, "Client", lambda **kwargs: type("Client", (), {"close": lambda self: None})())
+    monkeypatch.setattr(service.ai_agent, "expand_news_queries", lambda client, objective, queries: queries)
     monkeypatch.setattr(service.ai_agent, "translate_search_query", lambda client, objective: objective)
     topics = []
     monkeypatch.setattr(service.ai_agent, "plan_research", lambda client, topic, days: (topics.append(topic) or ["query"], ["google_news"]))

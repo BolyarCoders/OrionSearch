@@ -100,3 +100,39 @@ alone or keywords do not guarantee evidence quality: the worker still
 needs capture/content validation for stronger factual verification.
 Filtering applies to **new research runs**. Existing archived sources
 are not removed or rewritten by this worker change.
+
+### Event-focused news and exact publication dates
+
+The integrated worker now reads `settings.dateFrom` and `settings.dateTo`
+as **inclusive publication date boundaries**. When neither is supplied, it
+defaults to the last 90 days. It accepts historical windows with a bounded
+10-year lookback. Future-only or reversed periods are rejected.
+
+To avoid outdated encyclopedias in news-oriented archives:
+- `news_search` uses the public DDGS news index for dated reporting, or
+  the official Brave **News Search API** when `BRAVE_SEARCH_API_KEY` is set.
+- The AI search planner expands the user topic into concrete event queries,
+  such as named product launches and announcements.
+- News with genuine publication dates comes before generic undated web pages.
+- The final source list is filtered **after** optional HTML publication-date
+  enrichment, retaining only dates within the user-selected interval.
+- Articles with unknown publication dates are excluded rather than
+  presented as recent. Brave's index `page_age` is not treated as a
+  publication date because it can reflect page updates.
+- The response now includes `relevance` scores for scored sources.
+
+The new default `RESEARCH_SOURCES` is
+`news_search,google_news,web_search`; explicit Render environment
+variables override this default. Use the same string in Render.
+
+**Reliability:** public metasearch endpoints and Google News RSS can
+fail or rate-limit requests, especially from shared/cloud IPs.
+For a stable production news provider, configure a valid
+`BRAVE_SEARCH_API_KEY`. It supplies a dedicated news endpoint with
+supported date filtering; the official service may have costs or usage
+limits. Even with a news API, exact publication dates must be
+independently established. Some valid news pages may be excluded
+when their date metadata cannot be verified.
+
+The 20/50-source response cap remains controlled by archive config;
+the worker will not fabricate extra articles to reach a target count.

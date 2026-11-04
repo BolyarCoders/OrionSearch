@@ -19,8 +19,9 @@ logger = logging.getLogger("orionsearch.collector")
 # ============================================================
 
 SOURCES = (
-    "web_search",
+    "news_search",
     "google_news",
+    "web_search",
     "hacker_news",
     "arxiv",
     "hugging_face",
@@ -98,7 +99,7 @@ def get_selected_sources():
     raw = os.getenv("RESEARCH_SOURCES")
 
     if raw is None:
-        return ["web_search", "google_news"]
+        return ["news_search", "google_news", "web_search"]
 
     sources = [source.strip() for source in raw.split(",")]
 
@@ -113,8 +114,8 @@ def get_selected_sources():
 
 
 def validate_limits(days, max_articles=None):
-    if type(days) is not int or not 1 <= days <= 90:
-        raise ValueError("days must be between 1 and 90")
+    if type(days) is not int or not 1 <= days <= 3660:
+        raise ValueError("days must be between 1 and 3660")
 
     if max_articles is not None:
         if type(max_articles) is not int or not 1 <= max_articles <= 50:
@@ -201,7 +202,7 @@ def get_rss(url, source, limit):
 
 def search_google_news(query, days, limit):
     params = {
-        "q": f"{query} when:{days}d",
+        "q": f"{query} after:{(datetime.now(timezone.utc) - timedelta(days=days)).date().isoformat()}",
         "hl": "en-US",
         "gl": "US",
         "ceid": "US:en",
@@ -332,7 +333,7 @@ def process_articles(articles, days, max_articles=None):
                 continue
             if not cutoff <= known_date <= now:
                 continue
-        elif article.get("source") != "Web Search":
+        elif article.get("source") not in ("Web Search", "News Search"):
             # Preserve the existing date requirement for RSS/news adapters.
             continue
 
@@ -355,14 +356,13 @@ def process_articles(articles, days, max_articles=None):
         ):
             unique[key] = normalized
 
-    # General web results preserve search-engine relevance order.
-    # News-only results continue to rank by recency.
+    # Prioritize known-dated news, then undated generic web discoveries.
     result = sorted(
         unique.values(),
         key=lambda article: (
-            article.get("source") == "Web Search",
-            -article.get("search_rank", 99999),
+            article.get("source") != "Web Search",
             article.get("published_at") or "",
+            -article.get("search_rank", 99999),
             article.get("url") or "",
         ),
         reverse=True,
@@ -420,14 +420,19 @@ def collect(
             for query in queries
             if isinstance(query, str) and query.strip()
         )
-    )[:3] or [topic]
+    )[:5] or [topic]
 
     tasks = []
 
     # Build source-specific tasks.
     for source in dict.fromkeys(selected_sources):
 
-        if source == "web_search":
+        if source == "news_search":
+            from news_search import search_news
+            for query in query_list:
+                tasks.append((f"news_search:{query}", search_news, (query, days, feed_limit)))
+
+        elif source == "web_search":
             from web_search import search_web
             for query in query_list:
                 tasks.append((f"web_search:{query}", search_web, (query, days, feed_limit)))

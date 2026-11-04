@@ -87,13 +87,14 @@ def test_only_explicit_web_discoveries_without_dates_survive_processing():
     ]
     results = collector.process_articles(articles, days=7)
     assert [article["title"] for article in results] == [
-        "Relevant clothing styles", "Current news"
+        "Current news", "Relevant clothing styles"
     ]
-    assert results[0]["published_at"] is None
+    assert results[1]["published_at"] is None
 
 
 def test_collector_prioritizes_web_relevance_without_hacker_news(monkeypatch):
     import web_search as adapter
+    import news_search as news_adapter
 
     monkeypatch.delenv("RESEARCH_SOURCES", raising=False)
     monkeypatch.setattr(collector, "get_feed_limit", lambda: 5)
@@ -112,9 +113,10 @@ def test_collector_prioritizes_web_relevance_without_hacker_news(monkeypatch):
         return [{"title": "Recent news", "url": "https://news.example/recent",
                  "source": "Google News", "published_at": datetime.now(timezone.utc).isoformat()}]
 
+    monkeypatch.setattr(news_adapter, "search_news", lambda query, days, limit: [])
     monkeypatch.setattr(adapter, "search_web", mock_web)
     monkeypatch.setattr(collector, "search_google_news", mock_news)
-    assert collector.get_selected_sources() == ["web_search", "google_news"]
+    assert collector.get_selected_sources() == ["news_search", "google_news", "web_search"]
 
     selected, errors, total = collector.collect(
         "fashion trends", 7, ["fashion trends"],
@@ -123,7 +125,7 @@ def test_collector_prioritizes_web_relevance_without_hacker_news(monkeypatch):
     assert errors == {}
     assert total == 3
     assert [a["url"] for a in selected] == [
-        "https://fashion.example/one", "https://fashion.example/two"
+        "https://news.example/recent", "https://fashion.example/one"
     ]
 
 
