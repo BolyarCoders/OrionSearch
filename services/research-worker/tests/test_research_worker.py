@@ -343,6 +343,7 @@ def test_api_total_articles_semantics(monkeypatch):
 
     request = ResearchRequest(topic="Artificial Intelligence", days=1, max_articles=1)
 
+    monkeypatch.setattr(service.ai_agent, "select_relevant_articles", lambda client, objective, queries, articles: articles)
     result = service.run_research(request)
 
     assert result.total_articles == 17
