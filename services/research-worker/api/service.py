@@ -99,6 +99,9 @@ def run_contract_research(request):
             selected_articles = [article for _, article in dated]
             logger.info("Date-filtered research sources retained: %d", len(dated))
             if request.get("includeReport", False):
+                from api.briefing_content import enrich_briefing_articles
+                briefing_excerpts = []
+
                 # Use exactly the filtered, deduplicated and ordered sources for
                 # the report so its numbered citations refer to accepted sources.
                 report_articles = []
@@ -110,8 +113,16 @@ def run_contract_research(request):
                         "published_at": source.get("publishedAt") or "Unknown",
                         "summary": str(article.get("summary") or "")[:350],
                     })
+                # Best-effort: fetch actual article body excerpts for a bounded
+                # number of sources. The remainder stay in the report with
+                # honest snippet-only evidence, and ALL source IDs are retained.
+                briefing_excerpts = enrich_briefing_articles(
+                    report_articles, request["settings"]["excludedDomains"]
+                )
                 try:
-                    result["report"] = ai_agent.analyze_articles(client, topic, days, report_articles)
+                    result["report"] = ai_agent.analyze_articles(
+                        client, topic, days, briefing_excerpts
+                    )
                 except Exception:
                     logger.warning("Research report generation failed")
                     raise
