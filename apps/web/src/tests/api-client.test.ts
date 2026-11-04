@@ -2,6 +2,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { LiveApiClient, ApiAuthError, ApiError } from "@/lib/api/client";
 
 describe("LiveApiClient Error Handling", () => {
+  it("preserves the API retry delay on a research capacity response", async () => {
+    const liveClient = new LiveApiClient("http://localhost:5190");
+    global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ title: "Research capacity is temporarily exhausted. Retry later." }), {
+      status: 429, headers: { "Content-Type": "application/problem+json", "Retry-After": "60" },
+    }));
+    await expect(liveClient.submitResearchJob("archive", {})).rejects.toMatchObject({ status: 429, retryAfterSeconds: 60 });
+  });
   it("throws ApiAuthError on 401 response", async () => {
     const liveClient = new LiveApiClient("http://localhost:5190");
 

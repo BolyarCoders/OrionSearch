@@ -26,12 +26,14 @@ import {
 export class ApiError extends Error {
   status: number;
   problem?: ProblemDetails;
+  retryAfterSeconds?: number;
 
-  constructor(status: number, message: string, problem?: ProblemDetails) {
+  constructor(status: number, message: string, problem?: ProblemDetails, retryAfterSeconds?: number) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.problem = problem;
+    this.retryAfterSeconds = retryAfterSeconds;
   }
 }
 
@@ -204,7 +206,10 @@ export class LiveApiClient implements IApiClient {
         if (auth && tokenStore.read()) tokenStore.write(null);
         throw new ApiAuthError(problem?.title || undefined, problem);
       }
-      throw new ApiError(response.status, errorMsg, problem);
+      const retryAfter = response.headers.get("retry-after");
+      const seconds = retryAfter && /^\d+$/.test(retryAfter) ? Number(retryAfter) : undefined;
+      throw new ApiError(response.status, errorMsg, problem,
+        seconds !== undefined && Number.isSafeInteger(seconds) ? seconds : undefined);
     }
 
     if (isJson) {

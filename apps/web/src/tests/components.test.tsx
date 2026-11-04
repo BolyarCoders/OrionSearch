@@ -8,7 +8,12 @@ import { ArchiveCard } from "@/components/dashboard/archive-card";
 import { FilterBar } from "@/components/dashboard/filter-bar";
 import { ArchiveSummary } from "@/types/api";
 import { ApiProblem } from "@/components/ui/api-problem";
-import { ApiCloudflareChallengeError } from "@/lib/api/client";
+import { ApiCloudflareChallengeError, ApiError } from "@/lib/api/client";
+
+it("explains an API rate limit and its retry delay", () => {
+  render(<ApiProblem error={new ApiError(429, "Capacity exhausted", undefined, 60)} />);
+  expect(screen.getByRole("alert")).toHaveTextContent("Опитайте отново след 60 секунди");
+});
 
 it("does not describe a Cloudflare challenge as an archive permission error", () => {
   render(<ApiProblem error={new ApiCloudflareChallengeError(403)} />);
