@@ -223,6 +223,7 @@ def test_integrated_research_preserves_multilingual_sources_by_default(request_b
     articles = [{"url": "https://example.com/en", "title": "English text"},
                 {"url": "https://example.com/bg", "title": "Български текст"}]
     monkeypatch.setattr(service.ai_agent, "collect_articles", lambda *args, **kwargs: (articles, {}, 2))
+    monkeypatch.setattr(service.ai_agent, "select_relevant_articles", lambda client, objective, queries, articles: articles)
     monkeypatch.setattr(service.ai_agent, "select_english_articles", lambda client, values: values[:1])
     seen = []
     monkeypatch.setattr(service.ai_agent, "analyze_articles", lambda client, topic, days, selected: seen.extend(selected) or "Report")
@@ -251,6 +252,7 @@ def test_excluded_domains_never_reach_language_classification(request_body, monk
         {"url": "https://allowed.example/kept", "title": "Allowed article"},
     ]
     monkeypatch.setattr(service.ai_agent, "collect_articles", lambda *args, **kwargs: (articles, {}, 4))
+    monkeypatch.setattr(service.ai_agent, "select_relevant_articles", lambda client, objective, queries, articles: articles)
     prompts = []
     def classify(client, prompt):
         prompts.append(prompt)
