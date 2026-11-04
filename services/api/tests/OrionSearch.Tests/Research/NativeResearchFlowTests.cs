@@ -51,7 +51,7 @@ public sealed class NativeResearchFlowTests(PostgreSqlFixture database, CaptureS
                 Assert.Equal(new DateOnly(2026, 10, 1), request.Settings.DateFrom);
                 Assert.Equal(new DateOnly(2026, 10, 31), request.Settings.DateTo);
                 var raw = await storage.UploadAsync(request.ResearchRunId, bytes, "text/html");
-                var result = ResearchTestData.Output(request.ResearchRunId);
+                var result = ResearchTestData.Output(request.ResearchRunId, "https://example.com/article");
                 return result with { Report = "Обзор [1]\n\nИзточници (1):\n[1] Source — https://example.com/article", Sources = [result.Sources[0] with { Capture = result.Sources[0].Capture! with { Raw = raw } }] };
             });
             Assert.Equal(0, agent.Calls);
@@ -87,6 +87,7 @@ public sealed class NativeResearchFlowTests(PostgreSqlFixture database, CaptureS
                 var sourcePath = $"/archives/{archive}/sources/{evidence.DocumentId}";
                 var source = (await owner.GetFromJsonAsync<SourceDetails>(sourcePath))!;
                 Assert.Equal(1, source.VersionCount);
+                Assert.Equal("https://example.com/article", source.CanonicalUrl);
                 var versionPath = sourcePath + $"/versions/{evidence.VersionId}";
                 var captured = (await owner.GetFromJsonAsync<CapturedVersion>(versionPath))!;
                 Assert.Contains(evidence.Quote!, captured.ExtractedText!);
