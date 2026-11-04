@@ -48,6 +48,7 @@ def test_integrated_service_uses_existing_planner_without_reports_or_second_job_
     engine.plan_research = plan
     engine.translate_search_query = lambda client, objective: objective
     engine.collect_articles = collect
+    engine.select_relevant_articles = lambda client, objective, queries, articles: articles
     engine.select_english_articles = lambda client, articles: articles
     collector = ModuleType("collector")
     collector.SOURCES = ("google_news",)
@@ -127,6 +128,7 @@ def test_service_calls_existing_agent(monkeypatch):
     monkeypatch.setattr(service.ai_agent, "create_client", create_client)
     monkeypatch.setattr(service.ai_agent, "plan_research", plan)
     monkeypatch.setattr(service.ai_agent, "collect_articles", collect)
+    monkeypatch.setattr(service.ai_agent, "select_relevant_articles", lambda client, objective, queries, articles: articles)
     monkeypatch.setattr(service.ai_agent, "analyze_articles", analyze)
 
     request = ResearchRequest(topic="Artificial Intelligence", days=7, max_articles=1)

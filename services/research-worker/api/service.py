@@ -72,6 +72,11 @@ def run_contract_research(request):
                 if not articles:
                     raise RuntimeError("Source collection did not complete")
             articles = [article for article in articles if eligible_source(article, request["settings"]) is not None]
+            # Search indexes are discovery suggestions, not verified relevant
+            # sources. Apply the topical gate before persistence and reporting.
+            articles = ai_agent.select_relevant_articles(
+                client, request["objective"], queries, articles
+            )
             # Do not silently discard Bulgarian or other non-English results.
             # Legacy English-only behavior is an explicit opt-in for deployments.
             if os.getenv("RESEARCH_ENGLISH_ONLY", "").lower() == "true":
@@ -137,6 +142,9 @@ def run_research(request: ResearchRequest) -> ResearchResult:
             "Found %d unique articles, returning %d", total_articles, len(articles)
         )
 
+        articles = ai_agent.select_relevant_articles(
+            client, request.topic, queries, articles
+        )
         report = ai_agent.analyze_articles(
             client, request.topic, request.days, articles
         )
