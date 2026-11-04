@@ -65,7 +65,7 @@ def test_max_articles():
     assert results[0]["title"] == "Article 0"
 
 
-@pytest.mark.parametrize("days", [0, -1, 91])
+@pytest.mark.parametrize("days", [0, -1, 3661])
 def test_invalid_days(days):
     with pytest.raises(ValueError):
         collector.validate_limits(days, 10)
@@ -101,7 +101,7 @@ def test_default_sources(monkeypatch):
     queries, sources = ai_agent.plan_research(None, "Artificial Intelligence", 7)
 
     assert queries == ["Artificial Intelligence"]
-    assert sources == ["google_news", "hacker_news"]
+    assert sources == ["news_search", "google_news", "web_search"]
 
 
 def test_explicit_sources(monkeypatch):
@@ -127,6 +127,14 @@ def test_all_source_task_signatures(monkeypatch):
     monkeypatch.setenv("RESEARCH_FEED_LIMIT", "8")
     calls = []
 
+    def news(query, days, limit):
+        calls.append(("news_search", query, days, limit))
+        return []
+
+    def web(query, days, limit):
+        calls.append(("web_search", query, days, limit))
+        return []
+
     def google(query, days, limit):
         calls.append(("google_news", query, days, limit))
         return []
@@ -143,6 +151,10 @@ def test_all_source_task_signatures(monkeypatch):
         calls.append(("hugging_face", limit))
         return []
 
+    import web_search
+    import news_search
+    monkeypatch.setattr(news_search, "search_news", news)
+    monkeypatch.setattr(web_search, "search_web", web)
     monkeypatch.setattr(collector, "search_google_news", google)
     monkeypatch.setattr(collector, "search_hacker_news", hacker)
     monkeypatch.setattr(collector, "search_arxiv", arxiv)
@@ -156,6 +168,10 @@ def test_all_source_task_signatures(monkeypatch):
     assert errors == {}
     assert total == 0
     assert set(calls) == {
+        ("news_search", "query-a", 3, 8),
+        ("news_search", "query-b", 3, 8),
+        ("web_search", "query-a", 3, 8),
+        ("web_search", "query-b", 3, 8),
         ("google_news", "query-a", 3, 8),
         ("google_news", "query-b", 3, 8),
         ("hacker_news", "query-a", 3, 8),
@@ -335,6 +351,7 @@ def test_api_total_articles_semantics(monkeypatch):
 
     request = ResearchRequest(topic="Artificial Intelligence", days=1, max_articles=1)
 
+    monkeypatch.setattr(service.ai_agent, "select_relevant_articles", lambda client, objective, queries, articles: articles)
     result = service.run_research(request)
 
     assert result.total_articles == 17

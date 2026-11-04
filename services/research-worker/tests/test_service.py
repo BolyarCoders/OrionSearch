@@ -40,7 +40,7 @@ def test_integrated_service_uses_existing_planner_without_reports_or_second_job_
     def collect(topic, days, queries, selected, *, max_articles):
         assert topic == request["objective"]
         assert max_articles == 50
-        return ([{"url": "https://example.com/source", "language": "en", "title": "Discovered"}],
+        return ([{"url": "https://example.com/source", "language": "en", "title": "Discovered", "published_at": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()}],
                 {"google_news": "private upstream body"} if collection_fails else {}, 1)
 
     engine = ModuleType("ai_agent")
@@ -48,6 +48,7 @@ def test_integrated_service_uses_existing_planner_without_reports_or_second_job_
     engine.plan_research = plan
     engine.translate_search_query = lambda client, objective: objective
     engine.collect_articles = collect
+    engine.select_relevant_articles = lambda client, objective, queries, articles: articles
     engine.select_english_articles = lambda client, articles: articles
     collector = ModuleType("collector")
     collector.SOURCES = ("google_news",)
@@ -58,14 +59,11 @@ def test_integrated_service_uses_existing_planner_without_reports_or_second_job_
     monkeypatch.setenv("GEMINI_API_KEY", "test-provider-key")
     for name, value in {"ai_agent": engine, "collector": collector, "google": google, "google.genai": google.genai, "google.genai.types": types}.items():
         monkeypatch.setitem(sys.modules, name, value)
-    if collection_fails:
-        with pytest.raises(RuntimeError, match="did not complete"):
-            service.run_contract_research(request)
-    else:
-        result = service.run_contract_research(request)
-        assert len(result["sources"]) == 1
-        assert result["findings"] == []
-    assert calls == (["captures"] if capture_enabled and not collection_fails else []) + ["closed"] + (["storage-closed"] if capture_enabled else [])
+    result = service.run_contract_research(request)
+    # Partial provider failures must not discard legitimate results.
+    assert len(result["sources"]) == 1
+    assert result["findings"] == []
+    assert calls == (["captures"] if capture_enabled else []) + ["closed"] + (["storage-closed"] if capture_enabled else [])
     assert not service.research_lock.locked()
 
 
@@ -130,6 +128,7 @@ def test_service_calls_existing_agent(monkeypatch):
     monkeypatch.setattr(service.ai_agent, "create_client", create_client)
     monkeypatch.setattr(service.ai_agent, "plan_research", plan)
     monkeypatch.setattr(service.ai_agent, "collect_articles", collect)
+    monkeypatch.setattr(service.ai_agent, "select_relevant_articles", lambda client, objective, queries, articles: articles)
     monkeypatch.setattr(service.ai_agent, "analyze_articles", analyze)
 
     request = ResearchRequest(topic="Artificial Intelligence", days=7, max_articles=1)
