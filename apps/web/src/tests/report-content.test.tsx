@@ -4,6 +4,36 @@ import { render, screen } from "@testing-library/react";
 import { ReportContent } from "@/components/archive-detail/report-content";
 
 describe("ReportContent", () => {
+  it("renders emphasis, inline code and ordered lists while preserving citations", () => {
+    const { container } = render(<ReportContent runId="format" text={`**Strong [1]** and *emphasis* with \`code [1]\`.
+
+1. First [1]
+2. Second **item**
+
+Sources (1):
+[1] An article — https://example.com/article`} />);
+    expect(container.querySelector("strong")).toHaveTextContent("Strong [1]");
+    expect(container.querySelector("em")).toHaveTextContent("emphasis");
+    expect(container.querySelector("code")).toHaveTextContent("code [1]");
+    const list = container.querySelector("article > ol");
+    expect(list?.querySelectorAll("li")).toHaveLength(2);
+    expect(screen.getAllByRole("link", { name: /Източник 1/ })).toHaveLength(2);
+  });
+
+  it("ignores malformed bibliography entries and keeps valid English sources", () => {
+    render(<ReportContent runId="bad" text={`Citations [1] [2] [3] [4].
+
+Sources:
+[1] Good — https://example.com/a
+[2] Script — javascript:alert(1)
+[3] No host — https://
+This is not a source line
+[4] Wrong protocol — ftp://example.com/file`} />);
+    expect(screen.getByRole("link", { name: "Good" })).toHaveAttribute("href", "https://example.com/a");
+    expect(screen.getByRole("link", { name: /Източник 1/ })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Източник [234]/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Script|No host|Wrong protocol/ })).not.toBeInTheDocument();
+  });
   it("renders thematic headings, citations and safe source links", () => {
     render(<ReportContent runId="run-one" text={`# Новини за електромобили
 

@@ -6,7 +6,9 @@ import React from "react";
  * Never render model-produced HTML or trust raw links.
  */
 type Source = { index: number; title: string; url: string };
-type Block = { kind: "heading" | "paragraph" | "bullet"; text: string; level?: number };
+type Block =
+  | { kind: "heading" | "paragraph" | "bullet"; text: string; level?: number }
+  | { kind: "ordered"; start: number; items: string[] };
 
 function safeHttpUrl(raw: string): string | null {
   try {
@@ -22,6 +24,7 @@ function parseBriefing(value: string): { blocks: Block[]; sources: Source[] } {
   const sources: Source[] = [];
   let paragraph: string[] = [];
   let sourceSection = false;
+  let orderedOpen = false;
 
   const flush = () => {
     if (paragraph.length) blocks.push({ kind: "paragraph", text: paragraph.join(" ") });
@@ -42,11 +45,20 @@ function parseBriefing(value: string): { blocks: Block[]; sources: Source[] } {
       }
       continue;
     }
-    if (!line) { flush(); continue; }
+    if (!line) { flush(); orderedOpen = false; continue; }
+    if (!/^\d+\.\s+/.test(line)) orderedOpen = false;
     const heading = line.match(/^(#{1,4})\s+(.+)$/);
     if (heading) {
       flush();
       blocks.push({ kind: "heading", text: heading[2], level: heading[1].length });
+    } else if (/^\d+\.\s+/.test(line)) {
+      flush();
+      const match = line.match(/^(\d+)\.\s+(.+)$/)!;
+      const number = Number(match[1]);
+      const previous = blocks[blocks.length - 1];
+      if (orderedOpen && previous?.kind === "ordered") previous.items.push(match[2]);
+      else blocks.push({ kind: "ordered", start: number, items: [match[2]] });
+      orderedOpen = true;
     } else if (/^[-*]\s+/.test(line)) {
       flush();
       blocks.push({ kind: "bullet", text: line.replace(/^[-*]\s+/, "") });
@@ -58,11 +70,18 @@ function parseBriefing(value: string): { blocks: Block[]; sources: Source[] } {
   return { blocks, sources };
 }
 
-function InlineCitations({ text, links, prefix }: {
+function InlineContent({ text, links, prefix }: {
   text: string; links: Map<number, Source>; prefix: string;
 }) {
-  const parts = text.split(/(\[\d+\])/g);
+  const parts = text.split(/(`[^`\n]+`|\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\n]+\*|_[^_\n]+_|\[\d+\])/g);
   return <>{parts.map((part, i) => {
+    if (part.startsWith("`") && part.endsWith("`") && part.length > 2) return <code key={i}>{part.slice(1, -1)}</code>;
+    if (/^(?:\*\*[^*\n]+\*\*|__[^_\n]+__)$/.test(part)) {
+      return <strong key={i}><InlineContent text={part.slice(2, -2)} links={links} prefix={prefix} /></strong>;
+    }
+    if (/^(?:\*[^*\n]+\*|_[^_\n]+_)$/.test(part)) {
+      return <em key={i}><InlineContent text={part.slice(1, -1)} links={links} prefix={prefix} /></em>;
+    }
     const match = part.match(/^\[(\d+)\]$/);
     const source = match ? links.get(Number(match[1])) : undefined;
     return source ? (
@@ -85,7 +104,12 @@ export function ReportContent({ text, runId }: { text: string; runId: string }) 
   return (
     <article className="space-y-4 text-sm leading-7 text-content-secondary" aria-label="AI обзор на проучването">
       {blocks.map((block, i) => {
-        const content = <InlineCitations text={block.text} links={sourceMap} prefix={prefix} />;
+        if (block.kind === "ordered") {
+          return <ol key={i} start={block.start} className="list-decimal pl-6 space-y-1">
+            {block.items.map((item, index) => <li key={index}><InlineContent text={item} links={sourceMap} prefix={prefix} /></li>)}
+          </ol>;
+        }
+        const content = <InlineContent text={block.text} links={sourceMap} prefix={prefix} />;
         if (block.kind === "heading") {
           return block.level === 1
             ? <h2 key={i} className="text-lg sm:text-xl font-semibold text-content-primary pt-3">{content}</h2>
