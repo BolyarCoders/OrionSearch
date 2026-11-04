@@ -34,8 +34,8 @@ public sealed class ArchiveOpenApiTests
         }
         Assert.True(paths.GetProperty("/archives").GetProperty("post").TryGetProperty("requestBody", out _));
         Assert.True(paths.GetProperty("/archives/{id}").GetProperty("patch").TryGetProperty("requestBody", out _));
-        Assert.Contains("deprecated", paths.GetProperty("/archives").GetProperty("post").GetProperty("description").GetString(), StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("not applied", paths.GetProperty("/archives/{id}").GetProperty("patch").GetProperty("description").GetString(), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("inclusive UTC publication-date bounds", paths.GetProperty("/archives").GetProperty("post").GetProperty("description").GetString(), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("snapshotted", paths.GetProperty("/archives/{id}").GetProperty("patch").GetProperty("description").GetString(), StringComparison.OrdinalIgnoreCase);
         Assert.True(paths.GetProperty("/archives").GetProperty("post").GetProperty("responses").TryGetProperty("201", out _));
         var research = paths.GetProperty("/archives/{archiveId}/research-jobs").GetProperty("post");
         Assert.True(research.GetProperty("responses").TryGetProperty("202", out _));

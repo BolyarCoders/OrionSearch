@@ -91,6 +91,23 @@ def test_empty_sources_report_is_clear_and_nonempty(monkeypatch):
     assert "Не са намерени" in result
 
 
+@pytest.mark.parametrize("answer", ["Твърдение [0].", "Твърдение [3].", "Без цитати.", r"Твърдение [1].\nСледващ ред."])
+def test_report_rejects_invalid_citations_and_literal_newlines(monkeypatch, answer):
+    monkeypatch.setattr(ai_agent, "ask_ai", lambda *args: answer)
+    with pytest.raises(ValueError):
+        ai_agent.analyze_articles(object(), "electric vehicles", 7, [article(1), article(2)])
+
+
+def test_source_titles_cannot_add_bibliography_lines(monkeypatch):
+    monkeypatch.setattr(ai_agent, "ask_ai", lambda *args: "Потвърдена информация [1].")
+    source = article(1)
+    source["title"] = "First line\nSecond line"
+    report = ai_agent.analyze_articles(object(), "electric vehicles", 7, [source])
+    assert report.split("Източници (1):\n", 1)[1].splitlines() == [
+        "[1] First line Second line — https://news.example/story/1"
+    ]
+
+
 def test_source_text_retrieval_falls_back_without_dropping_any_source():
     calls = []
     def fake_fetch(url, excluded, deadline):

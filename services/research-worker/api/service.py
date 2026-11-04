@@ -123,6 +123,14 @@ def run_contract_research(request):
                     result["report"] = ai_agent.analyze_articles(
                         client, topic, days, briefing_excerpts
                     )
+                    if not isinstance(result["report"], str) or not result["report"].strip():
+                        raise ValueError("Research report is empty")
+                    if errors:
+                        result["report"] = (
+                            "Някои източници за търсене не бяха достъпни. "
+                            "Обзорът може да не включва всички релевантни публикации.\n\n"
+                            + result["report"]
+                        )
                 except Exception:
                     logger.warning("Research report generation failed")
                     raise
