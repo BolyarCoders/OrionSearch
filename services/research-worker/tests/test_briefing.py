@@ -91,7 +91,7 @@ def test_empty_sources_report_is_clear_and_nonempty(monkeypatch):
     assert "Не са намерени" in result
 
 
-@pytest.mark.parametrize("answer", ["Твърдение [0].", "Твърдение [3].", "Без цитати.", r"Твърдение [1].\nСледващ ред."])
+@pytest.mark.parametrize("answer", ["Твърдение [0].", "Твърдение [3].", "Без цитати.", r"Твърдение [1].\nСледващ ред.", "Твърдение [1].\nИзточници (1):\n[1] измислен"])
 def test_report_rejects_invalid_citations_and_literal_newlines(monkeypatch, answer):
     monkeypatch.setattr(ai_agent, "ask_ai", lambda *args: answer)
     with pytest.raises(ValueError):

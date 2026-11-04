@@ -275,6 +275,8 @@ def analyze_articles(client, topic, days, articles):
     # Reject malformed model output instead of publishing unverifiable citations.
     if not isinstance(report, str) or not report.strip() or "\\n" in report:
         raise ValueError("Invalid research report formatting")
+    if re.search(r"(?im)^\s*#{0,4}\s*(?:източници|sources)\s*(?:\(\d+\))?\s*:?[ \t]*$", report):
+        raise ValueError("Research report contains a model-generated source list")
     citations = re.findall(r"\[(\d+)\]", report)
     if not citations or any(len(value) > 9 or not 1 <= int(value) <= len(articles) for value in citations):
         raise ValueError("Invalid research report citations")
