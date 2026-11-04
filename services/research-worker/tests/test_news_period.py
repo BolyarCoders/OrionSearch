@@ -117,3 +117,85 @@ def test_collector_keeps_dated_news_below_maximum(monkeypatch):
     assert total == 8
     assert len(results) == 8
     assert all(article["source"] == "News Search" for article in results)
+
+
+def test_integrated_pipeline_saves_only_requested_publication_dates(monkeypatch):
+    from google import genai
+    from api import service, source_metadata
+    from api.contract import validate_result
+
+    req = fixture_request()
+    req["objective"] = "electric vehicles"
+    req["title"] = "EV news"
+    req["settings"].update(
+        dateFrom="2026-10-01", dateTo="2026-10-15",
+        preferredDomains=[], excludedDomains=[], config={"maxArticles": 10},
+    )
+    monkeypatch.setenv("GEMINI_API_KEY", "fake")
+    monkeypatch.delenv("ORION_CAPTURE_ENABLED", raising=False)
+    monkeypatch.delenv("RESEARCH_ENGLISH_ONLY", raising=False)
+    monkeypatch.setattr(genai, "Client", lambda **kwargs: type("Client", (), {"close": lambda self: None})())
+    monkeypatch.setattr(service.ai_agent, "translate_search_query", lambda client, objective: objective)
+    monkeypatch.setattr(service.ai_agent, "plan_research", lambda *args: (["electric vehicles"], ["news_search"]))
+    monkeypatch.setattr(service.ai_agent, "expand_news_queries", lambda client, objective, queries: queries)
+    def collected(*args, **kwargs):
+        return ([
+            {"url": "https://cars.example/old", "title": "Old car", "published_at": "2026-09-30T12:00:00Z", "publication_date_kind": "published"},
+            {"url": "https://cars.example/new", "title": "EV model launch", "published_at": "2026-10-11T12:00:00Z", "publication_date_kind": "published", "summary": "New electric car"},
+            {"url": "https://cars.example/future", "title": "Future car", "published_at": "2026-10-16T12:00:00Z", "publication_date_kind": "published"},
+            {"url": "https://cars.example/wiki", "title": "Generic electric vehicle definition", "published_at": None, "publication_date_kind": "discovery"},
+        ], {}, 4)
+    monkeypatch.setattr(service.ai_agent, "collect_articles", collected)
+    monkeypatch.setattr(service.ai_agent, "select_relevant_articles", lambda client, objective, queries, articles: articles)
+    monkeypatch.setattr(source_metadata, "enrich_sources", lambda sources, excluded: None)
+    result = service.run_contract_research(req)
+    assert [source["canonicalUrl"] for source in result["sources"]] == ["https://cars.example/new"]
+    assert result["sources"][0]["publishedAt"] == "2026-10-11T12:00:00Z"
+    assert validate_result(result, req)
+
+
+def test_undated_news_only_qualifies_after_verified_html_publication(monkeypatch):
+    from google import genai
+    from api import service, source_metadata
+
+    req = fixture_request()
+    req["objective"] = "electric vehicles"
+    req["settings"].update(dateFrom="2026-10-01", dateTo="2026-10-15")
+    monkeypatch.setenv("GEMINI_API_KEY", "fake")
+    monkeypatch.delenv("ORION_CAPTURE_ENABLED", raising=False)
+    monkeypatch.delenv("RESEARCH_ENGLISH_ONLY", raising=False)
+    monkeypatch.setattr(genai, "Client", lambda **kwargs: type("Client", (), {"close": lambda self: None})())
+    monkeypatch.setattr(service.ai_agent, "translate_search_query", lambda client, objective: objective)
+    monkeypatch.setattr(service.ai_agent, "plan_research", lambda *args: (["electric vehicles"], ["news_search"]))
+    monkeypatch.setattr(service.ai_agent, "expand_news_queries", lambda client, objective, queries: queries)
+    articles = [{"url": "https://carnews.example/new", "title": "New EV car",
+                 "published_at": None, "publication_date_kind": "discovery"}]
+    monkeypatch.setattr(service.ai_agent, "collect_articles", lambda *args, **kwargs: (articles, {}, 1))
+    monkeypatch.setattr(service.ai_agent, "select_relevant_articles", lambda client, objective, queries, articles: articles)
+    def enrich(sources, excluded):
+        sources[0]["publishedAt"] = "2026-10-14T08:00:00Z"
+    monkeypatch.setattr(source_metadata, "enrich_sources", enrich)
+    result = service.run_contract_research(req)
+    assert len(result["sources"]) == 1
+    assert result["sources"][0]["publishedAt"] == "2026-10-14T08:00:00Z"
+
+
+def test_brave_news_does_not_fake_publication_date(monkeypatch):
+    def fake_get(url, headers, params, timeout):
+        assert url == news_search.BRAVE_NEWS_URL
+        assert params["freshness"].endswith("to" + datetime.now(timezone.utc).date().isoformat())
+        class Response:
+            def raise_for_status(self):
+                pass
+            def json(self):
+                return {"results": [
+                    {"title": "New car announcement", "url": "https://ev.example/car",
+                     "page_age": "2026-11-03T12:00:00Z"}
+                ]}
+        return Response()
+    monkeypatch.setenv("BRAVE_SEARCH_API_KEY", "test-brave-key")
+    monkeypatch.setattr(news_search.requests, "get", fake_get)
+    articles = news_search.search_news("electric vehicles", 7, 10)
+    assert len(articles) == 1
+    assert articles[0]["published_at"] is None
+    assert articles[0]["publication_date_kind"] == "discovery"
