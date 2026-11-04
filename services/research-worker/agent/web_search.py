@@ -49,7 +49,7 @@ def search_web(query, days, limit):
         results = _ddgs_results(query, limit)
 
     articles = []
-    for item in results[:limit]:
+    for rank, item in enumerate(list(results or [])[:limit]):
         if not isinstance(item, dict):
             continue
         url = item.get("url") or item.get("href")
@@ -69,6 +69,7 @@ def search_web(query, days, limit):
             "title": title[:1000],
             "url": url,
             "source": "Web Search",
+            "search_rank": rank,
             "published_at": None,
             "publication_date_kind": "discovery",
             "summary": str(item.get("description") or item.get("body") or "")[:500],
