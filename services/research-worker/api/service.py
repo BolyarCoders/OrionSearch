@@ -142,6 +142,9 @@ def run_research(request: ResearchRequest) -> ResearchResult:
             "Found %d unique articles, returning %d", total_articles, len(articles)
         )
 
+        articles = ai_agent.select_relevant_articles(
+            client, request.topic, queries, articles
+        )
         report = ai_agent.analyze_articles(
             client, request.topic, request.days, articles
         )
