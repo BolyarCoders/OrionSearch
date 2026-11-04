@@ -58,14 +58,11 @@ def test_integrated_service_uses_existing_planner_without_reports_or_second_job_
     monkeypatch.setenv("GEMINI_API_KEY", "test-provider-key")
     for name, value in {"ai_agent": engine, "collector": collector, "google": google, "google.genai": google.genai, "google.genai.types": types}.items():
         monkeypatch.setitem(sys.modules, name, value)
-    if collection_fails:
-        with pytest.raises(RuntimeError, match="did not complete"):
-            service.run_contract_research(request)
-    else:
-        result = service.run_contract_research(request)
-        assert len(result["sources"]) == 1
-        assert result["findings"] == []
-    assert calls == (["captures"] if capture_enabled and not collection_fails else []) + ["closed"] + (["storage-closed"] if capture_enabled else [])
+    result = service.run_contract_research(request)
+    # Partial provider failures must not discard legitimate results.
+    assert len(result["sources"]) == 1
+    assert result["findings"] == []
+    assert calls == (["captures"] if capture_enabled else []) + ["closed"] + (["storage-closed"] if capture_enabled else [])
     assert not service.research_lock.locked()
 
 
