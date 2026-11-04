@@ -230,6 +230,7 @@ def research(client, topic, days, max_articles=10):
         "Collected %d unique articles, selected %d", total_articles, len(articles)
     )
 
+    articles = select_relevant_articles(client, topic, queries, articles)
     report = analyze_articles(client, topic, days, articles)
 
     if errors:
