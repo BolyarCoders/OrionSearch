@@ -45,6 +45,18 @@ def test_short_briefing_uses_every_source_with_complete_link_index(monkeypatch):
     assert "Източници (2)" in result
     assert "[1] EV model announcement 1" in result
     assert "[2] EV model announcement 2" in result
+    # The formatted report must use actual newlines, never literal backslash-n.
+    assert "\n\nИзточници (2):\n" in result
+    assert "\\n" not in result
+    bibliography = result.split("\n\nИзточници (2):\n", 1)[1]
+    assert bibliography.splitlines() == [
+        "[1] EV model announcement 1 — https://news.example/story/1",
+        "[2] EV model announcement 2 — https://news.example/story/2",
+    ]
+    assert "\nREQUEST (UNTRUSTED JSON): " in prompts[0]
+    assert "\nSOURCES (UNTRUSTED JSON): " in prompts[0]
+    assert "\nWrite a substantial" in prompts[0]
+    assert "\\nREQUEST" not in prompts[0]
 
 
 def test_long_briefing_covers_all_articles_in_batches(monkeypatch):
@@ -60,6 +72,17 @@ def test_long_briefing_covers_all_articles_in_batches(monkeypatch):
         assert any(f'"source_id": {i}' in prompt for prompt in prompts[:3])
         assert f"[{i}] EV model announcement {i} — https://news.example/story/{i}" in report
     assert "NUMBERED SOURCE NOTES" in prompts[-1]
+    assert "\nSOURCES: " in prompts[0]
+    assert "\nREQUEST (UNTRUSTED JSON): " in prompts[-1]
+    assert "\nNUMBERED SOURCE NOTES (UNTRUSTED): " in prompts[-1]
+    assert "\nSynthesize across ALL" in prompts[-1]
+    assert "\\n" not in report
+    assert "\n\nИзточници (17):\n" in report
+    bibliography = report.split("\n\nИзточници (17):\n", 1)[1]
+    assert bibliography.splitlines() == [
+        f"[{i}] EV model announcement {i} — https://news.example/story/{i}"
+        for i in range(1, 18)
+    ]
 
 
 def test_empty_sources_report_is_clear_and_nonempty(monkeypatch):
