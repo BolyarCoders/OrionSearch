@@ -127,7 +127,7 @@ def build_result(request, queries, providers, articles, today=None, selected_art
         selected_articles.extend(accepted_articles[source["canonicalUrl"]] for source in ordered)
     executed = []
     for provider in providers:
-        actual_queries = queries if provider in ("web_search", "google_news", "hacker_news") else ["cs.AI+cs.LG+cs.CL" if provider == "arxiv" else "hugging_face_blog_feed"]
+        actual_queries = queries if provider in ("news_search", "web_search", "google_news", "hacker_news") else ["cs.AI+cs.LG+cs.CL" if provider == "arxiv" else "hugging_face_blog_feed"]
         for query in actual_queries:
             if not isinstance(query, str) or not query.strip() or len(query) > 1000:
                 raise ContractError("Invalid planned query")
