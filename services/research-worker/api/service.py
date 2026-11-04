@@ -29,9 +29,9 @@ class ResearchBusy(RuntimeError):
 
 
 def run_contract_research(request):
-    from api.discovery import build_result, eligible_source, execution_window
+    from api.discovery import build_result, eligible_source, execution_window, published_within_window
 
-    days, _, _, _ = execution_window(request)
+    days, start_date, end_date, maximum = execution_window(request)
     if not os.getenv("GEMINI_API_KEY"):
         logger.warning("Research provider is not configured")
         raise RuntimeError("Research provider is not configured")
@@ -57,7 +57,10 @@ def run_contract_research(request):
             # Keep the original-language objective as a second search.
             # Translating Bulgarian to English must not erase local sources.
             original_query = request["objective"].strip()[:1000]
-            queries = list(dict.fromkeys([*queries, original_query]))[:3]
+            queries = list(dict.fromkeys([*queries, original_query]))[:5]
+            expander = getattr(ai_agent, "expand_news_queries", None)
+            if callable(expander):
+                queries = expander(client, request["objective"], queries)[:5]
             if not queries or len(queries) > 5 or any(not isinstance(query, str) or not query.strip() or len(query) > 1000 for query in queries):
                 from api.contract import ContractError
                 raise ContractError("Invalid research plan")
@@ -82,9 +85,19 @@ def run_contract_research(request):
             if os.getenv("RESEARCH_ENGLISH_ONLY", "").lower() == "true":
                 articles = ai_agent.select_english_articles(client, articles)
             selected_articles = []
-            result = build_result(request, queries, selected, articles, selected_articles=selected_articles)
+            # Enrich a larger candidate pool: some pages have publication dates
+            # only in their structured HTML metadata.
+            result = build_result(request, queries, selected, articles, selected_articles=selected_articles, candidate_limit=50)
             from api.source_metadata import enrich_sources
             enrich_sources(result["sources"], request["settings"]["excludedDomains"])
+            dated = [
+                (source, article) for source, article
+                in zip(result["sources"], selected_articles, strict=True)
+                if published_within_window(source, start_date, end_date)
+            ][:maximum]
+            result["sources"] = [source for source, _ in dated]
+            selected_articles = [article for _, article in dated]
+            logger.info("Date-filtered research sources retained: %d", len(dated))
             if request.get("includeReport", False):
                 # Use exactly the filtered, deduplicated and ordered sources for
                 # the report so its numbered citations refer to accepted sources.
