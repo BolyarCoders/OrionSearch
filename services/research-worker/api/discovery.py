@@ -6,17 +6,46 @@ from api.contract import ContractError, canonical_url
 
 
 def execution_window(request, today=None):
+    """Respect the user's inclusive publication window.
+
+    The collector's 'days' is lookback from today, even when the user
+    requests a historical interval, so older valid results are not
+    discarded before the final date filter.
+    """
     today = today or datetime.now(timezone.utc).date()
     settings = request["settings"]
-    # The providers support up to 90 days. Stored archive date settings are
-    # retained for compatibility but no longer narrow research discovery.
-    days = 90
-    end = today
-    start = today - timedelta(days=days - 1)
+    from datetime import date
+    try:
+        explicit_to = date.fromisoformat(settings["dateTo"]) if settings["dateTo"] else None
+        explicit_from = date.fromisoformat(settings["dateFrom"]) if settings["dateFrom"] else None
+    except (ValueError, TypeError) as exc:
+        raise ContractError("Invalid research date") from exc
+
+    end = min(explicit_to or today, today)
+    start = explicit_from or (end - timedelta(days=89))
+    if start > end:
+        raise ContractError("Research period is in the future or reversed")
+    days = (today - start).days + 1
+    if not 1 <= days <= 3660:
+        raise ContractError("Research date range exceeds the 10-year search horizon")
+
     maximum = settings["config"].get("maxArticles", 20)
     if type(maximum) is not int or not 1 <= maximum <= 50:
         raise ContractError("maxArticles must be an integer from 1 to 50")
     return days, start, end, maximum
+
+def published_within_window(source, start, end):
+    """Unknown or updated-only dates cannot prove inclusion in a period."""
+    stamp = source.get("publishedAt")
+    if not isinstance(stamp, str):
+        return False
+    try:
+        published = datetime.fromisoformat(stamp.replace("Z", "+00:00"))
+        if published.tzinfo is None:
+            return False
+    except (ValueError, TypeError, OverflowError):
+        return False
+    return start <= published.astimezone(timezone.utc).date() <= end
 
 
 def matches_domain(host, domains):
@@ -46,8 +75,10 @@ def eligible_source(article, settings):
     return url, publisher
 
 
-def build_result(request, queries, providers, articles, today=None, selected_articles=None):
+def build_result(request, queries, providers, articles, today=None, selected_articles=None, candidate_limit=None):
     _, _, _, maximum = execution_window(request, today)
+    if candidate_limit is not None:
+        maximum = max(maximum, candidate_limit)
     settings = request["settings"]
     sources = {}
     accepted_articles = {}
