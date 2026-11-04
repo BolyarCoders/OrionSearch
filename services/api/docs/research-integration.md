@@ -1,15 +1,12 @@
 # Research integration: P2 architecture and execution plan
 
-**November 2026 behavior change:** Research discovery ignores saved language
-and date preferences and uses the adapters' 90-day rolling window. The worker
-uses AI to select English titles and available summaries; uncertain language is
-excluded and full article language is not verified. Accepted source pages are
-fetched on a bounded best-effort basis to extract explicit publication dates,
-HTML language and site name; missing data remains unknown. These legacy
-fields remain accepted and stored for compatibility. The dated P2 material
-below describes its original filtering behavior and is historical where it
-conflicts with this change. Sources can still be empty when a provider returns
-no matches, a domain exclusion applies, or other collection limits apply.
+**Current behavior:** The worker applies the saved inclusive publication-date
+bounds. Without a start date, it searches the 90 days ending at the selected
+end date or today. Sources without a verified publication date are excluded.
+Saved language preferences are not applied; English-only selection is an
+independent worker opt-in. Older P2 material below is historical where it
+conflicts with this behavior. Sources can still be empty when providers return
+no matches, dates cannot be verified, or other filters apply.
 
 ## AI report integration
 
@@ -21,14 +18,15 @@ authoritative owner of jobs, retries and completion. The worker produces output
 but never writes application data. User tokens and database credentials do not
 cross this boundary.
 
-When `ResearchWorker__IncludeReport=true`, the .NET executor requests a report
+By default `ResearchWorker__IncludeReport=true`, so the .NET executor requests a report
 from a compatible worker. The worker filters and deduplicates sources first,
-then supplies those same ordered sources and feed summaries to the AI analyst.
+then supplies those same ordered sources, bounded article excerpts when available,
+and otherwise feed summaries to the AI analyst.
 The report and the other accepted results are committed in the existing fenced
 transaction. Archive members can retrieve it with
 `GET /research-jobs/{runId}/report`; unavailable or unauthorized reports return
-404. The text is an unverified AI analysis of metadata and feed summaries, not
-captured full text, evidence, or independently verified facts. Clients should
+404. The text is an unverified AI analysis of excerpts and feed summaries, not
+independently verified facts. Clients should
 render it as text, not trusted HTML. Existing runs can have no report.
 
 This extends v1 with optional `includeReport` and `report` fields. A producer
@@ -36,6 +34,17 @@ only sends a report on explicit request. Old producers reject the new request,
 and old consumers reject the new response: keep the option off until both
 upgrades are deployed. Provisional requests do not request reports. Existing
 requests, retries, idempotency and API status responses are unchanged.
+
+The queue owns the immutable settings snapshot and run lifecycle. PostgreSQL
+is the source of truth for the run, results and report; only the fenced
+consumer transaction writes completion, while the Python worker returns a
+versioned result and the frontend reads the authorized API. A worker timeout,
+bad contract or report-generation error fails or retries the existing job;
+partial provider failures retain valid results and add a sanitized disclosure to
+the report. Tests replace HTTP/model/storage dependencies at their boundaries.
+The report column is additive, existing runs can lack a report, and rollback must
+preserve that column. Logs expose safe failure categories without provider
+payloads; member checks gate reads, and source/model text is never trusted HTML.
 
 Rollout: back up the database and apply the additive report migration before
 deploying the new .NET consumer; deploy the compatible Python producer; configure
@@ -67,8 +76,8 @@ hosted request after this change returned three Hacker News sources and a
 generated report.
 This reduces source coverage. Restore additional sources only after verifying
 their availability; the
-integrated route currently fails the run on any source error rather than
-silently publishing an incomplete report. The worker translates the research
+integrated route now retains valid sources after a partial failure and discloses
+the incomplete coverage in the report. The worker translates the research
 objective into an English search query; the original title and description
 remain context for report generation.
 

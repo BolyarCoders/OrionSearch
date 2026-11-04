@@ -32,7 +32,7 @@ public sealed class NativeResearchFlowTests(PostgreSqlFixture database, CaptureS
             }).WithWebHostBuilder(builder => builder.ConfigureServices(services => services.AddSingleton<ICaptureStore>(storage.Store)));
             using var owner = factory.CreateClient();
             await SignInAsync(owner, "research-owner@example.com");
-            using var created = await owner.PostAsJsonAsync("/archives", new { title = "Account research flow" });
+            using var created = await owner.PostAsJsonAsync("/archives", new { title = "Account research flow", settings = new { dateFrom = "2026-10-01", dateTo = "2026-10-31" } });
             Assert.Equal(HttpStatusCode.Created, created.StatusCode);
             var archive = (await created.Content.ReadFromJsonAsync<ArchiveDetails>())!.Archive.Id;
             using var submitted = await owner.PostAsJsonAsync($"/archives/{archive}/research-jobs", new { objective = "Inspect source evidence" });
@@ -48,9 +48,11 @@ public sealed class NativeResearchFlowTests(PostgreSqlFixture database, CaptureS
             {
                 Assert.Equal(archive, request.ArchiveId);
                 Assert.Equal("Inspect source evidence", request.Objective);
+                Assert.Equal(new DateOnly(2026, 10, 1), request.Settings.DateFrom);
+                Assert.Equal(new DateOnly(2026, 10, 31), request.Settings.DateTo);
                 var raw = await storage.UploadAsync(request.ResearchRunId, bytes, "text/html");
-                var result = ResearchTestData.Output(request.ResearchRunId);
-                return result with { Sources = [result.Sources[0] with { Capture = result.Sources[0].Capture! with { Raw = raw } }] };
+                var result = ResearchTestData.Output(request.ResearchRunId, "https://example.com/article");
+                return result with { Report = "Обзор [1]\n\nИзточници (1):\n[1] Source — https://example.com/article", Sources = [result.Sources[0] with { Capture = result.Sources[0].Capture! with { Raw = raw } }] };
             });
             Assert.Equal(0, agent.Calls);
             var builder = WorkerHostTests.Builder(connection);
@@ -70,6 +72,12 @@ public sealed class NativeResearchFlowTests(PostgreSqlFixture database, CaptureS
                     await Task.Delay(50, deadline.Token);
                 } while (true);
                 Assert.Equal(new RunStatistics(1, 1, 1, 1), status.Statistics);
+                var reportPath = $"/research-jobs/{run.Id}/report";
+                var report = (await owner.GetFromJsonAsync<ResearchReport>(reportPath))!;
+                Assert.Equal(run.Id, report.ResearchRunId);
+                Assert.Equal("Обзор [1]\n\nИзточници (1):\n[1] Source — https://example.com/article", report.Text);
+                Assert.Equal(report, await owner.GetFromJsonAsync<ResearchReport>(reportPath));
+                Assert.Equal(1, agent.Calls);
                 var history = (await owner.GetFromJsonAsync<Page<ResearchStatus>>($"/archives/{archive}/research-jobs"))!;
                 Assert.Equal(run.Id, Assert.Single(history.Items).Id);
                 var findings = (await owner.GetFromJsonAsync<Page<FindingSummary>>($"/archives/{archive}/findings"))!;
@@ -79,6 +87,7 @@ public sealed class NativeResearchFlowTests(PostgreSqlFixture database, CaptureS
                 var sourcePath = $"/archives/{archive}/sources/{evidence.DocumentId}";
                 var source = (await owner.GetFromJsonAsync<SourceDetails>(sourcePath))!;
                 Assert.Equal(1, source.VersionCount);
+                Assert.Equal("https://example.com/article", source.Source.CanonicalUrl);
                 var versionPath = sourcePath + $"/versions/{evidence.VersionId}";
                 var captured = (await owner.GetFromJsonAsync<CapturedVersion>(versionPath))!;
                 Assert.Contains(evidence.Quote!, captured.ExtractedText!);
@@ -88,7 +97,7 @@ public sealed class NativeResearchFlowTests(PostgreSqlFixture database, CaptureS
 
                 using var outsider = factory.CreateClient();
                 await SignInAsync(outsider, "outsider@example.com");
-                foreach (var path in new[] { $"/research-jobs/{run.Id}", $"/archives/{archive}/research-jobs", $"/archives/{archive}/findings",
+                foreach (var path in new[] { $"/research-jobs/{run.Id}", reportPath, $"/archives/{archive}/research-jobs", $"/archives/{archive}/findings",
                     $"/archives/{archive}/findings/{finding.Id}", sourcePath, sourcePath + "/versions", versionPath, versionPath + "/raw" })
                     Assert.Equal(HttpStatusCode.NotFound, (await outsider.GetAsync(path)).StatusCode);
             }

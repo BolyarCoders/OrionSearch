@@ -334,7 +334,7 @@ export function CreateArchiveStepper() {
               )}
 
               <div className="p-3.5 rounded-control bg-surface-raised border border-border text-xs text-content-muted leading-relaxed">
-                Празни дати означават търсене във всички периоди. Източници без дата на публикуване ще бъдат отбелязани като <span className="text-content-primary font-mono text-xs">Неизвестна</span>.
+                Без начална дата се използват 90 дни до крайната дата или до днес. Източници без проверена дата на публикуване се изключват.
               </div>
             </div>
           )}

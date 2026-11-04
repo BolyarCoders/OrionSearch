@@ -314,7 +314,8 @@ def test_exclusions_apply_to_source_and_publisher_independently(request_body):
     assert [source["canonicalUrl"] for source in result["sources"]] == ["https://allowed.example/kept"]
 
 
-def test_report_uses_only_selected_sources_and_is_opt_in(request_body, monkeypatch):
+@pytest.mark.parametrize("partial_failure", [False, True])
+def test_report_uses_only_selected_sources_and_is_opt_in(request_body, monkeypatch, partial_failure):
     from google import genai
     from api import source_metadata
 
@@ -335,17 +336,22 @@ def test_report_uses_only_selected_sources_and_is_opt_in(request_body, monkeypat
     monkeypatch.setattr(service.ai_agent, "translate_search_query", lambda client, objective: objective)
     topics = []
     monkeypatch.setattr(service.ai_agent, "plan_research", lambda client, topic, days: (topics.append(topic) or ["query"], ["google_news"]))
-    monkeypatch.setattr(service.ai_agent, "collect_articles", lambda *args, **kwargs: (articles, {}, 2))
+    monkeypatch.setattr(service.ai_agent, "collect_articles", lambda *args, **kwargs: (articles, {"provider": "private upstream failure"} if partial_failure else {}, 2))
     monkeypatch.setattr(service.ai_agent, "select_relevant_articles", lambda client, objective, queries, articles: articles)
     monkeypatch.setattr(service.ai_agent, "select_english_articles", lambda client, items: items)
     seen = []
     monkeypatch.setattr(service.ai_agent, "analyze_articles", lambda client, topic, days, selected: seen.extend(selected) or "Report [1]")
     result = service.run_contract_research(request_body)
     assert topics == [request_body["objective"]]
-    assert result["report"] == "Report [1]"
+    assert "Report [1]" in result["report"]
+    assert ("Някои източници за търсене" in result["report"]) is partial_failure
+    assert "private upstream failure" not in result["report"]
     assert [item["url"] for item in seen] == ["https://example.com/kept"]
     assert seen[0]["summary"] == "Allowed summary"
     assert validate_result(result, request_body)
+    monkeypatch.setattr(service.ai_agent, "analyze_articles", lambda *args: "  ")
+    with pytest.raises(ValueError, match="Research report is empty"):
+        service.run_contract_research(request_body)
     request_body.pop("includeReport")
     assert "report" not in service.run_contract_research(request_body)
 

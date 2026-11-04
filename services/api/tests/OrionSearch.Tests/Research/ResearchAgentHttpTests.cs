@@ -10,6 +10,23 @@ namespace OrionSearch.Tests.Research;
 public sealed class ResearchAgentHttpTests
 {
     [Fact]
+    public async Task DefaultV1DispatchRequestsReportWithSelectedDates()
+    {
+        var request = Request();
+        request = request with { Settings = request.Settings with { DateFrom = new DateOnly(2026, 10, 1), DateTo = new DateOnly(2026, 10, 31) } };
+        var options = new ResearchWorkerOptions { AgentBaseAddress = "https://agent.example/", AgentApiKey = "synthetic-test-service-credential" };
+        using var client = new HttpClient(new StubHandler(async (message, _) =>
+        {
+            var sent = (await message.Content!.ReadFromJsonAsync<AgentRequest>(ResearchContract.Json))!;
+            Assert.True(sent.IncludeReport);
+            Assert.Equal(request.Settings.DateFrom, sent.Settings.DateFrom);
+            Assert.Equal(request.Settings.DateTo, sent.Settings.DateTo);
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(ResearchTestData.Output(request.ResearchRunId) with { Report = "Обзор [1]" }, options: ResearchContract.Json) };
+        }));
+        Assert.Equal("Обзор [1]", (await new HttpResearchAgentClient(client, options).ExecuteAsync(request, default)).Report);
+    }
+
+    [Fact]
     public async Task OptInRequestsAndValidatesAReport()
     {
         var request = Request();

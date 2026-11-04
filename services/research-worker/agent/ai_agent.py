@@ -1,6 +1,7 @@
 import logging
 import json
 import os
+import re
 from pathlib import Path
 from time import perf_counter
 
@@ -271,10 +272,22 @@ def analyze_articles(client, topic, days, articles):
               "standalone report; preserve correct [N] citations."
         )
 
+    # Reject malformed model output instead of publishing unverifiable citations.
+    if not isinstance(report, str) or not report.strip() or "\\n" in report:
+        raise ValueError("Invalid research report formatting")
+    if re.search(r"(?im)^\s*#{0,4}\s*(?:източници|sources)\s*(?:\(\d+\))?\s*:?[ \t]*$", report):
+        raise ValueError("Research report contains a model-generated source list")
+    citations = re.findall(r"\[(\d+)\]", report)
+    if not citations or any(len(value) > 9 or not 1 <= int(value) <= len(articles) for value in citations):
+        raise ValueError("Invalid research report citations")
+
     # An independently built complete source list guarantees traceability even
     # when the model omits references in its prose.
+    def reference_title(article):
+        return " ".join(str(article.get("title") or "Untitled").replace("\\n", " ").split()) or "Untitled"
+
     references = "\n".join(
-        f"[{index}] {article.get('title') or 'Untitled'} — {article.get('url') or ''}"
+        f"[{index}] {reference_title(article)} — {article.get('url') or ''}"
         for index, article in enumerate(articles, 1)
     )
     return f"{report.strip()}\n\nИзточници ({len(articles)}):\n{references}"
