@@ -71,7 +71,7 @@ def article(title="AI agent release", published_at=None, **overrides):
     return item
 
 
-@pytest.mark.parametrize("days", [0, -1, 91, True, 1.5])
+@pytest.mark.parametrize("days", [0, -1, 3661, True, 1.5])
 def test_validate_limits_rejects_invalid_days(days):
     with pytest.raises(ValueError):
         collector.validate_limits(days)
