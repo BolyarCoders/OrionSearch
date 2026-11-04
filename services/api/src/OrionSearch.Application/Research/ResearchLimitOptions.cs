@@ -5,16 +5,17 @@ public sealed class ResearchLimitOptions
     public int MaxOutstandingGlobal { get; set; } = 100;
     public int MaxOutstandingPerOwner { get; set; } = 10;
     public int MaxOutstandingPerArchive { get; set; } = 5;
-    // Legacy time-based settings remain bindable but are no longer enforced.
-    public int MaxRunsPerOwnerPerDay { get; set; } = 20;
-    public int MaxRunsGlobalPerDay { get; set; } = 100;
-    public int MaxRunsPerOwnerPerMinute { get; set; } = 5;
-    public int MaxSubmissionsPerIpPerMinute { get; set; } = 20;
+    public int MaxRunsPerOwnerPerDay { get; set; } = 100000;
+    public int MaxRunsGlobalPerDay { get; set; } = 100000;
+    public int MaxRunsPerOwnerPerMinute { get; set; } = 1000;
+    public int MaxSubmissionsPerIpPerMinute { get; set; } = 1000;
     public int MaxConcurrentAttempts { get; set; } = 1;
-    public int MaxAttemptsPerOwnerPerDay { get; set; } = 30;
-    public int MaxAttemptsGlobalPerDay { get; set; } = 100;
+    public int MaxAttemptsPerOwnerPerDay { get; set; } = 100000;
+    public int MaxAttemptsGlobalPerDay { get; set; } = 100000;
 
-    public bool IsValid() => new[] { MaxOutstandingGlobal, MaxOutstandingPerOwner, MaxOutstandingPerArchive }.All(value => value is >= 1 and <= 100000)
+    public bool IsValid() => new[] { MaxOutstandingGlobal, MaxOutstandingPerOwner, MaxOutstandingPerArchive,
+        MaxRunsPerOwnerPerDay, MaxRunsGlobalPerDay, MaxRunsPerOwnerPerMinute, MaxSubmissionsPerIpPerMinute,
+        MaxAttemptsPerOwnerPerDay, MaxAttemptsGlobalPerDay }.All(value => value is >= 1 and <= 100000)
         && MaxConcurrentAttempts is >= 1 and <= 100;
 }
 

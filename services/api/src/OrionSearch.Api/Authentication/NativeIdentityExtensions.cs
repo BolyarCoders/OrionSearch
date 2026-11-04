@@ -1,4 +1,5 @@
 using System.Security.Cryptography.X509Certificates;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.DataProtection.KeyManagement;
@@ -17,9 +18,20 @@ public static class NativeIdentityExtensions
     {
         services.AddOptions<NativeIdentitySettings>().Bind(configuration.GetSection("NativeIdentity"))
             .Validate(settings => settings.IsValid(environment.IsDevelopment()),
-                "NativeIdentity requires a valid key-encryption certificate configuration outside Development.")
+                "NativeIdentity requires valid request limits and, outside Development, a key-encryption certificate.")
             .ValidateOnStart();
         services.AddSingleton(provider => provider.GetRequiredService<IOptions<NativeIdentitySettings>>().Value);
+        services.AddRateLimiter(options =>
+        {
+            options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+            options.AddPolicy("accounts", context => RateLimitPartition.GetFixedWindowLimiter(
+                RateLimitClientAddress.Get(context), _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = context.RequestServices.GetRequiredService<NativeIdentitySettings>().RequestsPerMinute,
+                    Window = TimeSpan.FromMinutes(1),
+                    QueueLimit = 0
+                }));
+        });
         services.AddIdentityCore<User>(options =>
         {
             options.User.RequireUniqueEmail = true;

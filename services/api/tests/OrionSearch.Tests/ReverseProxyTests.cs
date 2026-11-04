@@ -6,10 +6,23 @@ namespace OrionSearch.Tests;
 
 public sealed class ReverseProxyTests
 {
+    [Fact]
+    public async Task DefaultAccountLimitAllowsSharedClientsMoreThanTheOldThreshold()
+    {
+        using var factory = new ApiFactory("Development");
+        using var configured = factory.WithSettings(new() { ["NativeIdentity:Enabled"] = "true" });
+        using var client = configured.CreateClient();
+        for (var i = 0; i < 12; i++)
+        {
+            using var response = await client.PostAsJsonAsync("/auth/login", new { });
+            Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        }
+    }
+
     [Theory]
     [InlineData("/auth/login")]
     [InlineData("/archives/11111111-1111-1111-1111-111111111111/research-jobs")]
-    public async Task RepeatedRequestsAreNotRateLimited(string path)
+    public async Task RenderEdgeRateLimitsClientsIndependentlyAndIgnoresForwardedFor(string path)
     {
         using var factory = new ApiFactory("Development");
         using var configured = factory.WithProbe(IPAddress.Parse("10.0.0.5"), new()
@@ -31,12 +44,12 @@ public sealed class ReverseProxyTests
             return result.StatusCode;
         }
         Assert.NotEqual(HttpStatusCode.TooManyRequests, await Send("203.0.113.10", "192.0.2.1"));
-        Assert.NotEqual(HttpStatusCode.TooManyRequests, await Send("203.0.113.10", "192.0.2.2"));
+        Assert.Equal(HttpStatusCode.TooManyRequests, await Send("203.0.113.10", "192.0.2.2"));
         Assert.NotEqual(HttpStatusCode.TooManyRequests, await Send("203.0.113.11", "192.0.2.1"));
     }
 
     [Fact]
-    public async Task DirectDeploymentDoesNotRateLimitRequestsWithCloudflareHeaders()
+    public async Task DirectDeploymentDoesNotTrustClientSuppliedCloudflareHeaders()
     {
         using var factory = new ApiFactory("Development");
         using var configured = factory.WithProbe(IPAddress.Parse("192.0.2.10"), new()
@@ -53,7 +66,7 @@ public sealed class ReverseProxyTests
             return response.StatusCode;
         }
         Assert.NotEqual(HttpStatusCode.TooManyRequests, await Send("203.0.113.1"));
-        Assert.NotEqual(HttpStatusCode.TooManyRequests, await Send("203.0.113.2"));
+        Assert.Equal(HttpStatusCode.TooManyRequests, await Send("203.0.113.2"));
     }
 
     [Theory]
@@ -67,7 +80,7 @@ public sealed class ReverseProxyTests
     }
 
     [Fact]
-    public async Task MissingOrMalformedRenderAddressesAreNotRateLimited()
+    public async Task MissingOrMalformedRenderAddressesShareAConservativeBucket()
     {
         using var factory = new ApiFactory("Development");
         using var configured = factory.WithProbe(IPAddress.Parse("10.0.0.5"), new()
@@ -84,7 +97,7 @@ public sealed class ReverseProxyTests
         using var request = new HttpRequestMessage(HttpMethod.Post, path) { Content = JsonContent.Create(new { }) };
         request.Headers.Add("CF-Connecting-IP", "203.0.113.10, 203.0.113.11");
         using var malformed = await client.SendAsync(request);
-        Assert.NotEqual(HttpStatusCode.TooManyRequests, malformed.StatusCode);
+        Assert.Equal(HttpStatusCode.TooManyRequests, malformed.StatusCode);
     }
 
     [Theory]

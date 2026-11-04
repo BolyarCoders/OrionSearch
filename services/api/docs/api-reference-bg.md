@@ -145,7 +145,7 @@ Authorization: Bearer <access-token>
 | 500 | Неочаквана сървърна грешка; публичният отговор не трябва да съдържа stack trace или тайни. |
 | 503 | Например readiness не може да достигне базата, или raw съдържание липсва/не може да се провери в хранилището. |
 
-При `/auth` лимитът за body е 32 768 байта, а при `POST /archives/{id}/research-jobs` — 16 384 байта. API не прилага лимити по честота или дневни квоти; запазени са ограниченията за капацитет на research опашката. Хостингът може да налага собствени ограничения. При 429 не правете непрекъснати незабавни повторения.
+При `/auth` лимитът за body е 32 768 байта, а при `POST /archives/{id}/research-jobs` — 16 384 байта. Останалите лимити зависят и от хостинга. Account endpoint-ите и подаването на проучвания имат IP rate limits; research admission добавя лимити по собственик, архив и общ капацитет. При 429 не правете непрекъснати незабавни повторения.
 
 ## 5. Всички endpoint-и
 
@@ -198,7 +198,7 @@ GET /health
 
 ## 7. Акаунти и сесии
 
-При невалиден JSON, непознати полета, 413, външен 429 или вътрешен отказ важат общите правила в раздел 4.
+Всички `/auth/*` заявки са под общия account rate limit. При невалиден JSON, непознати полета, 413, 429 или вътрешен отказ важат общите правила в раздел 4.
 
 ### `POST /auth/register`
 
@@ -228,7 +228,7 @@ Content-Type: application/json
 {"email":"person@example.com","password":"Example-Strong-Password-42!"}
 ```
 
-**200:** token response от раздел 3. **401:** грешни данни, несъществуващ/неактивен акаунт или временна блокировка. След 5 неуспешни опита Identity използва 5-минутен lockout. Публичният отговор не трябва да се използва за установяване дали даден имейл съществува. **429:** възможен отказ от хостинг или външна защита.
+**200:** token response от раздел 3. **401:** грешни данни, несъществуващ/неактивен акаунт или временна блокировка. След 5 неуспешни опита Identity използва 5-минутен lockout. Публичният отговор не трябва да се използва за установяване дали даден имейл съществува. **429:** account rate limit.
 
 ### `POST /auth/refresh`
 
@@ -400,7 +400,7 @@ Idempotency-Key: ai-research-20261030-001
 
 Значения на полетата: `id` е публичният run UUID; `statistics` брои приетите резултати; `attempts`/`maxAttempts` показват отделните опити; `nextAttemptAt` е време за следващ pending опит или `null`; `retrying` отличава повторен опит от първоначално чакане; `error` е безопасно обобщение или `null`. Часове и числови настройки в примера са илюстративни.
 
-**400:** невалиден objective/key/body или повече от един key header. **401:** невалидна сесия. **403:** viewer. **404:** архивът не е достъпен. **409:** архивът не е active или key е използван с различно съдържание. **413:** body над лимита. **429:** изчерпан капацитет на опашката или отказ от хостинга; `Retry-After` може да подсказва кога да опитате. При успешно записан job не създавайте нова задача на всеки polling цикъл.
+**400:** невалиден objective/key/body или повече от един key header. **401:** невалидна сесия. **403:** viewer. **404:** архивът не е достъпен. **409:** архивът не е active или key е използван с различно съдържание. **413:** body над лимита. **429:** IP rate limit или изчерпан admission капацитет; `Retry-After` може да подсказва кога да опитате. При успешно записан job не създавайте нова задача на всеки polling цикъл.
 
 ### `GET /research-jobs/{id}`
 
@@ -651,19 +651,19 @@ Paused архив не стартира ново чакащо изпълнени
 | `DATABASE_URL` или `ConnectionStrings__OrionSearch` | Връзка към PostgreSQL; данните за достъп са тайна. |
 | `NativeIdentity__Enabled` | Регистрира account маршрутите и активира Identity. |
 | `NativeIdentity__KeyEncryptionCertificateBase64` / `...Path` и `...Password` | Защитават persisted Data Protection ключове извън Development. Не настройвайте едновременно base64 и path. |
-| `NativeIdentity__RequestsPerMinute` | Остаряла настройка, която вече не се прилага. |
+| `NativeIdentity__RequestsPerMinute` | Account rate limit; действителната стойност е конфигурационна. |
 | `Cors__AllowedOrigins__0`, `__1`, … | Изрично разрешени frontend origins. CORS не заменя authentication. |
-| `ReverseProxy__KnownProxies`, `ReverseProxy__TrustRenderEdge` | Настройки за доверени проксита; Render режимът вече не се използва за лимитиране на заявки. |
+| `ReverseProxy__KnownProxies`, `ReverseProxy__TrustRenderEdge` | Настройки за доверени проксита и разпознаване на клиентски адрес за лимити; Render режимът зависи от реалната edge/мрежова изолация. |
 | `ResearchWorker__Enabled` | Включва обработката; записването на job и изпълнението са отделни стъпки. |
 | `ResearchWorker__AgentBaseAddress`, `ResearchWorker__AgentApiKey` | Адрес и сървърен ключ към Python worker-а. |
 | `ResearchWorker__IncludeReport` | Изрично иска report от съвместим worker. |
 | `ResearchWorker__TimeoutSeconds`, `LeaseSeconds`, `HeartbeatSeconds`, `PollSeconds` | Таймаути, lease и polling на опашката. |
 | `ResearchWorker__MaxAttempts`, `RetryBaseSeconds`, `RetryMaxSeconds`, `MaxResponseBytes` | Лимити за опити, backoff и размер на отговор. |
-| `ResearchLimits__...` | Капацитет на чакащите заявки и едновременните опити; дневните и минутните настройки вече не се прилагат. |
+| `ResearchLimits__...` | Admission лимити за чакащи/дневни заявки и едновременни опити. |
 | `CaptureStore__...` | Endpoint, bucket, регион и credentials за versioned S3-съвместимо хранилище, когато е активирано. |
 | Worker: `ORION_WORKER_API_KEY`, `GEMINI_API_KEY`, `GEMINI_MODEL`, `GEMINI_FALLBACK_MODEL`, `RESEARCH_SOURCES` | Конфигурация на отделния Python процес. Gemini ключът не се дава на .NET клиента. |
 
-Примерни **кодови defaults**, не гарантирани live стойности: lease 120 s, heartbeat 30 s, processor poll 5 s, общ timeout 300 s, до 3 опита, backoff база 10 s, максимум 300 s и отговор до 2 MiB. Research admission допуска по подразбиране глобално 100 чакащи или изпълнявани задачи, 10 на owner, 5 на архив и 1 едновременен опит; конфигурацията може да ги промени.
+Примерни **кодови defaults**, не гарантирани live стойности: lease 120 s, heartbeat 30 s, processor poll 5 s, общ timeout 300 s, до 3 опита, backoff база 10 s, максимум 300 s и отговор до 2 MiB. Research admission допуска по подразбиране глобално 100 активни, 10 на owner, 5 на архив, до 1000 заявки/owner/минута, 100000 runs/owner/ден, 100000 глобално/ден и 1 едновременен опит; конфигурацията може да ги промени. Високите квоти ограничават разходите слабо.
 
 Startup **не прилага EF миграции автоматично**. Миграциите се планират, архивират и прилагат изрично от оператор. Последният описан deployment използваше Render Free; свободните web услуги могат да заспиват, което забавя или прекъсва фонова обработка до следващо събуждане. Базата е имала срок до 26 ноември 2026 г. в 08:35 ч. българско време и няма управляван backup на Free плана — проверете актуалното състояние в Render. Локален криптиран backup не заменя независим, редовно проверяван backup.
 
@@ -677,7 +677,7 @@ Startup **не прилага EF миграции автоматично**. Ми
 | Архив връща 404 | Невалидно UUID, липсващ архив или липса на membership; не разчитайте да различите чужд ресурс. |
 | PATCH връща 403 | Viewer няма write права; editor не може да променя status. |
 | Research POST връща 409 | Архивът не е active, има конфликтен idempotency key или ownership inconsistency. |
-| Research POST връща 429 | Капацитет на опашката или външна защита; проверете отговора и `Retry-After`. |
+| Research POST връща 429 | Rate/admission лимит; спазете `Retry-After`. |
 | Run стои `queued` | Processor е изключен/спи, архивът е paused, капацитетът е изчерпан или предстои retry. 202 не гарантира завършване. |
 | Run е `failed` | Вижте безопасното `error`; операторът проверява worker/provider логовете без да разкрива тайни. |
 | Report е 404 при `completed` | По-стар run, report функцията е изключена или отчет не е приет; проверете конфигурацията/версията. |

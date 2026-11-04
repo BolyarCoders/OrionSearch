@@ -6,9 +6,9 @@ public sealed class NativeIdentitySettings
     public string KeyEncryptionCertificatePath { get; set; } = "";
     public string KeyEncryptionCertificateBase64 { get; set; } = "";
     public string KeyEncryptionCertificatePassword { get; set; } = "";
-    // Retained for compatibility with existing configuration; no longer enforced.
-    public int RequestsPerMinute { get; set; } = 10;
+    public int RequestsPerMinute { get; set; } = 1000;
 
-    public bool IsValid(bool development) => !Enabled || (string.IsNullOrWhiteSpace(KeyEncryptionCertificatePath) || string.IsNullOrWhiteSpace(KeyEncryptionCertificateBase64))
+    public bool IsValid(bool development) => !Enabled || RequestsPerMinute is >= 1 and <= 1000
+        && (string.IsNullOrWhiteSpace(KeyEncryptionCertificatePath) || string.IsNullOrWhiteSpace(KeyEncryptionCertificateBase64))
         && (development || Path.IsPathFullyQualified(KeyEncryptionCertificatePath) || !string.IsNullOrWhiteSpace(KeyEncryptionCertificateBase64));
 }

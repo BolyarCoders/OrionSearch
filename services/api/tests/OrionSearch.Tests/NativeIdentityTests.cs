@@ -187,7 +187,7 @@ public sealed class NativeIdentityTests(PostgreSqlFixture database)
     }
 
     [Fact]
-    public async Task AuthBodyLimitIsEnforcedWithoutRateLimiting()
+    public async Task AuthRateAndBodyLimitsAreEnforced()
     {
         await using var scenario = await Scenario.CreateAsync(database, requestsPerMinute: 1);
         using var client = scenario.Client();
@@ -196,7 +196,7 @@ public sealed class NativeIdentityTests(PostgreSqlFixture database)
         using var first = await client.PostAsJsonAsync("/auth/login", new { email = "unknown@example.com", password = Password });
         Assert.Equal(HttpStatusCode.Unauthorized, first.StatusCode);
         using var limited = await client.PostAsJsonAsync("/auth/login", new { email = "unknown@example.com", password = Password });
-        Assert.Equal(HttpStatusCode.Unauthorized, limited.StatusCode);
+        Assert.Equal(HttpStatusCode.TooManyRequests, limited.StatusCode);
     }
 
     [Theory]

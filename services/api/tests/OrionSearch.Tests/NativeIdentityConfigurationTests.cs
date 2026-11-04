@@ -57,6 +57,6 @@ public sealed class NativeIdentityConfigurationTests
     [Theory]
     [InlineData(0)]
     [InlineData(1001)]
-    public void LegacyRateLimitConfigurationDoesNotAffectIdentity(int limit) =>
-        Assert.True(new NativeIdentitySettings { Enabled = true, RequestsPerMinute = limit }.IsValid(development: true));
+    public void EnabledIdentityRejectsInvalidRateLimits(int limit) =>
+        Assert.False(new NativeIdentitySettings { Enabled = true, RequestsPerMinute = limit }.IsValid(development: true));
 }

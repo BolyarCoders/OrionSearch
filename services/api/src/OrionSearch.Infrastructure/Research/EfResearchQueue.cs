@@ -18,14 +18,27 @@ internal sealed class EfResearchQueue(IDbContextFactory<OrionSearchDbContext> fa
         await using var transaction = await context.Database.BeginTransactionAsync(ct);
         await context.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(713904, 2)", ct);
         var budgetNow = await NowAsync(context, ct);
+        var day = budgetNow.Date;
+        var end = day.AddDays(1);
         if (await context.Jobs.CountAsync(job => job.JobType == "research_plan" && job.Status == "processing" && job.LockedUntil > budgetNow, ct) >= limits.MaxConcurrentAttempts)
             return null;
+        var attempts = from attempt in context.JobAttempts
+                       join attemptJob in context.Jobs on attempt.JobId equals attemptJob.Id
+                       where attemptJob.JobType == "research_plan" && attempt.StartedAt >= day && attempt.StartedAt < end
+                       select attempt;
+        if (await attempts.CountAsync(ct) >= limits.MaxAttemptsGlobalPerDay) return null;
         var job = await context.Jobs.FromSql($"""
             SELECT j.* FROM system.jobs j
             JOIN research.research_runs r ON r.id = j.research_run_id
             JOIN research.archives a ON a.id = r.archive_id
             WHERE j.job_type = 'research_plan' AND j.status = 'pending' AND r.status = 'queued'
                 AND j.run_after <= clock_timestamp() AND j.attempts < j.max_attempts AND a.status = 'active'
+                AND (SELECT count(*) FROM system.job_attempts ja
+                    JOIN system.jobs aj ON aj.id = ja.job_id
+                    JOIN research.research_runs ar ON ar.id = aj.research_run_id
+                    JOIN research.archives aa ON aa.id = ar.archive_id
+                    WHERE aj.job_type = 'research_plan' AND aa.owner_id = a.owner_id
+                        AND ja.started_at >= {day} AND ja.started_at < {end}) < {limits.MaxAttemptsPerOwnerPerDay}
             ORDER BY j.priority DESC, j.created_at, j.id LIMIT 1 FOR UPDATE OF j SKIP LOCKED
             """).SingleOrDefaultAsync(ct);
         if (job is null) return null;
@@ -33,7 +46,9 @@ internal sealed class EfResearchQueue(IDbContextFactory<OrionSearchDbContext> fa
         var archive = await LockArchiveAsync(context, run.ArchiveId, ct);
         if (archive.Status != "active") return null;
         var now = await NowAsync(context, ct);
-        // Allocate the lease using the time after acquiring the locks.
+        // A row-lock wait may cross midnight. Retry with fresh UTC budget counts,
+        // and always allocate the lease from the time after acquiring the locks.
+        if (now.Date != day) return null;
         job.Status = "processing";
         job.WorkerId = workerId;
         job.LockedUntil = now.AddSeconds(options.LeaseSeconds);
