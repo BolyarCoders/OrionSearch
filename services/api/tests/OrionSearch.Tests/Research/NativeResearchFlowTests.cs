@@ -87,7 +87,7 @@ public sealed class NativeResearchFlowTests(PostgreSqlFixture database, CaptureS
                 var sourcePath = $"/archives/{archive}/sources/{evidence.DocumentId}";
                 var source = (await owner.GetFromJsonAsync<SourceDetails>(sourcePath))!;
                 Assert.Equal(1, source.VersionCount);
-                Assert.Equal("https://example.com/article", source.CanonicalUrl);
+                Assert.Equal("https://example.com/article", source.Source.CanonicalUrl);
                 var versionPath = sourcePath + $"/versions/{evidence.VersionId}";
                 var captured = (await owner.GetFromJsonAsync<CapturedVersion>(versionPath))!;
                 Assert.Contains(evidence.Quote!, captured.ExtractedText!);
