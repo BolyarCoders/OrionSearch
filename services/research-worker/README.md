@@ -136,3 +136,36 @@ when their date metadata cannot be verified.
 
 The 20/50-source response cap remains controlled by archive config;
 the worker will not fabricate extra articles to reach a target count.
+
+
+### Automatic research briefings
+
+When the .NET backend requests a report (now enabled by default through
+`ResearchWorker__IncludeReport=true`), the worker produces **one
+Bulgarian-language editorial briefing** about all selected sources.
+
+- The overview groups specific developments into thematic trends, discusses
+  what changed and why it matters, and identifies uncertain or conflicting
+  claims. It is not just a link list.
+- It uses the same source order as the stored archive, with [1], [2] citations
+  and a mechanically appended bibliography containing every accepted URL.
+- It retrieves up to 20 article excerpts (max 2,400 characters each) with the
+  existing isolated public fetcher. All other accepted sources contribute their
+  publisher/search snippets and are tagged as limited evidence. Failed fetches
+  never remove otherwise valid articles.
+- For more than eight sources, Gemini summarizes batches and then synthesizes
+  a single editorial report from the complete set of numbered source notes.
+- An empty result produces a clear no-news statement rather than fabricating
+  trends.
+
+The .NET API saves the report in the existing PostgreSQL `research_runs.report`
+column. Authorized archive members can retrieve the saved report with
+`GET /research-jobs/{runId}/report` after completion. The repository currently
+contains no implemented web frontend (`apps/web` is only a placeholder); the
+frontend must call this endpoint to show the report in the archive.
+
+The report is an AI synthesis of available evidence, not independent
+fact-checking. Source text is untrusted; the model must not follow embedded
+instructions. Set `ResearchWorker__IncludeReport=false` on the .NET service
+to opt out for old workers. **Do not set this variable on the Python worker:
+it is a .NET dispatch setting.**
