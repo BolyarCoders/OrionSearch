@@ -7,6 +7,14 @@ import { StatSummary } from "@/components/dashboard/stat-summary";
 import { ArchiveCard } from "@/components/dashboard/archive-card";
 import { FilterBar } from "@/components/dashboard/filter-bar";
 import { ArchiveSummary } from "@/types/api";
+import { ApiProblem } from "@/components/ui/api-problem";
+import { ApiCloudflareChallengeError } from "@/lib/api/client";
+
+it("does not describe a Cloudflare challenge as an archive permission error", () => {
+  render(<ApiProblem error={new ApiCloudflareChallengeError(403)} />);
+  expect(screen.getByRole("alert")).toHaveTextContent("Защитата на сайта изисква проверка");
+  expect(screen.queryByText(/Ролята ви в архива/)).not.toBeInTheDocument();
+});
 
 describe("StatusPill Component", () => {
   it("renders active status with label", () => {
