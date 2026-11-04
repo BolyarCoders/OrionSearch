@@ -112,6 +112,16 @@ def collect_articles(topic, days, queries, selected_sources, max_articles=10):
     )
 
 
+def select_relevant_articles(client, objective, queries, articles):
+    try:
+        from . import relevance
+    except ImportError:
+        import relevance
+    return relevance.select_relevant_articles(
+        client, objective, queries, articles, ask_ai=ask_ai
+    )
+
+
 def select_english_articles(client, articles):
     if not articles:
         return []
