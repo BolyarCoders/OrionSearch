@@ -336,7 +336,7 @@ def process_articles(articles, days, max_articles=None):
             # Preserve the existing date requirement for RSS/news adapters.
             continue
 
-        key = re.sub(r"\\W+", "", title.casefold())
+        key = re.sub(r"\W+", "", title.casefold())
         if not key:
             continue
 
