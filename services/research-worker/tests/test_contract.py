@@ -326,6 +326,7 @@ def test_report_uses_only_selected_sources_and_is_opt_in(request_body, monkeypat
     topics = []
     monkeypatch.setattr(service.ai_agent, "plan_research", lambda client, topic, days: (topics.append(topic) or ["query"], ["google_news"]))
     monkeypatch.setattr(service.ai_agent, "collect_articles", lambda *args, **kwargs: (articles, {}, 2))
+    monkeypatch.setattr(service.ai_agent, "select_relevant_articles", lambda client, objective, queries, articles: articles)
     monkeypatch.setattr(service.ai_agent, "select_english_articles", lambda client, items: items)
     seen = []
     monkeypatch.setattr(service.ai_agent, "analyze_articles", lambda client, topic, days, selected: seen.extend(selected) or "Report [1]")
