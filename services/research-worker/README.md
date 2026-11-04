@@ -77,3 +77,26 @@ enable and verify the existing capture pipeline separately.
 `total_articles` in the prototype response counts unique eligible results
 before its output limit. `errors` records source collection failures,
 which do not necessarily invalidate results from other sources.
+
+
+### Relevance filtering (research source quality)
+
+Search engines return candidate URLs, not guaranteed on-topic research
+sources. Both integrated and prototype worker flows now run a semantic
+relevance check against the original research objective and the search
+queries **before** committing sources or generating an AI report.
+
+Gemini assigns 0 (unrelated), 1 (tangential), 2 (directly relevant), or
+3 (strongly relevant) using the title and search snippet. Only scores 2
+and 3 are kept. The best evidence appears first. If the semantic model
+fails or returns malformed output, a conservative query-term fallback
+rejects unmatched pages rather than persisting obviously unrelated
+results. The fallback may miss synonyms or translations; a working
+semantic provider is preferable.
+
+For example, searching `electric vehicles` excludes unrelated
+`Google Civic Information API` and `Geocoding` documentation. Titles
+alone or keywords do not guarantee evidence quality: the worker still
+needs capture/content validation for stronger factual verification.
+Filtering applies to **new research runs**. Existing archived sources
+are not removed or rewritten by this worker change.
