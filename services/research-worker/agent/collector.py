@@ -333,7 +333,7 @@ def process_articles(articles, days, max_articles=None):
                 continue
             if not cutoff <= known_date <= now:
                 continue
-        elif article.get("source") != "Web Search":
+        elif article.get("source") not in ("Web Search", "News Search"):
             # Preserve the existing date requirement for RSS/news adapters.
             continue
 
